@@ -1,19 +1,21 @@
 import type { Metadata, Viewport } from "next"
-import { Nunito, Lora } from "next/font/google"
+import { Inter, JetBrains_Mono } from "next/font/google"
 import "./globals.css"
 
-const nunito = Nunito({
+const inter = Inter({
   subsets: ["latin"],
-  variable: "--font-nunito",
+  variable: "--font-inter",
+  display: "swap",
 })
 
-const lora = Lora({
+const jetbrainsMono = JetBrains_Mono({
   subsets: ["latin"],
-  variable: "--font-lora",
+  variable: "--font-jetbrains-mono",
+  display: "swap",
 })
 
 export const metadata: Metadata = {
-  title: "alibi — the friend who remembers your day",
+  title: "alibi — for the days you can't see clearly",
   description:
     "Alibi is a witness with a warm voice. Log what you did, then let it remind you when your brain forgets. Built for ADHD minds.",
 }
@@ -21,11 +23,7 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
-  maximumScale: 1,
-  themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#FAF8F5" },
-    { media: "(prefers-color-scheme: dark)", color: "#1A1917" },
-  ],
+  themeColor: "#F4EDE0",
 }
 
 export default function RootLayout({
@@ -34,10 +32,8 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="en" className={`${nunito.variable} ${lora.variable} bg-background`}>
-      <body className="font-sans antialiased min-h-screen">
-        {children}
-      </body>
+    <html lang="en" className={`${inter.variable} ${jetbrainsMono.variable}`}>
+      <body className="font-sans antialiased">{children}</body>
     </html>
   )
 }
