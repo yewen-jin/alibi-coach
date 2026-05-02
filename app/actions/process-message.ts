@@ -1,7 +1,7 @@
 "use server"
 
 import { generateText, Output } from "ai"
-import { openai } from "@ai-sdk/openai"
+import { createOpenAI } from "@ai-sdk/openai"
 import { z } from "zod"
 import { createClient } from "@/lib/supabase/server"
 import type { Entry } from "@/lib/types"
@@ -21,8 +21,14 @@ export type ProcessResult =
       message: string
     }
 
-// Use OpenAI directly with your API key (reads from OPENAI_API_KEY env var)
-const model = openai("gpt-4o-mini")
+// Use OpenRouter API (OpenAI-compatible)
+const openrouter = createOpenAI({
+  baseURL: "https://openrouter.ai/api/v1",
+  apiKey: process.env.OPENROUTER_API_KEY,
+})
+
+// Using a fast, cheap model — you can change this to any OpenRouter model
+const model = openrouter("openai/gpt-4o-mini")
 
 export async function processMessage(text: string): Promise<ProcessResult> {
   const trimmed = text.trim()
