@@ -1,10 +1,17 @@
 "use client"
 
 import { useCallback, useEffect, useRef, useState } from "react"
-import { useChat } from "@ai-sdk/react"
 import { ArrowUp, Lock, Mic } from "lucide-react"
 import { TopNav } from "@/components/top-nav"
 import { GLASS_PANEL_STYLE } from "@/lib/ui-styles"
+import { processMessage } from "@/app/actions/process-message"
+
+/* Local message shape for the chat transcript (replaces ai-sdk's Message). */
+interface ChatMsg {
+  id: string
+  role: "user" | "assistant"
+  text: string
+}
 
 /* ------------------------------------------------------------------ */
 /*  Types & placeholder data                                           */
@@ -108,8 +115,8 @@ export function Alibi({ userEmail }: AlibiProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
 
-  const { messages, sendMessage, status } = useChat()
-  const isThinking = status === "submitted" || status === "streaming"
+  const [messages, setMessages] = useState<ChatMsg[]>([])
+  const [isThinking, setIsThinking] = useState(false)
 
   /* Live clock for the empty-state stamp. Computed client-side to avoid hydration drift. */
   useEffect(() => {
@@ -135,16 +142,67 @@ export function Alibi({ userEmail }: AlibiProps) {
     el.style.height = `${Math.min(el.scrollHeight, 160)}px`
   }
 
-  const handleSend = useCallback(() => {
+  const handleSend = useCallback(async () => {
     const text = input.trim()
     if (!text || isThinking) return
-    sendMessage({ text })
+
+    // Optimistic user bubble.
+    const userMsg: ChatMsg = {
+      id: `u-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      role: "user",
+      text,
+    }
+    setMessages((prev) => [...prev, userMsg])
     setInput("")
     if (textareaRef.current) textareaRef.current.style.height = "auto"
-    setFiled(true)
-    if (filedTimer.current) clearTimeout(filedTimer.current)
-    filedTimer.current = setTimeout(() => setFiled(false), 1500)
-  }, [input, isThinking, sendMessage])
+    setIsThinking(true)
+
+    try {
+      const result = await processMessage(text)
+      const replyId = `a-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+
+      if (result.type === "drop_in") {
+        // Filed indicator + ack bubble; if Alibi spontaneously spoke up, append that too.
+        setFiled(true)
+        if (filedTimer.current) clearTimeout(filedTimer.current)
+        filedTimer.current = setTimeout(() => setFiled(false), 1500)
+
+        setMessages((prev) => {
+          const next = [...prev, { id: replyId, role: "assistant" as const, text: result.ack }]
+          if (result.proactive?.content) {
+            next.push({
+              id: `${replyId}-p`,
+              role: "assistant" as const,
+              text: result.proactive.content,
+            })
+          }
+          return next
+        })
+      } else if (result.type === "check_in") {
+        setMessages((prev) => [
+          ...prev,
+          { id: replyId, role: "assistant", text: result.reflection },
+        ])
+      } else {
+        setMessages((prev) => [
+          ...prev,
+          { id: replyId, role: "assistant", text: result.message },
+        ])
+      }
+    } catch (err) {
+      console.log("[v0] processMessage failed:", err)
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: `err-${Date.now()}`,
+          role: "assistant",
+          text: "couldn't reach me just now. try once more?",
+        },
+      ])
+    } finally {
+      setIsThinking(false)
+    }
+  }, [input, isThinking])
 
   return (
     <main className="relative min-h-screen w-full text-[#2A1F14]">
@@ -202,9 +260,7 @@ export function Alibi({ userEmail }: AlibiProps) {
                 <div className="space-y-3">
                   {messages.map((m) => {
                     const isUser = m.role === "user"
-                    const text = m.parts
-                      ?.map((p) => (p.type === "text" ? p.text : ""))
-                      .join("") ?? ""
+                    const text = m.text
                     if (!text) return null
                     return (
                       <div
