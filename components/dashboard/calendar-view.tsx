@@ -8,7 +8,7 @@ import {
   buildCalendarGrid,
   type DayBucket,
 } from "@/lib/dashboard-data"
-import { cn } from "@/lib/utils"
+import { GLASS_PANEL_STYLE, PAPER_INSET_STYLE } from "@/lib/ui-styles"
 
 interface CalendarViewProps {
   entries: Entry[]
@@ -75,26 +75,23 @@ export function CalendarView({ entries }: CalendarViewProps) {
   }
 
   return (
-    <div className="rounded-2xl border border-border bg-card p-5">
+    <section className="p-5" style={GLASS_PANEL_STYLE}>
       <div className="mb-4 flex items-center justify-between">
-        <h2 className="font-serif text-lg text-foreground">
-          {MONTHS[month]} {year}
-        </h2>
+        <div className="flex items-baseline gap-3">
+          <h2 className="text-[16px] font-semibold tracking-tight text-[#2A1F14]">
+            {MONTHS[month]} {year}
+          </h2>
+          <span className="text-[10px] font-medium uppercase tracking-[0.18em] text-[#A89680]">
+            calendar
+          </span>
+        </div>
         <div className="flex items-center gap-1">
-          <button
-            onClick={goPrev}
-            className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-            aria-label="Previous month"
-          >
+          <NavBtn onClick={goPrev} ariaLabel="previous month">
             <ChevronLeft className="h-4 w-4" />
-          </button>
-          <button
-            onClick={goNext}
-            className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-            aria-label="Next month"
-          >
+          </NavBtn>
+          <NavBtn onClick={goNext} ariaLabel="next month">
             <ChevronRight className="h-4 w-4" />
-          </button>
+          </NavBtn>
         </div>
       </div>
 
@@ -102,7 +99,7 @@ export function CalendarView({ entries }: CalendarViewProps) {
         {WEEKDAYS.map((d) => (
           <div
             key={d}
-            className="pb-2 text-center text-xs uppercase tracking-wide text-muted-foreground"
+            className="pb-2 text-center text-[10px] font-medium uppercase tracking-[0.16em] text-[#A89680]"
           >
             {d}
           </div>
@@ -114,37 +111,40 @@ export function CalendarView({ entries }: CalendarViewProps) {
           const intensity =
             cell.bucket && maxCount > 0 ? cell.bucket.count / maxCount : 0
           const isSelected = selectedKey === cell.dateKey
+          const alpha = cell.bucket ? 0.12 + intensity * 0.48 : 0
+          const bg = cell.bucket
+            ? `rgba(200, 85, 61, ${alpha.toFixed(3)})`
+            : "rgba(255, 250, 240, 0.4)"
+
+          let borderColor = "rgba(60, 40, 20, 0.08)"
+          if (isSelected) borderColor = "#C8553D"
+          else if (cell.isToday) borderColor = "#8B9D7F"
+
           return (
             <button
               key={cell.dateKey}
               onClick={() =>
                 setSelectedKey(isSelected ? null : cell.dateKey)
               }
-              className={cn(
-                "relative aspect-square rounded-lg border text-sm transition-all",
-                isSelected
-                  ? "border-primary bg-primary/10 ring-2 ring-primary/40"
-                  : cell.isToday
-                    ? "border-primary/50 bg-card"
-                    : "border-border bg-card hover:border-primary/30",
-                !cell.bucket && "text-muted-foreground"
-              )}
-              style={
-                cell.bucket && !isSelected
-                  ? {
-                      backgroundColor: `color-mix(in oklab, hsl(var(--primary)) ${
-                        Math.round(intensity * 60)
-                      }%, hsl(var(--card)))`,
-                    }
-                  : undefined
-              }
-              aria-label={`${cell.dateKey}: ${cell.bucket?.count ?? 0} entries`}
+              aria-label={`${cell.dateKey}: ${cell.bucket?.count ?? 0} entries${
+                cell.isToday ? ", today" : ""
+              }`}
+              aria-pressed={isSelected}
+              className="relative aspect-square rounded-lg text-[12px] transition-all hover:-translate-y-px focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C8553D]/40"
+              style={{
+                background: bg,
+                border: `1px solid ${borderColor}`,
+                boxShadow: isSelected
+                  ? "0 0 0 3px rgba(200, 85, 61, 0.18)"
+                  : "none",
+                color: cell.bucket ? "#2A1F14" : "#A89680",
+              }}
             >
-              <span className="absolute left-1.5 top-1 text-xs font-medium">
+              <span className="absolute left-1.5 top-1 font-medium tabular-nums">
                 {cell.day}
               </span>
               {cell.bucket && (
-                <span className="absolute bottom-1 right-1.5 text-[10px] tabular-nums text-foreground/70">
+                <span className="absolute bottom-1 right-1.5 font-mono text-[9px] tabular-nums opacity-70">
                   {cell.bucket.count}
                 </span>
               )}
@@ -153,13 +153,50 @@ export function CalendarView({ entries }: CalendarViewProps) {
         })}
       </div>
 
+      {/* Legend */}
+      <div className="mt-4 flex items-center justify-end gap-3 text-[10px] font-medium uppercase tracking-[0.14em] text-[#A89680]">
+        <span className="flex items-center gap-1.5">
+          <span
+            className="h-2 w-2 rounded-sm"
+            style={{ background: "rgba(200, 85, 61, 0.18)" }}
+            aria-hidden
+          />
+          quiet
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span
+            className="h-2 w-2 rounded-sm"
+            style={{ background: "rgba(200, 85, 61, 0.55)" }}
+            aria-hidden
+          />
+          busy
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span
+            className="h-2 w-2 rounded-sm border border-[#8B9D7F]"
+            style={{ background: "transparent" }}
+            aria-hidden
+          />
+          today
+        </span>
+      </div>
+
       {selected && (
-        <div className="alibi-soft-rise mt-5 rounded-xl border border-border bg-background p-4">
-          <p className="mb-2 text-xs uppercase tracking-wide text-muted-foreground">
-            {selected.date} · {selected.count} entries
-            {selected.totalMinutes > 0 &&
-              ` · ${formatMinutes(selected.totalMinutes)}`}
-          </p>
+        <div className="alibi-soft-rise mt-5 px-5 py-4" style={PAPER_INSET_STYLE}>
+          <div className="mb-3 flex items-baseline gap-3">
+            <span className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#2A1F14]">
+              {selected.date}
+            </span>
+            <hr
+              className="flex-1 border-0"
+              style={{ borderTop: "1px dashed #C8B89F" }}
+            />
+            <span className="font-mono text-[10px] tracking-[0.12em] text-[#A89680]">
+              {String(selected.count).padStart(2, "0")} ITEMS
+              {selected.totalMinutes > 0 &&
+                ` · ${formatMinutes(selected.totalMinutes)}`}
+            </span>
+          </div>
           <ul className="space-y-2">
             {selected.entries
               .slice()
@@ -171,9 +208,9 @@ export function CalendarView({ entries }: CalendarViewProps) {
               .map((entry) => (
                 <li
                   key={entry.id}
-                  className="flex items-start gap-3 text-sm leading-relaxed text-foreground"
+                  className="flex items-start gap-3 text-[13.5px] leading-[1.5] text-[#2A1F14]"
                 >
-                  <span className="mt-0.5 font-mono text-xs text-muted-foreground">
+                  <span className="mt-0.5 font-mono text-[11px] tracking-[0.04em] text-[#A89680]">
                     {new Date(entry.created_at).toLocaleTimeString([], {
                       hour: "2-digit",
                       minute: "2-digit",
@@ -181,7 +218,10 @@ export function CalendarView({ entries }: CalendarViewProps) {
                   </span>
                   <span className="flex-1">{entry.content}</span>
                   {entry.project && (
-                    <span className="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
+                    <span
+                      className="rounded-full px-2 py-0.5 text-[10px] tracking-wide text-[#6B5A47]"
+                      style={{ background: "rgba(60, 40, 20, 0.06)" }}
+                    >
                       {entry.project}
                     </span>
                   )}
@@ -190,7 +230,28 @@ export function CalendarView({ entries }: CalendarViewProps) {
           </ul>
         </div>
       )}
-    </div>
+    </section>
+  )
+}
+
+function NavBtn({
+  children,
+  onClick,
+  ariaLabel,
+}: {
+  children: React.ReactNode
+  onClick: () => void
+  ariaLabel: string
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label={ariaLabel}
+      className="flex h-7 w-7 items-center justify-center rounded-full text-[#6B5A47] transition-colors hover:bg-white/50 hover:text-[#2A1F14] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C8553D]/40"
+    >
+      {children}
+    </button>
   )
 }
 
