@@ -17,7 +17,7 @@ export default async function DashboardPage() {
     data: { user },
   } = await supabase.auth.getUser()
 
-  if (!user) redirect("/auth/login")
+  if (!user) redirect("/")
 
   const { data: entries } = await supabase
     .from("entries")
@@ -58,7 +58,7 @@ export default async function DashboardPage() {
               go drop something in. i&apos;ll be watching.
             </p>
             <Link
-              href="/"
+              href="/app"
               className="mt-6 inline-flex items-center gap-2 rounded-full px-5 py-2.5 text-[13px] font-medium text-white transition-all active:scale-95"
               style={PRIMARY_BUTTON_STYLE}
             >
