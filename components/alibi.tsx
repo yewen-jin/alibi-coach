@@ -5,6 +5,8 @@ import { ArrowUp, Lock, Mic } from "lucide-react"
 import { TopNav } from "@/components/top-nav"
 import { GLASS_PANEL_STYLE } from "@/lib/ui-styles"
 import { processMessage } from "@/app/actions/process-message"
+import { getEntries } from "@/app/actions/get-entries"
+import type { Entry } from "@/lib/types"
 
 /* Local message shape for the chat transcript (replaces ai-sdk's Message). */
 interface ChatMsg {
@@ -39,41 +41,102 @@ interface DayGroup {
   entries: DoneEntry[]
 }
 
-const PLACEHOLDER_DAYS: DayGroup[] = [
-  {
-    label: "TODAY",
-    count: 6,
-    entries: [
-      { id: "t1", time: "09:14", text: "made coffee, didn't spill it", project: "care" },
-      { id: "t2", time: "10:02", text: "replied to nina about the proposal", project: "admin" },
-      { id: "t3", time: "11:30", text: "two solid hours on the migration script", project: "deep_work" },
-      { id: "t4", time: "13:45", text: "went outside for lunch instead of eating at the desk", project: "rest" },
-      { id: "t5", time: "14:20", text: "sketched the new onboarding flow", project: "creative" },
-      { id: "t6", time: "16:08", text: "picked up the dry cleaning", project: "errands" },
-    ],
-  },
-  {
-    label: "YESTERDAY",
-    count: 5,
-    entries: [
-      { id: "y1", time: "08:45", text: "gym, lower body", project: "care" },
-      { id: "y2", time: "10:30", text: "shipped the auth fix", project: "deep_work" },
-      { id: "y3", time: "12:15", text: "lunch with sam at the noodle place", project: "social" },
-      { id: "y4", time: "15:00", text: "cleared inbox to zero", project: "admin" },
-      { id: "y5", time: "19:30", text: "finished the chapter", project: "rest" },
-    ],
-  },
-  {
-    label: "WEDNESDAY, MAY 1",
-    count: 4,
-    entries: [
-      { id: "w1", time: "09:00", text: "stand-up — felt prepared for once", project: "social" },
-      { id: "w2", time: "11:10", text: "fixed the staging deploy script", project: "deep_work" },
-      { id: "w3", time: "14:30", text: "took a real walk, no phone", project: "rest" },
-      { id: "w4", time: "17:00", text: "submitted reimbursement", project: "admin" },
-    ],
-  },
-]
+/* Map a free-form project string from the DB to one of the seven hardcoded
+ * Project keys used for pill colors. Anything we don't recognize gets bucketed
+ * into a sensible default so the UI never breaks. */
+const PROJECT_ALIASES: Record<string, Project> = {
+  // care / self
+  self: "care",
+  care: "care",
+  family: "care",
+  // admin / errands
+  admin: "admin",
+  errands: "errands",
+  "job-hunt": "admin",
+  // social / home
+  social: "social",
+  home: "rest",
+  // deep work — coding, real building
+  cinecircle: "deep_work",
+  dawkeeper: "deep_work",
+  "speakers-corner": "deep_work",
+  portfolio: "deep_work",
+  deep_work: "deep_work",
+  work: "deep_work",
+  // creative
+  music: "creative",
+  creative: "creative",
+  // rest / learning
+  rest: "rest",
+  learning: "rest",
+}
+
+function mapProject(raw: string | null): Project {
+  if (!raw) return "admin"
+  const key = raw.trim().toLowerCase()
+  return PROJECT_ALIASES[key] ?? "admin"
+}
+
+/* Group entries by local-calendar day, newest day first. Within each day,
+ * entries are oldest-first so the receipt reads top-to-bottom in chronological
+ * order. */
+function groupEntriesByDay(entries: Entry[]): DayGroup[] {
+  const now = new Date()
+  const todayKey = localDateKey(now)
+  const yesterdayKey = localDateKey(new Date(now.getTime() - 24 * 60 * 60 * 1000))
+
+  const byKey = new Map<string, Entry[]>()
+  for (const e of entries) {
+    const key = localDateKey(new Date(e.created_at))
+    const list = byKey.get(key) ?? []
+    list.push(e)
+    byKey.set(key, list)
+  }
+
+  const sortedKeys = Array.from(byKey.keys()).sort((a, b) => (a < b ? 1 : -1))
+
+  return sortedKeys.map((key) => {
+    const dayEntries = (byKey.get(key) ?? [])
+      .slice()
+      .sort((a, b) => +new Date(a.created_at) - +new Date(b.created_at))
+
+    let label: string
+    if (key === todayKey) label = "TODAY"
+    else if (key === yesterdayKey) label = "YESTERDAY"
+    else {
+      const d = new Date(`${key}T12:00:00`)
+      label = d
+        .toLocaleDateString(undefined, {
+          weekday: "long",
+          month: "short",
+          day: "numeric",
+        })
+        .toUpperCase()
+    }
+
+    return {
+      label,
+      count: dayEntries.length,
+      entries: dayEntries.map((e) => ({
+        id: e.id,
+        time: new Date(e.created_at).toLocaleTimeString(undefined, {
+          hour: "2-digit",
+          minute: "2-digit",
+          hour12: false,
+        }),
+        text: e.content,
+        project: mapProject(e.project),
+      })),
+    }
+  })
+}
+
+function localDateKey(d: Date): string {
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, "0")
+  const day = String(d.getDate()).padStart(2, "0")
+  return `${y}-${m}-${day}`
+}
 
 /* Project pill: solid hex base, 30% alpha appended (0x4D). */
 const PROJECT_PILL: Record<Project, string> = {
@@ -117,6 +180,21 @@ export function Alibi({ userEmail }: AlibiProps) {
 
   const [messages, setMessages] = useState<ChatMsg[]>([])
   const [isThinking, setIsThinking] = useState(false)
+  const [dayGroups, setDayGroups] = useState<DayGroup[]>([])
+
+  /* Pull live entries on mount so the receipt reflects what's actually in the DB. */
+  const refreshEntries = useCallback(async () => {
+    try {
+      const entries = await getEntries()
+      setDayGroups(groupEntriesByDay(entries))
+    } catch (err) {
+      console.log("[v0] getEntries failed:", err)
+    }
+  }, [])
+
+  useEffect(() => {
+    refreshEntries()
+  }, [refreshEntries])
 
   /* Live clock for the empty-state stamp. Computed client-side to avoid hydration drift. */
   useEffect(() => {
@@ -166,6 +244,8 @@ export function Alibi({ userEmail }: AlibiProps) {
         setFiled(true)
         if (filedTimer.current) clearTimeout(filedTimer.current)
         filedTimer.current = setTimeout(() => setFiled(false), 1500)
+        // Pull the freshly-saved entry into the receipt panel.
+        refreshEntries()
 
         setMessages((prev) => {
           const next = [...prev, { id: replyId, role: "assistant" as const, text: result.ack }]
@@ -202,7 +282,7 @@ export function Alibi({ userEmail }: AlibiProps) {
     } finally {
       setIsThinking(false)
     }
-  }, [input, isThinking])
+  }, [input, isThinking, refreshEntries])
 
   return (
     <main className="relative min-h-screen w-full text-[#2A1F14]">
@@ -437,10 +517,10 @@ export function Alibi({ userEmail }: AlibiProps) {
                 />
 
                 <div className="relative px-7 py-7">
-                  {PLACEHOLDER_DAYS.length === 0 ? (
+                  {dayGroups.length === 0 ? (
                     <EmptyReceipt now={now} />
                   ) : (
-                    PLACEHOLDER_DAYS.map((day, i) => (
+                    dayGroups.map((day, i) => (
                       <DaySection key={day.label} day={day} first={i === 0} />
                     ))
                   )}
