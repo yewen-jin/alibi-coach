@@ -37,12 +37,19 @@ export async function processMessage(text: string): Promise<ProcessResult> {
   }
 
   // Step 1 — classify the message and (if it's a drop-in) extract metadata.
+  // Includes ADHD-significant affect (effort, satisfaction) and markers.
   let classification: {
     intent: "drop_in" | "check_in"
     content: string
     project: string | null
-    mood: string | null
+    mood: "joyful" | "neutral" | "flat" | "anxious" | "guilty" | "proud" | null
     duration_minutes: number | null
+    effort_level: "easy" | "medium" | "hard" | "grind" | null
+    satisfaction: "satisfied" | "mixed" | "frustrated" | "unclear" | null
+    avoidance_marker: boolean
+    hyperfocus_marker: boolean
+    guilt_marker: boolean
+    novelty_marker: boolean
   }
 
   try {
@@ -56,23 +63,33 @@ export async function processMessage(text: string): Promise<ProcessResult> {
         '  "intent": "drop_in" | "check_in",',
         '  "content": "string (cleaned version of what they did, or empty if check_in)",',
         '  "project": "string | null (project name if obvious)",',
-        '  "mood": "string | null (one-word mood if expressed)",',
-        '  "duration_minutes": "number | null (duration in minutes if mentioned)"',
+        '  "mood": "joyful" | "neutral" | "flat" | "anxious" | "guilty" | "proud" | null,',
+        '  "duration_minutes": number | null,',
+        '  "effort_level": "easy" | "medium" | "hard" | "grind" | null,',
+        '  "satisfaction": "satisfied" | "mixed" | "frustrated" | "unclear" | null,',
+        '  "avoidance_marker": boolean (true if they mention finally doing something, overcoming procrastination, "had been putting off"),',
+        '  "hyperfocus_marker": boolean (true if long uninterrupted session, "lost track of time", deep flow),',
+        '  "guilt_marker": boolean (true if they say "should have", "wasted", self-critical language),',
+        '  "novelty_marker": boolean (true if "first time", "new", trying something different)',
         "}",
         "",
         "intent meanings:",
         "- drop_in = user is logging something they did",
         "- check_in = user is in a guilt spiral, expressing frustration, self-doubt, or asking what they did",
         "",
+        "ADHD marker detection tips:",
+        '- avoidance_marker: "finally sent that email", "been putting it off", "dreading this"',
+        '- hyperfocus_marker: "3 hours flew by", "lost track", "deep work session", long durations',
+        '- guilt_marker: "should have done more", "wasted the morning", "unproductive"',
+        '- novelty_marker: "first time", "tried something new", "experimenting"',
+        "",
         "drop_in examples:",
-        '  "spent like 2 hrs on socket bug" → {"intent":"drop_in","content":"spent 2 hours on socket bug","project":null,"mood":null,"duration_minutes":120}',
-        '  "had coffee with mark, talked about the gallery" → {"intent":"drop_in","content":"had coffee with mark, talked about the gallery","project":"gallery","mood":null,"duration_minutes":null}',
-        '  "groceries" → {"intent":"drop_in","content":"groceries","project":null,"mood":null,"duration_minutes":null}',
+        '  "finally sent that email i was avoiding" → {"intent":"drop_in","content":"sent that email","project":"admin","mood":"proud","duration_minutes":null,"effort_level":"hard","satisfaction":"satisfied","avoidance_marker":true,"hyperfocus_marker":false,"guilt_marker":false,"novelty_marker":false}',
+        '  "spent like 3 hrs on socket bug, lost track of time" → {"intent":"drop_in","content":"spent 3 hours on socket bug","project":null,"mood":"neutral","duration_minutes":180,"effort_level":"hard","satisfaction":"mixed","avoidance_marker":false,"hyperfocus_marker":true,"guilt_marker":false,"novelty_marker":false}',
+        '  "groceries" → {"intent":"drop_in","content":"groceries","project":"errands","mood":"neutral","duration_minutes":null,"effort_level":"easy","satisfaction":null,"avoidance_marker":false,"hyperfocus_marker":false,"guilt_marker":false,"novelty_marker":false}',
         "",
         "check_in examples:",
-        '  "i feel like i did nothing today" → {"intent":"check_in","content":"","project":null,"mood":null,"duration_minutes":null}',
-        '  "im a fraud" → {"intent":"check_in","content":"","project":null,"mood":null,"duration_minutes":null}',
-        '  "what did i even do today" → {"intent":"check_in","content":"","project":null,"mood":null,"duration_minutes":null}',
+        '  "i feel like i did nothing today" → {"intent":"check_in","content":"","project":null,"mood":"guilty","duration_minutes":null,"effort_level":null,"satisfaction":null,"avoidance_marker":false,"hyperfocus_marker":false,"guilt_marker":true,"novelty_marker":false}',
         "",
         `User message: "${trimmed}"`,
         "",
@@ -81,6 +98,10 @@ export async function processMessage(text: string): Promise<ProcessResult> {
     })
 
     const parsed = extractJSON(classificationText)
+    const validMoods = ["joyful", "neutral", "flat", "anxious", "guilty", "proud"]
+    const validEffort = ["easy", "medium", "hard", "grind"]
+    const validSatisfaction = ["satisfied", "mixed", "frustrated", "unclear"]
+
     if (!parsed || !parsed.intent) {
       classification = {
         intent: "drop_in",
@@ -88,17 +109,29 @@ export async function processMessage(text: string): Promise<ProcessResult> {
         project: null,
         mood: null,
         duration_minutes: null,
+        effort_level: null,
+        satisfaction: null,
+        avoidance_marker: false,
+        hyperfocus_marker: false,
+        guilt_marker: false,
+        novelty_marker: false,
       }
     } else {
       classification = {
         intent: parsed.intent === "check_in" ? "check_in" : "drop_in",
         content: typeof parsed.content === "string" ? parsed.content : trimmed,
         project: typeof parsed.project === "string" ? parsed.project : null,
-        mood: typeof parsed.mood === "string" ? parsed.mood : null,
+        mood: validMoods.includes(parsed.mood) ? parsed.mood : null,
         duration_minutes:
           typeof parsed.duration_minutes === "number"
             ? parsed.duration_minutes
             : null,
+        effort_level: validEffort.includes(parsed.effort_level) ? parsed.effort_level : null,
+        satisfaction: validSatisfaction.includes(parsed.satisfaction) ? parsed.satisfaction : null,
+        avoidance_marker: parsed.avoidance_marker === true,
+        hyperfocus_marker: parsed.hyperfocus_marker === true,
+        guilt_marker: parsed.guilt_marker === true,
+        novelty_marker: parsed.novelty_marker === true,
       }
     }
   } catch {
@@ -108,16 +141,29 @@ export async function processMessage(text: string): Promise<ProcessResult> {
       project: null,
       mood: null,
       duration_minutes: null,
+      effort_level: null,
+      satisfaction: null,
+      avoidance_marker: false,
+      hyperfocus_marker: false,
+      guilt_marker: false,
+      novelty_marker: false,
     }
   }
 
   if (classification.intent === "drop_in") {
     const insert = {
       user_id: user.id,
+      raw_input: trimmed,
       content: classification.content || trimmed,
       project: classification.project,
       mood: classification.mood,
       duration_minutes: classification.duration_minutes,
+      effort_level: classification.effort_level,
+      satisfaction: classification.satisfaction,
+      avoidance_marker: classification.avoidance_marker,
+      hyperfocus_marker: classification.hyperfocus_marker,
+      guilt_marker: classification.guilt_marker,
+      novelty_marker: classification.novelty_marker,
     }
 
     const { data: entry, error: insertError } = await supabase

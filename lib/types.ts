@@ -1,10 +1,21 @@
+export type Mood = "joyful" | "neutral" | "flat" | "anxious" | "guilty" | "proud"
+export type EffortLevel = "easy" | "medium" | "hard" | "grind"
+export type Satisfaction = "satisfied" | "mixed" | "frustrated" | "unclear"
+
 export interface Entry {
   id: string
   user_id: string
+  raw_input: string | null
   content: string
   project: string | null
-  mood: string | null
+  mood: Mood | null
   duration_minutes: number | null
+  effort_level: EffortLevel | null
+  satisfaction: Satisfaction | null
+  avoidance_marker: boolean
+  hyperfocus_marker: boolean
+  guilt_marker: boolean
+  novelty_marker: boolean
   created_at: string
 }
 
