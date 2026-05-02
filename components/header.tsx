@@ -23,7 +23,7 @@ export function Header({ userEmail }: HeaderProps) {
 
   return (
     <header className="border-b border-border bg-card/50 backdrop-blur-sm sticky top-0 z-10">
-      <div className="max-w-2xl mx-auto px-4 py-3 flex items-center justify-between">
+      <div className="px-4 lg:px-6 py-3 flex items-center justify-between">
         <div>
           <h1 className="font-serif text-xl text-foreground">alibi</h1>
           <p className="text-xs text-muted-foreground">the friend who remembers your day</p>

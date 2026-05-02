@@ -1,7 +1,7 @@
 "use server"
 
-import { generateText, Output } from "ai"
-import { z } from "zod"
+import { generateText } from "ai"
+import { createOpenAICompatible } from "@ai-sdk/openai-compatible"
 import { createClient } from "@/lib/supabase/server"
 import type { Entry } from "@/lib/types"
 
@@ -20,7 +20,45 @@ export type ProcessResult =
       message: string
     }
 
-const MODEL = "openai/gpt-5-mini"
+// Use OpenRouter API (OpenAI-compatible)
+const openrouter = createOpenAICompatible({
+  name: "openrouter",
+  baseURL: "https://openrouter.ai/api/v1",
+  headers: {
+    Authorization: `Bearer ${process.env.OPENROUTER_API_KEY}`,
+  },
+})
+
+// Using a fast, cheap model — you can change this to any OpenRouter model
+const model = openrouter("openai/gpt-4o-mini")
+
+// Helper to extract JSON from LLM response (handles markdown code blocks)
+function extractJSON(text: string): Record<string, unknown> | null {
+  try {
+    // Try direct parse first
+    return JSON.parse(text.trim())
+  } catch {
+    // Try extracting from markdown code block
+    const match = text.match(/```(?:json)?\s*([\s\S]*?)```/)
+    if (match) {
+      try {
+        return JSON.parse(match[1].trim())
+      } catch {
+        return null
+      }
+    }
+    // Try finding JSON object in text
+    const jsonMatch = text.match(/\{[\s\S]*\}/)
+    if (jsonMatch) {
+      try {
+        return JSON.parse(jsonMatch[0])
+      } catch {
+        return null
+      }
+    }
+    return null
+  }
+}
 
 export async function processMessage(text: string): Promise<ProcessResult> {
   const trimmed = text.trim()
@@ -46,57 +84,70 @@ export async function processMessage(text: string): Promise<ProcessResult> {
   }
 
   try {
-    const { output } = await generateText({
-      model: MODEL,
-      output: Output.object({
-        schema: z.object({
-          intent: z
-            .enum(["drop_in", "check_in"])
-            .describe(
-              "drop_in = user is logging something they did. check_in = user is in a guilt spiral, expressing frustration, self-doubt, or asking to be reminded of what they did."
-            ),
-          content: z
-            .string()
-            .describe(
-              "If drop_in: a cleaned, slightly tidied version of what they did, in their voice. Lowercase, conversational, under 100 chars. If check_in: empty string."
-            ),
-          project: z
-            .string()
-            .nullable()
-            .describe("Project or context if obvious (e.g. 'cinecircle', 'gallery'). Otherwise null."),
-          mood: z
-            .string()
-            .nullable()
-            .describe("One-word mood if expressed (e.g. 'tired', 'proud', 'frustrated'). Otherwise null."),
-          duration_minutes: z
-            .number()
-            .nullable()
-            .describe("Rough duration in minutes if mentioned (e.g. '2 hrs' = 120). Otherwise null."),
-        }),
-      }),
+    const { text: classificationText } = await generateText({
+      model,
       prompt: [
-        "Classify the user's message and (for drop_in) extract metadata.",
+        "Classify the user's message and extract metadata. Reply ONLY with a JSON object, no other text.",
+        "",
+        "Schema:",
+        '{',
+        '  "intent": "drop_in" | "check_in",',
+        '  "content": "string (cleaned version of what they did, or empty if check_in)",',
+        '  "project": "string | null (project name if obvious)",',
+        '  "mood": "string | null (one-word mood if expressed)",',
+        '  "duration_minutes": "number | null (duration in minutes if mentioned)"',
+        '}',
+        "",
+        "intent meanings:",
+        "- drop_in = user is logging something they did",
+        "- check_in = user is in a guilt spiral, expressing frustration, self-doubt, or asking what they did",
         "",
         "drop_in examples:",
-        '  "spent like 2 hrs on socket bug" → drop_in',
-        '  "had coffee with mark, talked about the gallery" → drop_in',
-        '  "groceries" → drop_in',
-        '  "ugh just finished that horrible email thing" → drop_in',
+        '  "spent like 2 hrs on socket bug" → {"intent":"drop_in","content":"spent 2 hours on socket bug","project":null,"mood":null,"duration_minutes":120}',
+        '  "had coffee with mark, talked about the gallery" → {"intent":"drop_in","content":"had coffee with mark, talked about the gallery","project":"gallery","mood":null,"duration_minutes":null}',
+        '  "groceries" → {"intent":"drop_in","content":"groceries","project":null,"mood":null,"duration_minutes":null}',
         "",
         "check_in examples:",
-        '  "i feel like i did nothing today" → check_in',
-        '  "im a fraud" → check_in',
-        '  "why am i like this" → check_in',
-        '  "what did i even do today" → check_in',
+        '  "i feel like i did nothing today" → {"intent":"check_in","content":"","project":null,"mood":null,"duration_minutes":null}',
+        '  "im a fraud" → {"intent":"check_in","content":"","project":null,"mood":null,"duration_minutes":null}',
+        '  "what did i even do today" → {"intent":"check_in","content":"","project":null,"mood":null,"duration_minutes":null}',
         "",
-        `Message: "${trimmed}"`,
+        `User message: "${trimmed}"`,
+        "",
+        "Reply with ONLY the JSON object:",
       ].join("\n"),
     })
 
-    classification = output
+    const parsed = extractJSON(classificationText)
+    if (!parsed || !parsed.intent) {
+      console.log("[v0] failed to parse classification:", classificationText)
+      // Default to drop_in with the raw text
+      classification = {
+        intent: "drop_in",
+        content: trimmed,
+        project: null,
+        mood: null,
+        duration_minutes: null,
+      }
+    } else {
+      classification = {
+        intent: parsed.intent === "check_in" ? "check_in" : "drop_in",
+        content: typeof parsed.content === "string" ? parsed.content : trimmed,
+        project: typeof parsed.project === "string" ? parsed.project : null,
+        mood: typeof parsed.mood === "string" ? parsed.mood : null,
+        duration_minutes: typeof parsed.duration_minutes === "number" ? parsed.duration_minutes : null,
+      }
+    }
   } catch (err) {
     console.log("[v0] classification error:", err)
-    return { type: "error", message: "something went sideways. try again." }
+    // Fallback: treat as drop_in
+    classification = {
+      intent: "drop_in",
+      content: trimmed,
+      project: null,
+      mood: null,
+      duration_minutes: null,
+    }
   }
 
   if (classification.intent === "drop_in") {
@@ -123,7 +174,7 @@ export async function processMessage(text: string): Promise<ProcessResult> {
     let ack = "on the record."
     try {
       const { text: ackText } = await generateText({
-        model: MODEL,
+        model,
         prompt: [
           "You are Alibi: a warm friend who is quietly logging the user's day for them.",
           "They just told you something they did. Reply with ONE short acknowledgment.",
@@ -178,7 +229,7 @@ export async function processMessage(text: string): Promise<ProcessResult> {
 
   try {
     const { text } = await generateText({
-      model: MODEL,
+      model,
       system: [
         "You are Alibi: the friend who remembers the user's day so they don't have to defend it to themselves.",
         "The user is in a guilt spiral — they feel they did nothing, or they're being hard on themselves.",
