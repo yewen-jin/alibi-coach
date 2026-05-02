@@ -86,7 +86,7 @@ export async function processMessage(text: string): Promise<ProcessResult> {
         }),
       }),
       prompt: [
-        "Classify the user's message and (for drop_in) extract metadata.",
+        "Classify the user's message and (for drop_in) extract metadata. Respond in JSON format.",
         "",
         "drop_in examples:",
         '  "spent like 2 hrs on socket bug" → drop_in',
