@@ -37,8 +37,8 @@ export default function LoginPage() {
     <div className="min-h-screen flex flex-col items-center justify-center px-4 py-12">
       <div className="w-full max-w-sm">
         <div className="text-center mb-8">
-          <h1 className="font-serif text-3xl text-foreground mb-2">Welcome back</h1>
-          <p className="text-muted-foreground">Ready to track what you&apos;ve done?</p>
+          <h1 className="font-serif text-3xl text-foreground mb-2">welcome back</h1>
+          <p className="text-muted-foreground">your day&apos;s still here, on the record.</p>
         </div>
 
         <form onSubmit={handleLogin} className="space-y-4">

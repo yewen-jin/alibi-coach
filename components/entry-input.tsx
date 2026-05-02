@@ -1,7 +1,7 @@
 "use client"
 
-import { useState, useRef, useEffect } from "react"
-import { Plus, Mic, MicOff } from "lucide-react"
+import { useState, useRef, type FormEvent } from "react"
+import { ArrowUp, Mic, Square } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 interface EntryInputProps {
@@ -13,25 +13,45 @@ export function EntryInput({ onSubmit, disabled }: EntryInputProps) {
   const [content, setContent] = useState("")
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isListening, setIsListening] = useState(false)
-  const inputRef = useRef<HTMLInputElement>(null)
+  const textareaRef = useRef<HTMLTextAreaElement>(null)
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
-    if (!content.trim() || isSubmitting) return
+    const value = content.trim()
+    if (!value || isSubmitting) return
 
     setIsSubmitting(true)
     try {
-      await onSubmit(content.trim())
+      await onSubmit(value)
       setContent("")
-      inputRef.current?.focus()
+      // Reset textarea height
+      if (textareaRef.current) {
+        textareaRef.current.style.height = "auto"
+      }
+      textareaRef.current?.focus()
     } finally {
       setIsSubmitting(false)
     }
   }
 
-  // Voice input support (Web Speech API)
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault()
+      handleSubmit(e as unknown as FormEvent)
+    }
+  }
+
+  const autoResize = (el: HTMLTextAreaElement) => {
+    el.style.height = "auto"
+    el.style.height = `${Math.min(el.scrollHeight, 200)}px`
+  }
+
+  // Voice input via Web Speech API
   const toggleVoiceInput = () => {
-    if (!("webkitSpeechRecognition" in window) && !("SpeechRecognition" in window)) {
+    if (
+      typeof window === "undefined" ||
+      (!("webkitSpeechRecognition" in window) && !("SpeechRecognition" in window))
+    ) {
       return
     }
 
@@ -40,7 +60,8 @@ export function EntryInput({ onSubmit, disabled }: EntryInputProps) {
       return
     }
 
-    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
+    const SpeechRecognition =
+      (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
     const recognition = new SpeechRecognition()
     recognition.continuous = false
     recognition.interimResults = false
@@ -52,61 +73,75 @@ export function EntryInput({ onSubmit, disabled }: EntryInputProps) {
     recognition.onresult = (event: any) => {
       const transcript = event.results[0][0].transcript
       setContent((prev) => (prev ? `${prev} ${transcript}` : transcript))
+      // resize after voice input
+      requestAnimationFrame(() => {
+        if (textareaRef.current) autoResize(textareaRef.current)
+      })
     }
 
     recognition.start()
   }
 
-  const hasSpeechSupport = typeof window !== "undefined" && 
+  const hasSpeechSupport =
+    typeof window !== "undefined" &&
     ("webkitSpeechRecognition" in window || "SpeechRecognition" in window)
 
   return (
     <form onSubmit={handleSubmit} className="relative">
-      <div className="flex items-center gap-2 bg-card rounded-xl border border-border p-2 shadow-sm focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2 focus-within:ring-offset-background transition-shadow">
-        <input
-          ref={inputRef}
-          type="text"
+      <div
+        className={cn(
+          "flex items-end gap-2 rounded-2xl border border-border bg-card p-3 shadow-sm",
+          "transition-shadow focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2 focus-within:ring-offset-background"
+        )}
+      >
+        <textarea
+          ref={textareaRef}
           value={content}
-          onChange={(e) => setContent(e.target.value)}
-          placeholder="What did you just do?"
+          onChange={(e) => {
+            setContent(e.target.value)
+            autoResize(e.target)
+          }}
+          onKeyDown={handleKeyDown}
+          placeholder="how's it going?"
           disabled={disabled || isSubmitting}
-          className="flex-1 bg-transparent border-none outline-none px-3 py-2 text-foreground placeholder:text-muted-foreground text-lg"
+          rows={1}
+          className="flex-1 resize-none border-none bg-transparent px-2 py-2 text-base leading-relaxed text-foreground outline-none placeholder:text-muted-foreground/70"
           autoComplete="off"
         />
-        
+
         {hasSpeechSupport && (
           <button
             type="button"
             onClick={toggleVoiceInput}
             disabled={disabled || isSubmitting}
             className={cn(
-              "p-2 rounded-lg transition-colors",
-              isListening 
-                ? "bg-primary text-primary-foreground animate-pulse" 
-                : "text-muted-foreground hover:text-foreground hover:bg-muted"
+              "rounded-lg p-2 transition-colors",
+              isListening
+                ? "bg-primary text-primary-foreground"
+                : "text-muted-foreground hover:bg-muted hover:text-foreground"
             )}
             aria-label={isListening ? "Stop listening" : "Start voice input"}
           >
-            {isListening ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
+            {isListening ? <Square className="h-5 w-5" /> : <Mic className="h-5 w-5" />}
           </button>
         )}
-        
+
         <button
           type="submit"
           disabled={!content.trim() || disabled || isSubmitting}
           className={cn(
-            "p-2 rounded-lg bg-primary text-primary-foreground transition-all",
-            "disabled:opacity-50 disabled:cursor-not-allowed",
+            "rounded-lg bg-primary p-2 text-primary-foreground transition-all",
+            "disabled:cursor-not-allowed disabled:opacity-40",
             "hover:bg-primary/90 active:scale-95"
           )}
-          aria-label="Add entry"
+          aria-label="Send"
         >
-          <Plus className="w-5 h-5" />
+          <ArrowUp className="h-5 w-5" />
         </button>
       </div>
-      
-      <p className="text-xs text-muted-foreground mt-2 text-center">
-        Just did something? Log it here. Every little thing counts.
+
+      <p className="mt-2 text-center text-xs text-muted-foreground">
+        log what you did, or tell me how you&apos;re feeling. i&apos;ll figure it out.
       </p>
     </form>
   )

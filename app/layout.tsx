@@ -13,8 +13,9 @@ const lora = Lora({
 })
 
 export const metadata: Metadata = {
-  title: "Alibi - Your Done List",
-  description: "Track what you've accomplished, not what you haven't. A gentle companion for ADHD minds.",
+  title: "alibi — the friend who remembers your day",
+  description:
+    "Alibi is a witness with a warm voice. Log what you did, then let it remind you when your brain forgets. Built for ADHD minds.",
 }
 
 export const viewport: Viewport = {

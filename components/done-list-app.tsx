@@ -1,16 +1,18 @@
 "use client"
 
-import { useState, useCallback } from "react"
+import { useCallback, useState } from "react"
 import useSWR, { mutate } from "swr"
+import { Receipt } from "lucide-react"
+
 import { Header } from "./header"
 import { EntryInput } from "./entry-input"
 import { EntryList } from "./entry-list"
-import { CoachResponse, getRandomResponse } from "./coach-response"
-import { CoachButton } from "./coach-button"
+import { CoachResponse } from "./coach-response"
+import { AckToast } from "./ack-toast"
 import { DailyReceipt } from "./daily-receipt"
 import { createClient } from "@/lib/supabase/client"
+import { processMessage } from "@/app/actions/process-message"
 import type { Entry } from "@/lib/types"
-import { Receipt } from "lucide-react"
 
 interface DoneListAppProps {
   initialEntries: Entry[]
@@ -24,146 +26,136 @@ const fetcher = async () => {
     .from("entries")
     .select("*")
     .order("created_at", { ascending: false })
-    .limit(50)
+    .limit(100)
 
   if (error) throw error
   return data as Entry[]
 }
 
+function isToday(iso: string) {
+  const d = new Date(iso)
+  const t = new Date()
+  return (
+    d.getDate() === t.getDate() &&
+    d.getMonth() === t.getMonth() &&
+    d.getFullYear() === t.getFullYear()
+  )
+}
+
 export function DoneListApp({ initialEntries, userEmail, userId }: DoneListAppProps) {
   const [coachMessage, setCoachMessage] = useState<string | null>(null)
-  const [coachType, setCoachType] = useState<"encouragement" | "reframe" | "celebration">("encouragement")
+  const [ack, setAck] = useState<{ text: string; key: number } | null>(null)
   const [showReceipt, setShowReceipt] = useState(false)
+  const [errorMessage, setErrorMessage] = useState<string | null>(null)
 
   const { data: entries = initialEntries } = useSWR("entries", fetcher, {
     fallbackData: initialEntries,
     revalidateOnFocus: false,
   })
 
-  const todayEntries = entries.filter((entry) => {
-    const entryDate = new Date(entry.created_at)
-    const today = new Date()
-    return (
-      entryDate.getDate() === today.getDate() &&
-      entryDate.getMonth() === today.getMonth() &&
-      entryDate.getFullYear() === today.getFullYear()
-    )
-  })
+  const todayEntries = entries.filter((e) => isToday(e.created_at))
 
-  const handleAddEntry = useCallback(async (content: string) => {
-    const supabase = createClient()
-    
-    const newEntry: Partial<Entry> = {
-      content,
-      user_id: userId,
-    }
+  const handleMessage = useCallback(
+    async (text: string) => {
+      setErrorMessage(null)
 
-    // Optimistically update the UI
-    const optimisticEntry: Entry = {
-      id: crypto.randomUUID(),
-      user_id: userId,
-      content,
-      project: null,
-      mood: null,
-      duration_minutes: null,
-      created_at: new Date().toISOString(),
-    }
+      // Clear any open coach reflection so the new interaction is clean.
+      setCoachMessage(null)
 
-    mutate("entries", [optimisticEntry, ...entries], false)
+      try {
+        const result = await processMessage(text)
 
-    const { data, error } = await supabase
-      .from("entries")
-      .insert(newEntry)
-      .select()
-      .single()
+        if (result.type === "error") {
+          setErrorMessage(result.message)
+          return
+        }
 
-    if (error) {
-      // Revert on error
-      mutate("entries", entries, false)
-      throw error
-    }
+        if (result.type === "drop_in") {
+          // Add the entry locally and show the warm ack.
+          await mutate(
+            "entries",
+            (current: Entry[] | undefined) => [result.entry, ...(current ?? [])],
+            { revalidate: false }
+          )
+          setAck({ text: result.ack, key: Date.now() })
+          return
+        }
 
-    // Update with real data
-    mutate("entries", [data, ...entries.filter(e => e.id !== optimisticEntry.id)], false)
+        // check_in
+        setCoachMessage(result.reflection)
+      } catch (err) {
+        console.log("[v0] processMessage error:", err)
+        setErrorMessage("something went sideways. try again.")
+      }
+    },
+    []
+  )
 
-    // Show coach encouragement
-    setCoachType("celebration")
-    setCoachMessage(getRandomResponse("newEntry"))
-  }, [entries, userId])
+  const handleDeleteEntry = useCallback(
+    async (id: string) => {
+      const supabase = createClient()
+      const previous = entries
 
-  const handleCoachActivate = useCallback(() => {
-    if (todayEntries.length === 0) {
-      setCoachType("reframe")
-      setCoachMessage(
-        "It's okay to have slow days. The fact that you're here, trying to track things, shows you care. That counts for something."
+      await mutate(
+        "entries",
+        previous.filter((e) => e.id !== id),
+        { revalidate: false }
       )
-    } else {
-      setCoachType("encouragement")
-      setCoachMessage(getRandomResponse("guiltSpiral"))
-    }
-  }, [todayEntries.length])
 
-  const handleDeleteEntry = useCallback(async (id: string) => {
-    const supabase = createClient()
-    
-    // Optimistically remove
-    mutate("entries", entries.filter(e => e.id !== id), false)
-
-    const { error } = await supabase
-      .from("entries")
-      .delete()
-      .eq("id", id)
-
-    if (error) {
-      // Revert on error
-      mutate("entries", entries, false)
-    }
-  }, [entries])
+      const { error } = await supabase.from("entries").delete().eq("id", id)
+      if (error) {
+        await mutate("entries", previous, { revalidate: false })
+      }
+    },
+    [entries]
+  )
 
   return (
-    <div className="min-h-screen flex flex-col">
+    <div className="flex min-h-screen flex-col">
       <Header userEmail={userEmail} />
-      
-      <main className="flex-1 max-w-2xl mx-auto w-full px-4 py-6 space-y-6">
-        {/* Entry Input */}
-        <EntryInput onSubmit={handleAddEntry} />
 
-        {/* Coach Button */}
-        <div className="flex justify-center">
-          <CoachButton onActivate={handleCoachActivate} entryCount={todayEntries.length} />
-        </div>
+      <main className="mx-auto w-full max-w-2xl flex-1 px-4 py-6 space-y-6">
+        <EntryInput onSubmit={handleMessage} />
 
-        {/* Coach Response */}
+        {ack && <AckToast message={ack.text} ackKey={ack.key} />}
+
+        {errorMessage && (
+          <p className="text-center text-sm text-destructive" role="alert">
+            {errorMessage}
+          </p>
+        )}
+
         {coachMessage && (
           <CoachResponse
             message={coachMessage}
-            type={coachType}
             onDismiss={() => setCoachMessage(null)}
           />
         )}
 
-        {/* Daily Receipt Toggle */}
         {todayEntries.length > 0 && (
-          <button
-            onClick={() => setShowReceipt(!showReceipt)}
-            className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors mx-auto"
-          >
-            <Receipt className="w-4 h-4" />
-            {showReceipt ? "Hide" : "Show"} today&apos;s receipt ({todayEntries.length} done)
-          </button>
+          <div className="flex justify-center">
+            <button
+              onClick={() => setShowReceipt(!showReceipt)}
+              className="inline-flex items-center gap-2 rounded-full border border-border px-4 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            >
+              <Receipt className="h-4 w-4" />
+              {showReceipt ? "hide" : "show"} today&apos;s receipt
+              <span className="text-muted-foreground/70">
+                · {todayEntries.length}
+              </span>
+            </button>
+          </div>
         )}
 
-        {/* Daily Receipt */}
         {showReceipt && todayEntries.length > 0 && (
           <DailyReceipt entries={todayEntries} />
         )}
 
-        {/* Entry List */}
         <EntryList entries={entries} onDelete={handleDeleteEntry} />
       </main>
 
-      <footer className="text-center py-4 text-xs text-muted-foreground border-t border-border">
-        <p>Every accomplishment matters. You&apos;re doing great.</p>
+      <footer className="border-t border-border py-4 text-center text-xs text-muted-foreground">
+        <p>alibi · the friend who remembers your day.</p>
       </footer>
     </div>
   )

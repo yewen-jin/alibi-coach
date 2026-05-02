@@ -41,8 +41,8 @@ export default function SignUpPage() {
     <div className="min-h-screen flex flex-col items-center justify-center px-4 py-12">
       <div className="w-full max-w-sm">
         <div className="text-center mb-8">
-          <h1 className="font-serif text-3xl text-foreground mb-2">Create your account</h1>
-          <p className="text-muted-foreground">Start building your done list today</p>
+          <h1 className="font-serif text-3xl text-foreground mb-2">say hi to alibi</h1>
+          <p className="text-muted-foreground">a witness with a warm voice. no planning required.</p>
         </div>
 
         <form onSubmit={handleSignUp} className="space-y-4">

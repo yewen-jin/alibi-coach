@@ -1,126 +1,133 @@
-# Alibi — Product Spec
+# Alibi — Project
 
-## The core promise
+> Source of truth for the product vision: [`SPECS.md`](./SPECS.md).
+> This file documents what we're actually building, how it's structured, and what's done.
 
-> *Alibi is the friend who remembers your day, so you don't have to defend it to yourself.*
+## One-line objective
 
-Not a planner. Not a tracker. **A witness with a warm voice.**
+> **Alibi is the friend who remembers your day, so you don't have to defend it to yourself.**
 
----
+Not a planner. Not a tracker. A witness with a warm voice.
 
-## The user (you)
-
-You have ADHD. You hyperfocus. You lose hours to deep work and forget you did it. You miss other things. By 7pm you feel like you accomplished nothing — even when you accomplished plenty. The guilt spiral starts. You shut down. Tomorrow is harder.
-
-The problem isn't *what you did*. It's that you have **no record of it** and your brain refuses to remember.
+The whole product is one input box, one list, one receipt — and an AI that knows when you're logging vs. spiralling and responds accordingly.
 
 ---
 
-## What Alibi does — the four moments
+## The four moments (mapped to the build)
 
-### 1. The drop-in (any time, any format)
+The spec defines four user moments. Here's where each one lives in the codebase.
 
-You message Alibi however your brain wants to:
+### 1. The drop-in — log anything, any way
 
-- *"spent like 2 hrs on socket bug"*
-- *"had coffee with mark, talked about the gallery"*
-- voice memo: *"ugh just finished that horrible email thing"*
-- one word: *"groceries"*
+User types or speaks anything they did. Alibi parses it silently (project, mood, rough duration), files it, and replies with one warm phrase ("on the record.", "got it.", "noted.").
 
-Alibi parses it silently. Extracts: what, project, rough time, mood. Files it. Says one warm thing back: *"on the record."* / *"got it."* / *"noted."*
+- **UI:** [`components/entry-input.tsx`](./components/entry-input.tsx) — single textarea + voice + send button. Placeholder: *"how's it going?"*
+- **AI:** [`app/actions/process-message.ts`](./app/actions/process-message.ts) — classifies the message, extracts metadata via `Output.object()`, generates a warm one-liner ack.
+- **Display:** [`components/ack-toast.tsx`](./components/ack-toast.tsx) — a soft fade-in/fade-out italic line, no celebratory tone.
+- **Storage:** `entries` table, RLS scoped to `auth.uid()`.
 
-**Wellbeing effect:** No friction = no skipped logging = no gap in evidence. The act of mentioning something becomes the act of crediting yourself for it.
+### 2. The check-in — guilt-spiral mode
 
----
+User types something like *"i feel like i did nothing today"* or *"why am i like this."* Alibi switches mode automatically — no separate button, no toggle. It pulls today's entries and reads the day back to the user, with warmth, using their actual logged evidence.
 
-### 2. The check-in (when you spiral)
+- **Detection:** Same AI call as drop-in classifies `intent: "check_in"`.
+- **Reflection:** Same server action pulls today's entries and prompts the model to reflect them back. Hard system rules forbid toxic positivity, exclamation marks, breathing exercises, or productivity lectures. Lowercase, conversational, under 80 words.
+- **UI:** [`components/coach-response.tsx`](./components/coach-response.tsx) — a calm, dismissible reflection card.
 
-You message: *"I feel like I did nothing today"* / *"I'm a fraud"* / *"why am I like this"*
+### 3. The receipt — end-of-day card
 
-Alibi switches mode. Doesn't ask you to journal. Doesn't suggest breathing. Reads your day back to you with warmth:
+A screenshot-friendly summary of today: counts, tracked time, project pills, timestamped list. No ratings, no stars, no performance.
 
-> *"Today you fixed the socket bug Cinecircle's been stuck on for two weeks. You had a 45-minute call with Mark about the gallery. You answered four emails you'd been avoiding. You also bought groceries, which counts. Be nice to yourself."*
+- **UI:** [`components/daily-receipt.tsx`](./components/daily-receipt.tsx) — toggleable from the main view.
+- **Footer line:** *"this is your day. it counts."* — flat, not exclaimed.
 
-It's not performing positivity. It's just telling you what you actually did.
+### 4. The mirror — pattern reflection (v1.1, not built)
 
-**Wellbeing effect:** Guilt is usually a memory failure, not a moral failure. Alibi closes the memory gap so the guilt has nothing to feed on.
+Roadmap. Will surface gentle longitudinal patterns ("you're most productive 11am–2pm", "you log least on Sundays") without grading the user.
 
----
-
-### 3. The receipt (end of day, optional)
-
-A screenshot-friendly card. Your day, on the record. Project pills, timestamps, a little summary.
-
-You can ignore it. You can save it. You can send it to your therapist or partner when you can't articulate what you've been doing.
-
-**Wellbeing effect:** Closure. Externalising the day so your brain can let it go and sleep.
+- **Status:** not implemented. Schema already captures `created_at`, `project`, `mood`, `duration_minutes`, which is enough to power this later.
 
 ---
 
-### 4. The mirror (longer term — v1.1, mention as roadmap)
+## What we explicitly are NOT building
 
-After a week or two, Alibi starts noticing patterns and reflects them gently:
+Pulled from the spec — these are guardrails for every future change:
 
-> *"You're most productive between 11am and 2pm. Your hyperfocus sessions average 3 hours and tend to happen on Tuesdays. You usually feel guiltiest on Sundays."*
+- ❌ Todos / planning / goal-setting
+- ❌ Timers (decide-to-track-before-doing is the exact ADHD failure mode)
+- ❌ Push notifications nagging the user
+- ❌ Streaks, scores, ratings, or comparison
+- ❌ Breathing exercises, journaling prompts, "wellness techniques"
+- ❌ Toxic positivity, exclamation-mark cheerleading
+- ❌ A productivity dashboard
 
-Not prescriptive. Not optimising. Just **showing you yourself**.
-
-**Wellbeing effect:** Self-knowledge without self-surveillance. You're not being graded — you're being witnessed.
-
----
-
-## What Alibi explicitly is *not*
-
-| Not | Because |
-|---|---|
-| A planner | Planning is the friction. We removed it. |
-| A tracker with timers | Timers require deciding to track *before* the work — exact ADHD failure mode. |
-| A goal-setter | Goals create expectation. We trade in evidence. |
-| A coach who pushes | Push energy makes you avoid the app. |
-| A wellness app with breathing exercises | You don't need techniques. You need a witness. |
-| A productivity dashboard | Numbers create comparison. We collect moments. |
+If a feature pushes the user, it doesn't ship.
 
 ---
 
-## The wellbeing thesis (your pitch substance)
+## Architecture
 
-ADHD shame isn't caused by underachievement. It's caused by **the gap between what you actually did and what you remember doing**. Time blindness erases evidence. The brain fills the gap with worst-case stories. Guilt becomes the default emotional setting.
+### Stack
 
-Alibi closes the gap. Not by making you do more. By making sure you remember what you already did.
+- **Framework:** Next.js 15 App Router
+- **Auth + DB:** Supabase (RLS-protected)
+- **AI:** Vercel AI SDK 6 via the AI Gateway, model `openai/gpt-5-mini`
+- **Styling:** Tailwind v4 with custom warm palette + Lora (serif) / Nunito (sans) fonts
+- **Voice input:** Web Speech API (client-side, no server transcription)
 
-**Productivity is downstream of feeling okay. Feeling okay is downstream of accurate self-perception. Accurate self-perception is downstream of evidence.**
+### Database schema
 
-That's the whole thesis. One line:
+`public.entries`:
 
-> ***Most apps make you do more. Alibi helps you see what you already did.***
+| column             | type          | note                           |
+| ------------------ | ------------- | ------------------------------ |
+| `id`               | uuid pk       | `gen_random_uuid()`            |
+| `user_id`          | uuid          | FK → `auth.users`, cascade     |
+| `content`          | text          | the cleaned-up entry text      |
+| `project`          | text          | AI-extracted, nullable         |
+| `mood`             | text          | AI-extracted, nullable         |
+| `duration_minutes` | integer       | AI-extracted, nullable         |
+| `created_at`       | timestamptz   | default `now()`                |
+
+RLS: each user can only `select / insert / update / delete` their own rows.
+
+### Key files
+
+```
+app/
+  actions/process-message.ts   # the brain: classify → save or reflect
+  auth/                        # Supabase email/password auth
+  page.tsx                     # auth gate + initial entries
+  layout.tsx                   # fonts, metadata, theme
+  globals.css                  # warm palette + coach-mode tokens
+components/
+  done-list-app.tsx            # main client app shell
+  entry-input.tsx              # the only input the user sees
+  entry-list.tsx               # grouped-by-day list with project pills
+  coach-response.tsx           # check-in reflection card
+  ack-toast.tsx                # drop-in warm ack
+  daily-receipt.tsx            # screenshot-friendly card
+  header.tsx                   # alibi · the friend who remembers your day
+lib/
+  supabase/{client,server,middleware}.ts
+  types.ts                     # Entry type
+middleware.ts                  # session refresh + protected routes
+```
 
 ---
 
-## How it specifically helps you (Yewen)
+## Demo flow (90 seconds, from the spec)
 
-Mapped to things that are actually true about you from our chats:
+1. **Open the app.** Calm interface, *"how's it going?"* placeholder.
+2. **Type:** *"spent 2 hours debugging socket stuff for cinecircle"* → entry appears with the `cinecircle` pill and `~2h` tag, ack reads *"on the record."*
+3. **Voice:** *"had a meeting with the gallery"* → entry appears, ack reads *"got it."*
+4. **Type:** *"i feel like i did nothing today"* → check-in mode kicks in: a warm reflection that names the socket bug and the gallery meeting.
+5. **Tap "show today's receipt"** → screenshot-able card appears.
 
-- **Hyperfocus erasure** → log mid-session in 3 seconds, no flow break
-- **Polyglot/multi-project drift** → projects auto-tag, you see the breadth not just the depth
-- **Guilt spiral** → coach mode, evidence-based, no toxic positivity
-- **Forgets to do todos** → no todos required. The act of *doing* is the act of *recording*
-- **Working as a freelancer juggling tracks** → end-of-day receipt = clear handover to tomorrow's brain
-- **Wellbeing concerns** → externalises the day so it doesn't loop in your head at night
-
----
-
-## What the demo shows (90 seconds)
-
-1. **Open app.** Calm interface. *"How's it going?"*
-2. **Type:** *"spent 2 hours debugging socket stuff for cinecircle"* → entry appears in done list
-3. **Voice input:** *"had a meeting with the gallery"* → entry appears
-4. **Type:** *"i feel like i did nothing today"* → coach mode kicks in, reflects the day back warmly
-5. **Show the receipt card** — beautiful, screenshot-able
-
-That's it. One loop. No accounts, no settings, no patterns view. Vision lives in the pitch, not the demo.
+That's the whole demo. No accounts step, no settings, no patterns view.
 
 ---
 
-## Closing pitch line (unchanged, still perfect)
+## Closing pitch line
 
-> *Todo lists are glass half empty. Done lists are glass half full. Alibi is the friend who proves the glass was fuller than you thought. Which do you choose?*
+> *Todo lists are glass half empty. Done lists are glass half full. Alibi is the friend who proves the glass was fuller than you thought.*
