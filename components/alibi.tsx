@@ -285,15 +285,15 @@ export function Alibi({ userEmail }: AlibiProps) {
   }, [input, isThinking, refreshEntries])
 
   return (
-    <main className="relative min-h-screen w-full text-[#2A1F14]">
+    <main className="relative h-screen w-full overflow-hidden text-[#2A1F14]">
       {/* Page padding 32px, two-column 40/60 with 24px gap, max 1280px */}
-      <div className="mx-auto flex min-h-screen max-w-[1280px] flex-col gap-6 p-8">
+      <div className="mx-auto flex h-full max-w-[1280px] flex-col gap-4 p-6">
         <TopNav userEmail={userEmail} />
-        <div className="grid flex-1 grid-cols-1 gap-6 lg:grid-cols-[40fr_60fr]">
+        <div className="grid min-h-0 flex-1 grid-cols-1 gap-6 lg:grid-cols-[40fr_60fr]">
           {/* ─────────────────── LEFT — CHAT ─────────────────── */}
           <section
-            className="relative flex flex-col overflow-hidden"
-            style={{ ...GLASS_PANEL_STYLE, minHeight: "calc(100vh - 4rem)" }}
+            className="relative flex min-h-0 flex-col overflow-hidden"
+            style={GLASS_PANEL_STYLE}
           >
             {/* Header */}
             <header className="flex items-center justify-between px-6 py-5">
@@ -469,8 +469,8 @@ export function Alibi({ userEmail }: AlibiProps) {
 
           {/* ─────────────────── RIGHT — RECEIPT ─────────────────── */}
           <section
-            className="flex flex-col overflow-hidden"
-            style={{ ...GLASS_PANEL_STYLE, minHeight: "calc(100vh - 4rem)" }}
+            className="flex min-h-0 flex-col overflow-hidden"
+            style={GLASS_PANEL_STYLE}
           >
             {/* Tab bar */}
             <div className="flex items-center gap-1 px-6 py-4">
