@@ -1,6 +1,7 @@
 "use server"
 
 import { generateText, Output } from "ai"
+import { openai } from "@ai-sdk/openai"
 import { z } from "zod"
 import { createClient } from "@/lib/supabase/server"
 import type { Entry } from "@/lib/types"
@@ -20,7 +21,8 @@ export type ProcessResult =
       message: string
     }
 
-const MODEL = "openai/gpt-5-mini"
+// Use OpenAI directly with your API key (reads from OPENAI_API_KEY env var)
+const model = openai("gpt-4o-mini")
 
 export async function processMessage(text: string): Promise<ProcessResult> {
   const trimmed = text.trim()
@@ -47,7 +49,7 @@ export async function processMessage(text: string): Promise<ProcessResult> {
 
   try {
     const { output } = await generateText({
-      model: MODEL,
+      model,
       output: Output.object({
         schema: z.object({
           intent: z
@@ -123,7 +125,7 @@ export async function processMessage(text: string): Promise<ProcessResult> {
     let ack = "on the record."
     try {
       const { text: ackText } = await generateText({
-        model: MODEL,
+        model,
         prompt: [
           "You are Alibi: a warm friend who is quietly logging the user's day for them.",
           "They just told you something they did. Reply with ONE short acknowledgment.",
@@ -178,7 +180,7 @@ export async function processMessage(text: string): Promise<ProcessResult> {
 
   try {
     const { text } = await generateText({
-      model: MODEL,
+      model,
       system: [
         "You are Alibi: the friend who remembers the user's day so they don't have to defend it to themselves.",
         "The user is in a guilt spiral — they feel they did nothing, or they're being hard on themselves.",
