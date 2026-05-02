@@ -36,7 +36,7 @@ const FEATURES: Feature[] = [
     body:
       "tell alibi what you've been up to in plain language. no schema, no fields. one message becomes one entry on the record.",
     example: "you: 'morning walk and then 90 min on the migration' → filed.",
-    where: "/",
+    where: "/app",
   },
   {
     icon: Sparkles,
@@ -50,7 +50,7 @@ const FEATURES: Feature[] = [
     title: "the receipt",
     body:
       "today's entries appear on a thermal-paper receipt, time-stamped and grouped by day. proof you actually moved.",
-    where: "/",
+    where: "/app",
   },
   {
     icon: Heart,
@@ -65,14 +65,14 @@ const FEATURES: Feature[] = [
     title: "calendar dashboard",
     body:
       "a heatmap of every day you've shown up. click any day to see what you logged. light days look as quiet as they were.",
-    where: "/dashboard",
+    where: "/app/dashboard",
   },
   {
     icon: LayoutGrid,
     title: "rhythm + projects",
     body:
       "see the days of the week and hours of the day you actually log most, plus where your time is going by project.",
-    where: "/dashboard",
+    where: "/app/dashboard",
   },
   {
     icon: Tags,
@@ -99,7 +99,7 @@ export default async function DocsPage() {
   const {
     data: { user },
   } = await supabase.auth.getUser()
-  if (!user) redirect("/auth/login")
+  if (!user) redirect("/")
 
   return (
     <main className="relative min-h-screen w-full text-[#2A1F14]">
@@ -149,7 +149,7 @@ export default async function DocsPage() {
           </p>
           <div className="flex flex-wrap items-center justify-center gap-2">
             <Link
-              href="/"
+              href="/app"
               className="inline-flex items-center gap-2 rounded-full px-5 py-2.5 text-[13px] font-medium text-white transition-all active:scale-95"
               style={PRIMARY_BUTTON_STYLE}
             >
@@ -157,7 +157,7 @@ export default async function DocsPage() {
               <ArrowRight className="h-3.5 w-3.5" strokeWidth={2.4} />
             </Link>
             <Link
-              href="/dashboard"
+              href="/app/dashboard"
               className="inline-flex items-center gap-2 rounded-full px-5 py-2.5 text-[13px] font-medium text-[#2A1F14] transition-colors hover:bg-white/40"
               style={{
                 background: "rgba(255, 250, 240, 0.55)",

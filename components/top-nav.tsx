@@ -9,9 +9,9 @@ import { GLASS_PILL_STYLE } from "@/lib/ui-styles"
 import { cn } from "@/lib/utils"
 
 const LINKS = [
-  { href: "/", label: "chat", icon: MessageCircle },
-  { href: "/dashboard", label: "dashboard", icon: LayoutGrid },
-  { href: "/docs", label: "docs", icon: BookOpen },
+  { href: "/app", label: "chat", icon: MessageCircle },
+  { href: "/app/dashboard", label: "dashboard", icon: LayoutGrid },
+  { href: "/app/docs", label: "docs", icon: BookOpen },
 ]
 
 interface TopNavProps {
@@ -32,7 +32,7 @@ export function TopNav({ userEmail }: TopNavProps) {
     setSigningOut(true)
     const supabase = createClient()
     await supabase.auth.signOut()
-    router.push("/auth/login")
+    router.push("/")
     router.refresh()
   }
 
@@ -44,7 +44,7 @@ export function TopNav({ userEmail }: TopNavProps) {
     >
       {/* Brand */}
       <Link
-        href="/"
+        href="/app"
         className="flex items-baseline gap-2 px-2 transition-opacity hover:opacity-80"
       >
         <span className="text-[15px] font-semibold tracking-tight text-[#2A1F14]">
@@ -58,7 +58,7 @@ export function TopNav({ userEmail }: TopNavProps) {
       {/* Links */}
       <ul className="flex items-center gap-1">
         {LINKS.map(({ href, label, icon: Icon }) => {
-          const active = pathname === href
+          const active = pathname === href || (href === "/app" && pathname === "/app")
           return (
             <li key={href}>
               <Link
