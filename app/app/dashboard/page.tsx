@@ -8,6 +8,7 @@ import { CalendarView } from "@/components/dashboard/calendar-view"
 import { RhythmChart } from "@/components/dashboard/rhythm-chart"
 import { ProjectDistribution } from "@/components/dashboard/project-distribution"
 import { StatsOverview } from "@/components/dashboard/stats-overview"
+import { AdhdMarkers } from "@/components/dashboard/adhd-markers"
 import { GLASS_PANEL_STYLE, PRIMARY_BUTTON_STYLE } from "@/lib/ui-styles"
 
 export default async function DashboardPage() {
@@ -69,6 +70,7 @@ export default async function DashboardPage() {
         ) : (
           <div className="space-y-5">
             <StatsOverview entries={safeEntries} />
+            <AdhdMarkers entries={safeEntries} />
             <CalendarView entries={safeEntries} />
             <div className="grid gap-5 md:grid-cols-2">
               <RhythmChart entries={safeEntries} />

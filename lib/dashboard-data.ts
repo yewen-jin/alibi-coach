@@ -151,3 +151,73 @@ export function totalsFor(entries: Entry[]) {
     totalMinutes,
   }
 }
+
+/* ─────────────────── ADHD Marker Stats ─────────────────── */
+
+export interface MarkerStat {
+  label: string
+  key: "avoidance" | "hyperfocus" | "guilt" | "novelty"
+  count: number
+  pct: number
+  description: string
+}
+
+export function aggregateMarkers(entries: Entry[]): MarkerStat[] {
+  const total = entries.length
+  if (total === 0) {
+    return [
+      { label: "avoidance conquered", key: "avoidance", count: 0, pct: 0, description: "tasks you were putting off" },
+      { label: "hyperfocus sessions", key: "hyperfocus", count: 0, pct: 0, description: "deep flow states" },
+      { label: "guilt moments", key: "guilt", count: 0, pct: 0, description: "self-critical entries" },
+      { label: "novelty seeking", key: "novelty", count: 0, pct: 0, description: "trying new things" },
+    ]
+  }
+
+  const avoidance = entries.filter((e) => e.avoidance_marker).length
+  const hyperfocus = entries.filter((e) => e.hyperfocus_marker).length
+  const guilt = entries.filter((e) => e.guilt_marker).length
+  const novelty = entries.filter((e) => e.novelty_marker).length
+
+  return [
+    { label: "avoidance conquered", key: "avoidance", count: avoidance, pct: Math.round((avoidance / total) * 100), description: "tasks you were putting off" },
+    { label: "hyperfocus sessions", key: "hyperfocus", count: hyperfocus, pct: Math.round((hyperfocus / total) * 100), description: "deep flow states" },
+    { label: "guilt moments", key: "guilt", count: guilt, pct: Math.round((guilt / total) * 100), description: "self-critical entries" },
+    { label: "novelty seeking", key: "novelty", count: novelty, pct: Math.round((novelty / total) * 100), description: "trying new things" },
+  ]
+}
+
+export interface EffortStat {
+  level: string
+  count: number
+  pct: number
+}
+
+export function aggregateEffort(entries: Entry[]): EffortStat[] {
+  const levels = ["easy", "medium", "hard", "grind"] as const
+  const total = entries.filter((e) => e.effort_level).length
+  if (total === 0) {
+    return levels.map((level) => ({ level, count: 0, pct: 0 }))
+  }
+  return levels.map((level) => {
+    const count = entries.filter((e) => e.effort_level === level).length
+    return { level, count, pct: Math.round((count / total) * 100) }
+  })
+}
+
+export interface SatisfactionStat {
+  level: string
+  count: number
+  pct: number
+}
+
+export function aggregateSatisfaction(entries: Entry[]): SatisfactionStat[] {
+  const levels = ["satisfied", "mixed", "frustrated", "unclear"] as const
+  const total = entries.filter((e) => e.satisfaction).length
+  if (total === 0) {
+    return levels.map((level) => ({ level, count: 0, pct: 0 }))
+  }
+  return levels.map((level) => {
+    const count = entries.filter((e) => e.satisfaction === level).length
+    return { level, count, pct: Math.round((count / total) * 100) }
+  })
+}
