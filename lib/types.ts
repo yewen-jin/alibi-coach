@@ -7,8 +7,3 @@ export interface Entry {
   duration_minutes: number | null
   created_at: string
 }
-
-export interface CoachResponse {
-  message: string
-  type: "encouragement" | "reframe" | "celebration"
-}
