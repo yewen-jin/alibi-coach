@@ -70,3 +70,6 @@ coverage/
 
 # misc
 *.local
+.env
+
+node_modules
