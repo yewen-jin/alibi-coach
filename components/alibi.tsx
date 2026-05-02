@@ -492,9 +492,9 @@ export function Alibi({ userEmail }: AlibiProps) {
             />
 
             {/* Receipt — thermal-paper inset */}
-            <div className="flex-1 p-5">
+            <div className="min-h-0 flex-1 p-5">
               <div
-                className="relative h-full overflow-y-auto"
+                className="relative h-full overflow-y-auto scrollbar-thin"
                 style={{
                   background:
                     "linear-gradient(180deg, #F8F1E3 0%, #F4ECDA 100%)",
