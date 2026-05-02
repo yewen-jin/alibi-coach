@@ -17,7 +17,6 @@ import type { Entry } from "@/lib/types"
 interface DoneListAppProps {
   initialEntries: Entry[]
   userEmail: string
-  userId: string
 }
 
 const fetcher = async () => {
@@ -42,7 +41,7 @@ function isToday(iso: string) {
   )
 }
 
-export function DoneListApp({ initialEntries, userEmail, userId }: DoneListAppProps) {
+export function DoneListApp({ initialEntries, userEmail }: DoneListAppProps) {
   const [coachMessage, setCoachMessage] = useState<string | null>(null)
   const [ack, setAck] = useState<{ text: string; key: number } | null>(null)
   const [showReceipt, setShowReceipt] = useState(false)

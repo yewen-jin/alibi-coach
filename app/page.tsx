@@ -21,7 +21,6 @@ export default async function HomePage() {
     <DoneListApp 
       initialEntries={entries ?? []} 
       userEmail={user.email ?? ""} 
-      userId={user.id}
     />
   )
 }

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useRef, type FormEvent } from "react"
+import { useEffect, useState, useRef, type FormEvent } from "react"
 import { ArrowUp, Mic, Square } from "lucide-react"
 import { cn } from "@/lib/utils"
 
@@ -13,7 +13,17 @@ export function EntryInput({ onSubmit, disabled }: EntryInputProps) {
   const [content, setContent] = useState("")
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isListening, setIsListening] = useState(false)
+  const [hasSpeechSupport, setHasSpeechSupport] = useState(false)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
+
+  // Detect Web Speech API only after hydration, to avoid SSR/CSR mismatch.
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      setHasSpeechSupport(
+        "webkitSpeechRecognition" in window || "SpeechRecognition" in window
+      )
+    }
+  }, [])
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
@@ -81,10 +91,6 @@ export function EntryInput({ onSubmit, disabled }: EntryInputProps) {
 
     recognition.start()
   }
-
-  const hasSpeechSupport =
-    typeof window !== "undefined" &&
-    ("webkitSpeechRecognition" in window || "SpeechRecognition" in window)
 
   return (
     <form onSubmit={handleSubmit} className="relative">
