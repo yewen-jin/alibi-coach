@@ -1,13 +1,14 @@
 import Link from "next/link"
 import { redirect } from "next/navigation"
-import { ArrowLeft } from "lucide-react"
+import { ArrowRight } from "lucide-react"
 import { createClient } from "@/lib/supabase/server"
 import type { Entry } from "@/lib/types"
-import { Header } from "@/components/header"
+import { TopNav } from "@/components/top-nav"
 import { CalendarView } from "@/components/dashboard/calendar-view"
 import { RhythmChart } from "@/components/dashboard/rhythm-chart"
 import { ProjectDistribution } from "@/components/dashboard/project-distribution"
 import { StatsOverview } from "@/components/dashboard/stats-overview"
+import { GLASS_PANEL_STYLE, PRIMARY_BUTTON_STYLE } from "@/lib/ui-styles"
 
 export default async function DashboardPage() {
   const supabase = await createClient()
@@ -27,43 +28,44 @@ export default async function DashboardPage() {
   const safeEntries = (entries ?? []) as Entry[]
 
   return (
-    <div className="min-h-screen bg-background">
-      <Header userEmail={user.email ?? ""} />
+    <main className="relative min-h-screen w-full text-[#2A1F14]">
+      <div className="mx-auto flex min-h-screen max-w-[1280px] flex-col gap-6 p-8">
+        <TopNav userEmail={user.email ?? null} />
 
-      <main className="mx-auto max-w-5xl px-4 py-6">
-        <div className="mb-6 flex items-center justify-between">
-          <div>
-            <h1 className="font-serif text-2xl text-foreground">
-              your dashboard
+        <header className="px-2 sm:px-4">
+          <div className="flex flex-wrap items-baseline justify-between gap-2">
+            <h1 className="text-[1.6rem] font-semibold tracking-tight text-[#2A1F14]">
+              the dashboard
             </h1>
-            <p className="text-sm text-muted-foreground">
-              a quiet look back at what you&apos;ve already done.
-            </p>
+            <span className="text-[10px] font-medium uppercase tracking-[0.2em] text-[#A89680]">
+              what you&apos;ve been doing
+            </span>
           </div>
-          <Link
-            href="/"
-            className="inline-flex items-center gap-2 rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground transition-colors hover:bg-muted"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            back to chat
-          </Link>
-        </div>
+          <p className="mt-1 text-[13.5px] leading-[1.5] text-[#6B5A47]">
+            a quiet look back. nothing graded, just shown.
+          </p>
+        </header>
 
         {safeEntries.length === 0 ? (
-          <div className="rounded-2xl border border-dashed border-border bg-card p-8 text-center">
-            <p className="font-serif text-lg text-foreground">
-              nothing here yet.
+          <section
+            className="flex flex-col items-center justify-center px-8 py-16 text-center"
+            style={GLASS_PANEL_STYLE}
+          >
+            <p className="text-[15px] leading-[1.5] text-[#6B5A47]">
+              nothing on the record yet.
             </p>
-            <p className="mt-1 text-sm text-muted-foreground">
+            <p className="mt-1 text-[13px] text-[#A89680]">
               go drop something in. i&apos;ll be watching.
             </p>
             <Link
               href="/"
-              className="mt-4 inline-block rounded-lg bg-primary px-4 py-2 text-sm text-primary-foreground hover:opacity-90"
+              className="mt-6 inline-flex items-center gap-2 rounded-full px-5 py-2.5 text-[13px] font-medium text-white transition-all active:scale-95"
+              style={PRIMARY_BUTTON_STYLE}
             >
               start logging
+              <ArrowRight className="h-3.5 w-3.5" strokeWidth={2.4} />
             </Link>
-          </div>
+          </section>
         ) : (
           <div className="space-y-5">
             <StatsOverview entries={safeEntries} />
@@ -74,7 +76,11 @@ export default async function DashboardPage() {
             </div>
           </div>
         )}
-      </main>
-    </div>
+
+        <footer className="text-center text-[11px] tracking-[0.04em] text-[#A89680]">
+          alibi — for the days you can&apos;t see clearly
+        </footer>
+      </div>
+    </main>
   )
 }

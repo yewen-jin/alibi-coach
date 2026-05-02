@@ -12,5 +12,5 @@ export default async function HomePage() {
     redirect("/auth/login")
   }
 
-  return <Alibi />
+  return <Alibi userEmail={user.email ?? null} />
 }

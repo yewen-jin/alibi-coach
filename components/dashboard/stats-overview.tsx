@@ -1,5 +1,6 @@
 import type { Entry } from "@/lib/types"
 import { totalsFor } from "@/lib/dashboard-data"
+import { GLASS_PANEL_STYLE } from "@/lib/ui-styles"
 
 interface StatsOverviewProps {
   entries: Entry[]
@@ -7,7 +8,8 @@ interface StatsOverviewProps {
 
 export function StatsOverview({ entries }: StatsOverviewProps) {
   const { totalEntries, distinctDays, totalMinutes } = totalsFor(entries)
-  const avgPerActiveDay = distinctDays > 0 ? (totalEntries / distinctDays).toFixed(1) : "0"
+  const avgPerActiveDay =
+    distinctDays > 0 ? (totalEntries / distinctDays).toFixed(1) : "0"
 
   const stats = [
     { label: "things logged", value: totalEntries.toString() },
@@ -17,21 +19,29 @@ export function StatsOverview({ entries }: StatsOverviewProps) {
   ]
 
   return (
-    <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-      {stats.map((s) => (
+    <section
+      className="grid grid-cols-2 gap-3 p-4 sm:grid-cols-4 sm:gap-4 sm:p-5"
+      style={GLASS_PANEL_STYLE}
+      aria-label="summary stats"
+    >
+      {stats.map((s, i) => (
         <div
           key={s.label}
-          className="rounded-xl border border-border bg-card p-4"
+          className={
+            i > 0
+              ? "sm:border-l sm:border-[rgba(60,40,20,0.08)] sm:pl-4"
+              : ""
+          }
         >
-          <p className="font-serif text-2xl text-foreground tabular-nums">
+          <p className="font-mono text-[1.6rem] font-semibold leading-none tabular-nums tracking-tight text-[#2A1F14]">
             {s.value}
           </p>
-          <p className="mt-1 text-xs uppercase tracking-wide text-muted-foreground">
+          <p className="mt-1.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-[#A89680]">
             {s.label}
           </p>
         </div>
       ))}
-    </div>
+    </section>
   )
 }
 

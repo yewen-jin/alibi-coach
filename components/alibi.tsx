@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useRef, useState } from "react"
 import { useChat } from "@ai-sdk/react"
 import { ArrowUp, Lock, Mic } from "lucide-react"
+import { TopNav } from "@/components/top-nav"
+import { GLASS_PANEL_STYLE } from "@/lib/ui-styles"
 
 /* ------------------------------------------------------------------ */
 /*  Types & placeholder data                                           */
@@ -88,24 +90,14 @@ const PROJECT_LABEL: Record<Project, string> = {
 }
 
 /* ------------------------------------------------------------------ */
-/*  Shared style constants                                             */
-/* ------------------------------------------------------------------ */
-
-const GLASS_PANEL_STYLE: React.CSSProperties = {
-  background: "rgba(255, 250, 240, 0.55)",
-  backdropFilter: "blur(20px) saturate(140%)",
-  WebkitBackdropFilter: "blur(20px) saturate(140%)",
-  border: "1px solid rgba(255, 255, 255, 0.6)",
-  boxShadow:
-    "0 8px 32px rgba(60, 40, 20, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.5), inset 0 -1px 0 rgba(0, 0, 0, 0.06)",
-  borderRadius: 16,
-}
-
-/* ------------------------------------------------------------------ */
 /*  Main component                                                     */
 /* ------------------------------------------------------------------ */
 
-export function Alibi() {
+interface AlibiProps {
+  userEmail?: string | null
+}
+
+export function Alibi({ userEmail }: AlibiProps) {
   const [input, setInput] = useState("")
   const [recording, setRecording] = useState(false)
   const [filed, setFiled] = useState(false)
@@ -158,6 +150,7 @@ export function Alibi() {
     <main className="relative min-h-screen w-full text-[#2A1F14]">
       {/* Page padding 32px, two-column 40/60 with 24px gap, max 1280px */}
       <div className="mx-auto flex min-h-screen max-w-[1280px] flex-col gap-6 p-8">
+        <TopNav userEmail={userEmail} />
         <div className="grid flex-1 grid-cols-1 gap-6 lg:grid-cols-[40fr_60fr]">
           {/* ─────────────────── LEFT — CHAT ─────────────────── */}
           <section
