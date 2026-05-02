@@ -2,7 +2,7 @@
 
 import { useCallback, useState } from "react"
 import useSWR, { mutate } from "swr"
-import { Receipt } from "lucide-react"
+import { Receipt, CheckCircle, Lock } from "lucide-react"
 
 import { Header } from "./header"
 import { EntryInput } from "./entry-input"
@@ -46,6 +46,7 @@ export function DoneListApp({ initialEntries, userEmail }: DoneListAppProps) {
   const [ack, setAck] = useState<{ text: string; key: number } | null>(null)
   const [showReceipt, setShowReceipt] = useState(false)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
+  const [activeTab, setActiveTab] = useState<"done" | "receipt">("done")
 
   const { data: entries = initialEntries } = useSWR("entries", fetcher, {
     fallbackData: initialEntries,
@@ -54,41 +55,34 @@ export function DoneListApp({ initialEntries, userEmail }: DoneListAppProps) {
 
   const todayEntries = entries.filter((e) => isToday(e.created_at))
 
-  const handleMessage = useCallback(
-    async (text: string) => {
-      setErrorMessage(null)
+  const handleMessage = useCallback(async (text: string) => {
+    setErrorMessage(null)
+    setCoachMessage(null)
 
-      // Clear any open coach reflection so the new interaction is clean.
-      setCoachMessage(null)
+    try {
+      const result = await processMessage(text)
 
-      try {
-        const result = await processMessage(text)
-
-        if (result.type === "error") {
-          setErrorMessage(result.message)
-          return
-        }
-
-        if (result.type === "drop_in") {
-          // Add the entry locally and show the warm ack.
-          await mutate(
-            "entries",
-            (current: Entry[] | undefined) => [result.entry, ...(current ?? [])],
-            { revalidate: false }
-          )
-          setAck({ text: result.ack, key: Date.now() })
-          return
-        }
-
-        // check_in
-        setCoachMessage(result.reflection)
-      } catch (err) {
-        console.log("[v0] processMessage error:", err)
-        setErrorMessage("something went sideways. try again.")
+      if (result.type === "error") {
+        setErrorMessage(result.message)
+        return
       }
-    },
-    []
-  )
+
+      if (result.type === "drop_in") {
+        await mutate(
+          "entries",
+          (current: Entry[] | undefined) => [result.entry, ...(current ?? [])],
+          { revalidate: false }
+        )
+        setAck({ text: result.ack, key: Date.now() })
+        return
+      }
+
+      setCoachMessage(result.reflection)
+    } catch (err) {
+      console.log("[v0] processMessage error:", err)
+      setErrorMessage("something went sideways. try again.")
+    }
+  }, [])
 
   const handleDeleteEntry = useCallback(
     async (id: string) => {
@@ -110,50 +104,104 @@ export function DoneListApp({ initialEntries, userEmail }: DoneListAppProps) {
   )
 
   return (
-    <div className="flex min-h-screen flex-col">
+    <div className="flex min-h-screen flex-col bg-background">
       <Header userEmail={userEmail} />
 
-      <main className="mx-auto w-full max-w-2xl flex-1 px-4 py-6 space-y-6">
-        <EntryInput onSubmit={handleMessage} />
+      {/* Two-column layout on desktop */}
+      <div className="flex flex-1 flex-col lg:flex-row">
+        {/* Left: Chat panel (40% on desktop) */}
+        <section className="flex flex-col border-b border-border bg-card/30 lg:w-[40%] lg:border-b-0 lg:border-r">
+          <div className="flex-1 overflow-y-auto p-4 lg:p-6">
+            <div className="mx-auto max-w-md space-y-4">
+              {/* Coach response appears here in chat column */}
+              {coachMessage && (
+                <CoachResponse
+                  message={coachMessage}
+                  onDismiss={() => setCoachMessage(null)}
+                />
+              )}
 
-        {ack && <AckToast message={ack.text} ackKey={ack.key} />}
+              {/* Ack toast */}
+              {ack && <AckToast message={ack.text} ackKey={ack.key} />}
 
-        {errorMessage && (
-          <p className="text-center text-sm text-destructive" role="alert">
-            {errorMessage}
-          </p>
-        )}
-
-        {coachMessage && (
-          <CoachResponse
-            message={coachMessage}
-            onDismiss={() => setCoachMessage(null)}
-          />
-        )}
-
-        {todayEntries.length > 0 && (
-          <div className="flex justify-center">
-            <button
-              onClick={() => setShowReceipt(!showReceipt)}
-              className="inline-flex items-center gap-2 rounded-full border border-border px-4 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-            >
-              <Receipt className="h-4 w-4" />
-              {showReceipt ? "hide" : "show"} today&apos;s receipt
-              <span className="text-muted-foreground/70">
-                · {todayEntries.length}
-              </span>
-            </button>
+              {/* Error message */}
+              {errorMessage && (
+                <p className="text-center text-sm text-destructive" role="alert">
+                  {errorMessage}
+                </p>
+              )}
+            </div>
           </div>
-        )}
 
-        {showReceipt && todayEntries.length > 0 && (
-          <DailyReceipt entries={todayEntries} />
-        )}
+          {/* Input pinned to bottom of chat column */}
+          <div className="border-t border-border bg-card/50 p-4">
+            <div className="mx-auto max-w-md">
+              <EntryInput onSubmit={handleMessage} />
+            </div>
+          </div>
+        </section>
 
-        <EntryList entries={entries} onDelete={handleDeleteEntry} />
-      </main>
+        {/* Right: Done list / Receipt (60% on desktop) */}
+        <section className="flex flex-1 flex-col lg:w-[60%]">
+          {/* Tab bar for right panel */}
+          <div className="flex items-center justify-between border-b border-border px-4 py-2 lg:px-6">
+            <nav className="flex items-center gap-1">
+              <button
+                onClick={() => setActiveTab("done")}
+                className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
+                  activeTab === "done"
+                    ? "bg-primary/10 text-primary"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                <CheckCircle className="h-3.5 w-3.5" />
+                done
+                <span className="text-xs text-muted-foreground">
+                  · {todayEntries.length}
+                </span>
+              </button>
 
-      <footer className="border-t border-border py-4 text-center text-xs text-muted-foreground">
+              {todayEntries.length > 0 && (
+                <button
+                  onClick={() => setActiveTab("receipt")}
+                  className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
+                    activeTab === "receipt"
+                      ? "bg-primary/10 text-primary"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  <Receipt className="h-3.5 w-3.5" />
+                  receipt
+                </button>
+              )}
+
+              {/* Locked todo tab */}
+              <span
+                className="group relative flex cursor-not-allowed items-center gap-1.5 rounded-md px-3 py-1.5 text-sm text-muted-foreground/40"
+                title="we don't do that here"
+              >
+                <Lock className="h-3 w-3" />
+                todo
+                <span className="pointer-events-none absolute -bottom-8 left-1/2 z-10 -translate-x-1/2 whitespace-nowrap rounded bg-foreground px-2 py-1 text-xs text-background opacity-0 transition-opacity group-hover:opacity-100">
+                  we don&apos;t do that here
+                </span>
+              </span>
+            </nav>
+          </div>
+
+          {/* Panel content */}
+          <div className="flex-1 overflow-y-auto p-4 lg:p-6">
+            {activeTab === "done" && (
+              <EntryList entries={entries} onDelete={handleDeleteEntry} />
+            )}
+            {activeTab === "receipt" && todayEntries.length > 0 && (
+              <DailyReceipt entries={todayEntries} />
+            )}
+          </div>
+        </section>
+      </div>
+
+      <footer className="border-t border-border py-3 text-center text-xs text-muted-foreground">
         <p>alibi · the friend who remembers your day.</p>
       </footer>
     </div>

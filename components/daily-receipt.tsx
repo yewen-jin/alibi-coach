@@ -15,17 +15,24 @@ function formatDuration(minutes: number) {
   return `${hours}h ${rem}m`
 }
 
+function DottedDivider() {
+  return (
+    <div className="my-3 border-b border-dotted border-muted-foreground/30" />
+  )
+}
+
 export function DailyReceipt({ entries }: DailyReceiptProps) {
   const today = new Date()
-  const formattedDate = format(today, "EEEE, MMMM d, yyyy").toLowerCase()
+  const formattedDate = format(today, "MMM d, yyyy").toUpperCase()
+  const dayName = format(today, "EEEE").toUpperCase()
 
   // entries are passed newest-first; render oldest-first for receipt feel
   const ordered = [...entries].reverse()
 
-  const earliest = ordered.length > 0 ? format(new Date(ordered[0].created_at), "h:mm a") : null
+  const earliest = ordered.length > 0 ? format(new Date(ordered[0].created_at), "HH:mm") : null
   const latest =
     ordered.length > 0
-      ? format(new Date(ordered[ordered.length - 1].created_at), "h:mm a")
+      ? format(new Date(ordered[ordered.length - 1].created_at), "HH:mm")
       : null
 
   // Aggregate projects + total tracked time
@@ -39,72 +46,78 @@ export function DailyReceipt({ entries }: DailyReceiptProps) {
 
   return (
     <article
-      className="mx-auto max-w-md rounded-2xl border border-border bg-card p-6 shadow-sm"
+      className="alibi-soft-rise mx-auto max-w-sm rounded-lg border border-border bg-[hsl(40_30%_97%)] px-5 py-6 font-mono shadow-md"
       aria-label="today's receipt"
+      style={{
+        backgroundImage: `repeating-linear-gradient(
+          0deg,
+          transparent,
+          transparent 1.4rem,
+          hsl(40 20% 92% / 0.5) 1.4rem,
+          hsl(40 20% 92% / 0.5) 1.45rem
+        )`,
+      }}
     >
       {/* Header */}
-      <header className="border-b border-dashed border-border pb-4 text-center">
-        <h2 className="font-serif text-2xl text-foreground">today, on the record</h2>
-        <p className="mt-1 text-sm text-muted-foreground">{formattedDate}</p>
+      <header className="text-center">
+        <p className="text-[0.65rem] tracking-[0.2em] text-muted-foreground">
+          — ALIBI —
+        </p>
+        <h2 className="mt-1 text-lg font-bold tracking-wide text-foreground">
+          {dayName}
+        </h2>
+        <p className="text-xs tracking-wider text-muted-foreground">{formattedDate}</p>
       </header>
 
+      <DottedDivider />
+
       {/* Summary row */}
-      <div className="grid grid-cols-3 gap-2 border-b border-dashed border-border py-4 text-center">
-        <div>
-          <p className="font-serif text-2xl text-foreground">{ordered.length}</p>
-          <p className="text-[0.7rem] uppercase tracking-wide text-muted-foreground">
-            things logged
-          </p>
-        </div>
-        <div>
-          <p className="font-serif text-2xl text-foreground">
-            {totalMinutes > 0 ? formatDuration(totalMinutes) : "—"}
-          </p>
-          <p className="text-[0.7rem] uppercase tracking-wide text-muted-foreground">
-            tracked
-          </p>
-        </div>
-        <div>
-          <p className="font-serif text-2xl text-foreground">{projects.length}</p>
-          <p className="text-[0.7rem] uppercase tracking-wide text-muted-foreground">
-            projects
-          </p>
-        </div>
+      <div className="flex justify-between text-xs">
+        <span className="text-muted-foreground">ITEMS</span>
+        <span className="text-foreground">{ordered.length}</span>
       </div>
+      <div className="mt-1 flex justify-between text-xs">
+        <span className="text-muted-foreground">TIME LOGGED</span>
+        <span className="text-foreground">
+          {totalMinutes > 0 ? formatDuration(totalMinutes) : "—"}
+        </span>
+      </div>
+      <div className="mt-1 flex justify-between text-xs">
+        <span className="text-muted-foreground">PROJECTS</span>
+        <span className="text-foreground">{projects.length}</span>
+      </div>
+
+      <DottedDivider />
 
       {/* Project pills */}
       {projects.length > 0 && (
-        <div className="flex flex-wrap justify-center gap-1.5 border-b border-dashed border-border py-4">
-          {projects.map((p) => (
-            <span
-              key={p}
-              className="rounded-full bg-secondary px-2.5 py-0.5 text-xs text-secondary-foreground"
-            >
-              {p}
-            </span>
-          ))}
-        </div>
+        <>
+          <div className="flex flex-wrap justify-center gap-1.5">
+            {projects.map((p) => (
+              <span
+                key={p}
+                className="rounded bg-primary/15 px-2 py-0.5 text-[0.65rem] uppercase tracking-wide text-primary"
+              >
+                {p}
+              </span>
+            ))}
+          </div>
+          <DottedDivider />
+        </>
       )}
 
       {/* Items */}
-      <ul className="space-y-2 py-4">
+      <ul className="space-y-2">
         {ordered.map((entry) => {
-          const t = format(new Date(entry.created_at), "h:mm a")
+          const t = format(new Date(entry.created_at), "HH:mm")
           return (
-            <li key={entry.id} className="flex items-start gap-3 text-sm">
-              <span className="w-14 flex-shrink-0 font-mono text-[0.7rem] text-muted-foreground">
-                {t}
-              </span>
+            <li key={entry.id} className="flex items-start gap-2 text-xs">
+              <span className="w-10 flex-shrink-0 text-muted-foreground">{t}</span>
               <span className="flex-1 leading-relaxed text-foreground">
                 {entry.content}
-                {entry.project && (
-                  <span className="ml-1.5 text-xs text-muted-foreground">
-                    · {entry.project}
-                  </span>
-                )}
                 {typeof entry.duration_minutes === "number" && (
-                  <span className="ml-1 text-xs text-muted-foreground">
-                    · ~{formatDuration(entry.duration_minutes)}
+                  <span className="ml-1 text-muted-foreground">
+                    ({formatDuration(entry.duration_minutes)})
                   </span>
                 )}
               </span>
@@ -113,18 +126,20 @@ export function DailyReceipt({ entries }: DailyReceiptProps) {
         })}
       </ul>
 
+      <DottedDivider />
+
       {/* Footer */}
-      <footer className="border-t border-dashed border-border pt-4 text-center">
+      <footer className="text-center">
         {earliest && latest && (
-          <p className="text-xs text-muted-foreground">
-            {earliest} → {latest}
+          <p className="text-[0.65rem] text-muted-foreground">
+            {earliest} - {latest}
           </p>
         )}
-        <p className="mt-2 font-serif text-sm italic text-muted-foreground">
+        <p className="mt-3 font-sans text-sm italic text-muted-foreground">
           this is your day. it counts.
         </p>
-        <p className="mt-1 text-[0.7rem] uppercase tracking-wide text-muted-foreground">
-          — alibi
+        <p className="mt-2 text-[0.6rem] tracking-[0.15em] text-muted-foreground/70">
+          THANK YOU FOR SHOWING UP
         </p>
       </footer>
     </article>
