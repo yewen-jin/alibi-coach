@@ -1,3 +1,75 @@
+# dependencies
+node_modules/
+.pnp
+.pnp.*
+.yarn/install-state.gz
+
+# next.js
+.next/
+out/
+build/
+dist/
+
+# production
+*.tsbuildinfo
+next-env.d.ts
+
+# environment variables — NEVER commit these
+.env
+.env.local
+.env.development
+.env.development.local
+.env.test
+.env.test.local
+.env.production
+.env.production.local
+.env*.local
+
+# secrets / credentials
+*.pem
+*.key
+*.cert
+*.p12
+*.pfx
+credentials.json
+service-account*.json
+secrets/
+.secrets
+
+# logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+*.log
+
+# vercel
+.vercel
+
+# typescript
+*.tsbuildinfo
+
+# editor / OS
+.vscode/*
+!.vscode/extensions.json
+.idea/
+.DS_Store
+*.swp
+*.swo
+Thumbs.db
+desktop.ini
+
+# testing
+coverage/
+.nyc_output/
+
+# turbo / cache
+.turbo
+.cache/
+
+# misc
+*.local
 .env
 
 node_modules
