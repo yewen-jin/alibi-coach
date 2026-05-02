@@ -98,9 +98,20 @@ export async function processMessage(text: string): Promise<ProcessResult> {
     })
 
     const parsed = extractJSON(classificationText)
-    const validMoods = ["joyful", "neutral", "flat", "anxious", "guilty", "proud"]
-    const validEffort = ["easy", "medium", "hard", "grind"]
-    const validSatisfaction = ["satisfied", "mixed", "frustrated", "unclear"]
+    const validMoods = ["joyful", "neutral", "flat", "anxious", "guilty", "proud"] as const
+    const validEffort = ["easy", "medium", "hard", "grind"] as const
+    const validSatisfaction = ["satisfied", "mixed", "frustrated", "unclear"] as const
+
+    type ValidMood = typeof validMoods[number]
+    type ValidEffort = typeof validEffort[number]
+    type ValidSatisfaction = typeof validSatisfaction[number]
+
+    const isValidMood = (v: unknown): v is ValidMood =>
+      typeof v === "string" && (validMoods as readonly string[]).includes(v)
+    const isValidEffort = (v: unknown): v is ValidEffort =>
+      typeof v === "string" && (validEffort as readonly string[]).includes(v)
+    const isValidSatisfaction = (v: unknown): v is ValidSatisfaction =>
+      typeof v === "string" && (validSatisfaction as readonly string[]).includes(v)
 
     if (!parsed || !parsed.intent) {
       classification = {
@@ -121,13 +132,13 @@ export async function processMessage(text: string): Promise<ProcessResult> {
         intent: parsed.intent === "check_in" ? "check_in" : "drop_in",
         content: typeof parsed.content === "string" ? parsed.content : trimmed,
         project: typeof parsed.project === "string" ? parsed.project : null,
-        mood: validMoods.includes(parsed.mood) ? parsed.mood : null,
+        mood: isValidMood(parsed.mood) ? parsed.mood : null,
         duration_minutes:
           typeof parsed.duration_minutes === "number"
             ? parsed.duration_minutes
             : null,
-        effort_level: validEffort.includes(parsed.effort_level) ? parsed.effort_level : null,
-        satisfaction: validSatisfaction.includes(parsed.satisfaction) ? parsed.satisfaction : null,
+        effort_level: isValidEffort(parsed.effort_level) ? parsed.effort_level : null,
+        satisfaction: isValidSatisfaction(parsed.satisfaction) ? parsed.satisfaction : null,
         avoidance_marker: parsed.avoidance_marker === true,
         hyperfocus_marker: parsed.hyperfocus_marker === true,
         guilt_marker: parsed.guilt_marker === true,
