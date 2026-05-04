@@ -21,14 +21,22 @@ Server action status from the v2 architecture:
 
 | Function | Status |
 | --- | --- |
+| `getActiveTimer` | Implemented in `app/actions/timer.ts`; loads the current user's `active_timer` row so the Phase 1 timer UI can hydrate after refresh/navigation. |
 | `startTimer` | Implemented in `app/actions/timer.ts`; creates the current user's `active_timer` row and preserves an already-running timer. |
 | `stopTimer` | Implemented in `app/actions/timer.ts`; moves the current user's `active_timer` into `time_blocks` and clears the active timer. Stopped blocks intentionally have no metadata until the block editor exists. |
 | `saveBlock` | Implemented in `app/actions/timer.ts`; creates manual/backdated blocks and saves post-stop metadata edits for user-owned `time_blocks`. |
 | `deleteBlock` | Implemented in `app/actions/timer.ts`; deletes user-owned `time_blocks` rows and returns `not_found` for missing or non-owned blocks. |
 | `getCalendarData` | Implemented in `app/actions/timer.ts`; loads completed user-owned `time_blocks` that overlap the requested date range. |
-| `analyseBlocks` | Not implemented. |
+| `analyseBlocks` | Not implemented; Phase 3. |
 
-Database assumption: `active_timer` and `time_blocks` exist in Supabase with the shapes defined in `SPECS.md`.
+Database setup: run [`supabase-v2.sql`](./supabase-v2.sql) in Supabase to add `active_timer` and `time_blocks` with generated duration, RLS policies, and the `time_blocks.updated_at` trigger. The existing `entries`/v1 schema remains intact.
+
+Where we are now:
+
+- **Server foundation:** complete for Phase 1 readiness. Active timer hydration, timer start/stop, block save/update/delete, and calendar range reads exist for `time_blocks`.
+- **UI foundation:** not started for v2. The authenticated app still presents the v1 drop-in/chat interface, not the persistent timer, block editor, or time-block calendar.
+- **Next implementation step:** wire the Phase 1 UI around the implemented server actions, starting with the persistent timer control and post-stop block editor.
+- **Later server gap:** `analyseBlocks` is still missing and belongs to Phase 3, after block tracking and calendar views are usable.
 
 ---
 

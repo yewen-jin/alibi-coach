@@ -5,6 +5,7 @@ import type {
   ActiveTimer,
   DeleteBlockInput,
   DeleteBlockResult,
+  GetActiveTimerResult,
   GetCalendarDataInput,
   GetCalendarDataResult,
   SaveBlockInput,
@@ -191,6 +192,35 @@ function validateGetCalendarDataInput(input: unknown):
     type: "valid",
     start: start.toISOString(),
     end: end.toISOString(),
+  }
+}
+
+/**
+ * Load the current user's running timer, if one exists.
+ */
+export async function getActiveTimer(): Promise<GetActiveTimerResult> {
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  if (!user) {
+    return { type: "error", message: "not signed in." }
+  }
+
+  const { data: activeTimer, error } = await supabase
+    .from("active_timer")
+    .select("*")
+    .eq("user_id", user.id)
+    .maybeSingle()
+
+  if (error) {
+    return { type: "error", message: "couldn't load the timer. try again." }
+  }
+
+  return {
+    type: "loaded",
+    activeTimer: activeTimer ? (activeTimer as ActiveTimer) : null,
   }
 }
 

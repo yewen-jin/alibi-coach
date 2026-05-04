@@ -85,6 +85,16 @@ export interface GetCalendarDataInput {
   end: string
 }
 
+export type GetActiveTimerResult =
+  | {
+      type: "loaded"
+      activeTimer: ActiveTimer | null
+    }
+  | {
+      type: "error"
+      message: string
+    }
+
 export type StartTimerResult =
   | {
       type: "started"
