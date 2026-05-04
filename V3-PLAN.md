@@ -21,6 +21,27 @@
   4. General chat history
       - Useful for recurring emotional themes, but weaker as behavioral evidence.
 
+  ## Phase 0 — Product Wiki / User Guidance
+
+  - Turn `/app/docs` into a wiki-style guide, not a feature list.
+  - Explain:
+      - what Alibi is and is not
+      - how timer, manual entry, notes, chat, and insights work together
+      - why notes are the primary evidence source
+      - how to write useful notes
+      - how to prompt chat so it asks better reconstruction questions
+  - Include note examples for:
+      - intended versus actual work
+      - parallel activity
+      - useful distraction
+      - friction, feeling, and outcome
+  - Include chat prompt examples for:
+      - "help me reconstruct this before saving"
+      - "turn this messy description into a useful note"
+      - "ask me questions before you log this"
+      - "what patterns do my notes show?"
+  - Acceptance: `/app/docs` reads like documentation for using the product well, not a marketing or feature page.
+
   ## Phase 1 — Make Notes Structurally Important
 
   - Update product specs so notes are no longer described as optional afterthoughts.
@@ -79,6 +100,28 @@
       - “admin blocks with avoidance language are usually short but high effort.”
   - Acceptance: insights always cite the note/time evidence they came from.
 
+  ## Phase 4.5 — Source-Linked Evidence Items
+
+  - After enough real notes exist, evolve from one insight row per block toward smaller evidence items.
+  - Possible table: block_evidence_items.
+  - Each item should include:
+      - claim_type
+      - source_type
+      - source_id
+      - time_block_id
+      - confidence
+      - evidence_excerpt
+  - Example claim types:
+      - attention_shift
+      - useful_distraction
+      - friction
+      - avoidance
+      - emotional_state
+      - satisfaction
+      - uncertainty
+      - project_or_person_reference
+  - Acceptance: higher-level patterns can point to small, auditable source claims instead of vague summaries.
+
   ## Phase 5 — Chat As Secondary Context
 
   - Keep coach_messages as a separate insight source.
@@ -123,6 +166,26 @@
   - Store custom categories per user.
   - Keep time_blocks.category as a readable slug during migration and add category_id for the new category record.
   - Acceptance: a user can type a new category name, save the block, and see that category reused later.
+
+  ## Phase 9 — Messy Block Model
+
+  - Do not redesign time_blocks too early.
+  - Use notes and evidence extraction first to learn whether messy blocks need more explicit structure.
+  - Consider block_activity_segments only if one time block often contains multiple meaningful activity slices.
+  - Consider attention-shift records if "intended task versus actual task" becomes central.
+  - Acceptance: any added structure should make real user records easier to analyze without making logging harder.
+
+  ## Phase 10 — RAG Readiness
+
+  - Delay full RAG until raw sources and evidence pointers are clean.
+  - Future retrieval should index source-backed chunks from:
+      - time block notes
+      - note versions
+      - linked chat messages
+      - evidence items
+      - pattern observations
+  - Every RAG answer should cite dated blocks, note excerpts, chat turns, or stored evidence.
+  - Acceptance: retrieval returns grounded evidence from the user's timeline, not generic summaries.
 
   ## Schema Additions
 

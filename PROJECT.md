@@ -87,7 +87,8 @@ UI status:
 
 - `/app` has timer, post-stop/manual block editor, daily add-block button, latest-block resume, chat panel, and simple daily block list.
 - `/app/dashboard` has totals, calendar/rhythm/category views, ADHD markers, and notes mirror.
-- `/` and `/app/docs` still mostly describe the v2 product shape and should be updated to match the V3 language in `SPECS.md`.
+- `/app/docs` is now a wiki-style guide explaining what Alibi is, how the evidence model works, how to write useful notes, how to use chat well, and where the V3/RAG direction is going.
+- `/` still mostly describes the v2 product shape and should be updated to match the V3 language in `SPECS.md`.
 
 Verification:
 
@@ -109,35 +110,60 @@ Known working principle:
 - Chat can analyze saved data, but its elicitation style should become more deliberate: it should ask better questions about feelings, drift, mixed outcomes, and context.
 - RAG is not implemented yet. The project first needs cleaner source records and evidence pointers.
 - Agentic database evolution is not implemented. Future work should let the agent propose schema changes, not mutate production schema directly.
-- App-facing copy needs to reflect V3: nuanced notes, chat as elicitation, timeline-linked evidence, and future pattern/RAG direction.
+- Landing-page copy still needs to reflect V3: nuanced notes, chat as elicitation, timeline-linked evidence, and future pattern/RAG direction.
 
 ## Roadmap
 
 ### Phase 1 - Live QA And Copy Alignment
 
 - Run authenticated smoke tests for note save/edit, custom categories, chat logging, chat analysis, and dashboard notes mirror.
-- Update `/` and `/app/docs` copy to match the V3 product contract.
-- Fix any mismatch where UI copy treats notes as a minor optional field instead of primary evidence.
+- Update `/` copy to match the V3 product contract.
+- Keep `/app/docs` as a wiki, not a feature list. It should explain what Alibi is, how it works, how to write useful notes, and how to prompt chat well.
+- Fix any remaining UI copy that treats notes as a minor optional field instead of primary evidence.
 
-### Phase 2 - Better Elicitation
+### Phase 2 - Better Note Capture
+
+- Improve the block editor so notes are easier to write without turning them into a long required form.
+- Support richer note prompts around intended versus actual work, parallel activity, attention shifts, useful distractions, friction, body state, feeling, and outcome.
+- Keep one human-written note as the primary source, then derive structure beside it.
+- Preserve note-history behavior when notes are edited after the fact.
+
+### Phase 3 - Better Chat Elicitation
 
 - Update the chat prompt so the agent helps the user reconstruct messy time blocks: parallel activity, attention shifts, useful distractions, friction, mood, and body state.
+- Separate logging mode from reflection mode so ordinary emotional check-ins do not become forced block writes.
 - Let chat help expand or revise notes while preserving note history.
+- Add prompt patterns for "ask me questions before saving," "turn this into a useful note," and "help me name what actually happened."
 - Ensure chat asks for missing details before writing valid blocks.
 
-### Phase 3 - Timeline-Linked Pattern Analysis
+### Phase 4 - Source-Linked Evidence Layer
 
-- Build richer week/month analysis over notes, metadata, and linked chat.
+- Evolve `time_block_insights` toward smaller atomic evidence items only after real usage shows what claims recur.
+- Track claim type, source type, source id, time block id, confidence, and evidence excerpt for each extracted claim.
+- Use evidence items for attention shifts, useful distractions, friction, satisfaction, uncertainty, people, projects, and recurring themes.
+- Keep raw notes and chat as the highest-trust source material.
+
+### Phase 5 - Timeline-Linked Pattern Analysis
+
+- Build richer week/month analysis over notes, metadata, linked chat, and source-linked evidence items.
 - Add evidence-backed observations such as recurring friction by hour, satisfying contexts, avoidance that became useful work, or flatness after certain block types.
 - Keep every observation traceable to source blocks/notes/messages.
 
-### Phase 4 - Evidence Model For RAG
+### Phase 6 - Messy Block Data Model
 
-- Introduce an explicit evidence/chunk layer only after enough real usage reveals the right retrieval shape.
-- Store source pointers from chunks to notes, note versions, chat messages, time blocks, and derived observations.
+- Do not redesign the schema for multi-activity blocks until enough real notes prove the shape.
+- Consider `block_activity_segments` if one time block often needs multiple activity slices.
+- Consider explicit attention-shift records if "intended task versus actual task" becomes central.
+- Keep the timeline simple until the extra structure removes more ambiguity than it creates.
+
+### Phase 7 - Evidence Model For RAG
+
+- Introduce an explicit retrieval/chunk layer only after enough real usage reveals the right retrieval shape.
+- Store source pointers from chunks to notes, note versions, chat messages, time blocks, evidence items, and derived observations.
 - Add embeddings and retrieval only for source-backed evidence.
+- Require RAG answers to cite dated blocks, note excerpts, chat turns, or stored evidence.
 
-### Phase 5 - Agent-Assisted Schema Evolution
+### Phase 8 - Agent-Assisted Schema Evolution
 
 - Let the agent inspect current schema and propose migration drafts for new evidence/RAG tables.
 - Keep production database changes explicit, reviewed, and migration-based.
@@ -156,4 +182,4 @@ Known working principle:
 
 ## Next Step
 
-Run live authenticated QA, then update public/docs copy so the visible product language matches the V3 spec.
+Run live authenticated QA, then update landing-page copy so the visible product language matches the V3 spec.
