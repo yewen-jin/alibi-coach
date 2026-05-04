@@ -8,9 +8,9 @@ import {
   LayoutGrid,
   Lock,
   MessageCircle,
-  Receipt,
+  Plus,
   Sparkles,
-  Tags,
+  Timer,
   type LucideIcon,
 } from "lucide-react"
 import { createClient } from "@/lib/supabase/server"
@@ -31,60 +31,64 @@ interface Feature {
 
 const FEATURES: Feature[] = [
   {
-    icon: MessageCircle,
-    title: "drop-in chat",
+    icon: Timer,
+    title: "timer-first tracking",
     body:
-      "tell alibi what you've been up to in plain language. no schema, no fields. one message becomes one entry on the record.",
-    example: "you: 'morning walk and then 90 min on the migration' → filed.",
+      "start the timer when you begin, stop it when the work is real, then name the block after the fact. start/stop stays low-friction; metadata can wait.",
+    example: "tap start → work → tap stop → name the block",
+    where: "/app",
+  },
+  {
+    icon: Plus,
+    title: "manual add block",
+    body:
+      "forgot to run the tracker? add a completed block manually, backdate the start/end time, choose a category, and save it into the same record.",
+    example: "add block → invoice follow-up · admin · 2:00-2:25",
+    where: "/app",
+  },
+  {
+    icon: MessageCircle,
+    title: "chat logging",
+    body:
+      "chat is a secondary input surface. tell alibi what happened in plain language and it writes a structured time block, not a legacy freeform entry.",
+    example: "you: 'worked on the migration from 10 to 11:30, deep work' → one time block",
     where: "/app",
   },
   {
     icon: Sparkles,
-    title: "AI parsing",
+    title: "clarifying parser",
     body:
-      "alibi quietly extracts the project, mood, and duration from each message — so you don't have to format anything.",
-    example: "morning walk → project: care · 30 min · neutral",
+      "if a chat log is missing the essentials, alibi keeps the draft and asks for the missing piece instead of guessing.",
+    example:
+      "you: 'worked on client bug' → alibi: 'what time was that, or about how long did it take?'",
   },
   {
-    icon: Receipt,
-    title: "the receipt",
+    icon: CalendarRange,
+    title: "today's block list",
     body:
-      "today's entries appear on a thermal-paper receipt, time-stamped and grouped by day. proof you actually moved.",
+      "the main app shows today's completed blocks with start/end times, duration, category, notes, hashtags, edit/delete controls, and resume on the latest block.",
     where: "/app",
+  },
+  {
+    icon: LayoutGrid,
+    title: "dashboard summaries",
+    body:
+      "the dashboard reads the same time_blocks data to summarize categories, rhythms, effort markers, and saved work patterns.",
+    where: "/app/dashboard",
   },
   {
     icon: Heart,
     title: "check-in mode",
     body:
-      "ask 'what have i done today?' or say you're spiraling, and alibi reads it back to you with warmth — never a guilt list.",
+      "ask 'what did i do today?' or say you're spiraling, and alibi reflects saved blocks back with warmth and specifics.",
     example:
-      "you: 'i feel like i did nothing' → alibi: 'you sent the avoided email at 11:15. that counted.'",
-  },
-  {
-    icon: CalendarRange,
-    title: "calendar dashboard",
-    body:
-      "a heatmap of every day you've shown up. click any day to see what you logged. light days look as quiet as they were.",
-    where: "/app/dashboard",
-  },
-  {
-    icon: LayoutGrid,
-    title: "rhythm + projects",
-    body:
-      "see the days of the week and hours of the day you actually log most, plus where your time is going by project.",
-    where: "/app/dashboard",
-  },
-  {
-    icon: Tags,
-    title: "proactive messages",
-    body:
-      "as your record grows, alibi starts noticing things — quiet patterns, gentle nudges, occasional celebrations. the more you log, the more it shows up.",
+      "you: 'i feel like i did nothing' → alibi reads back the blocks already on the record.",
   },
   {
     icon: Lock,
     title: "private by default",
     body:
-      "row-level security on every entry. only you can read your own record — not other users, not alibi's developers.",
+      "row-level security protects your time blocks, active timer, coach messages, and drafts. only you can read your own record.",
   },
   {
     icon: CheckCircle2,
@@ -116,9 +120,9 @@ export default async function DocsPage() {
             </span>
           </div>
           <p className="mt-1 max-w-prose text-[13.5px] leading-[1.5] text-[#6B5A47]">
-            alibi is a witness, not a coach. you tell it what you did, it
-            remembers, and on the days when your brain forgets, it tells you
-            back. these are the moving parts.
+            alibi is a witness, not a coach. it records time blocks through the
+            timer, manual add-block flow, and structured chat logging, then reads
+            those same blocks back when your brain forgets.
           </p>
         </header>
 
@@ -145,7 +149,7 @@ export default async function DocsPage() {
         {/* CTA */}
         <section className="mt-2 flex flex-col items-center gap-3 px-2 py-6 text-center">
           <p className="text-[13px] text-[#6B5A47]">
-            ready to get something on the record?
+            ready to put a block on the record?
           </p>
           <div className="flex flex-wrap items-center justify-center gap-2">
             <Link
@@ -153,7 +157,7 @@ export default async function DocsPage() {
               className="inline-flex items-center gap-2 rounded-full px-5 py-2.5 text-[13px] font-medium text-white transition-all active:scale-95"
               style={PRIMARY_BUTTON_STYLE}
             >
-              go to chat
+              open tracker
               <ArrowRight className="h-3.5 w-3.5" strokeWidth={2.4} />
             </Link>
             <Link

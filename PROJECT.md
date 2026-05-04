@@ -38,6 +38,7 @@ Where we are now:
 - **Server foundation:** complete for Phase 1 plus first chat-agent pass. Active timer hydration, timer start/stop/resume, manual block save/update/delete, chat-controlled writes, clarification gating, and calendar range reads exist for `time_blocks`.
 - **UI foundation:** partially complete for v2. `/app` now renders a persistent timer control, post-stop/manual block editor, daily add-block button, latest-block resume button, chat panel, and simple daily time-block list backed by the same server actions.
 - **Chat progress:** implemented as a secondary input surface. It can respond conversationally without forcing a log, start a timer, stop a timer into `time_blocks`, log completed blocks with extracted metadata, ask for missing timing/task/category before writes, and answer from saved blocks. New chat writes no longer go to `entries`.
+- **Public/docs copy:** `/` and `/app/docs` now describe the v2 product shape: timer-first blocks, manual add-block flow, latest-block resume, structured chat logging, and shared `time_blocks` storage.
 - **Verification:** `npm run build` passes after the chat reintroduction. Live Supabase/OpenRouter flows still need browser QA with an authenticated user.
 - **Next implementation step:** run live chat/manual-block smoke tests, then broaden the calendar experience beyond today's list.
 - **Later server gap:** broader period analysis is still basic; the first chat analysis path supports extracted ranges but needs richer week/month handling and deterministic summaries.
