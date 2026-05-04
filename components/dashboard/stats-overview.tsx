@@ -1,18 +1,18 @@
-import type { Entry } from "@/lib/types"
+import type { TimeBlock } from "@/lib/types"
 import { totalsFor } from "@/lib/dashboard-data"
 import { GLASS_PANEL_STYLE } from "@/lib/ui-styles"
 
 interface StatsOverviewProps {
-  entries: Entry[]
+  blocks: TimeBlock[]
 }
 
-export function StatsOverview({ entries }: StatsOverviewProps) {
-  const { totalEntries, distinctDays, totalMinutes } = totalsFor(entries)
+export function StatsOverview({ blocks }: StatsOverviewProps) {
+  const { totalBlocks, distinctDays, totalMinutes } = totalsFor(blocks)
   const avgPerActiveDay =
-    distinctDays > 0 ? (totalEntries / distinctDays).toFixed(1) : "0"
+    distinctDays > 0 ? (totalBlocks / distinctDays).toFixed(1) : "0"
 
   const stats = [
-    { label: "things logged", value: totalEntries.toString() },
+    { label: "blocks logged", value: totalBlocks.toString() },
     { label: "active days", value: distinctDays.toString() },
     { label: "avg per day", value: avgPerActiveDay },
     { label: "tracked time", value: formatMinutes(totalMinutes) },

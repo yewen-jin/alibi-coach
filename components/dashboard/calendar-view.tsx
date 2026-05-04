@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react"
 import { ChevronLeft, ChevronRight } from "lucide-react"
-import type { Entry } from "@/lib/types"
+import type { TimeBlock } from "@/lib/types"
 import {
   bucketByDay,
   buildCalendarGrid,
@@ -11,7 +11,7 @@ import {
 import { GLASS_PANEL_STYLE, PAPER_INSET_STYLE } from "@/lib/ui-styles"
 
 interface CalendarViewProps {
-  entries: Entry[]
+  blocks: TimeBlock[]
 }
 
 const MONTHS = [
@@ -31,13 +31,13 @@ const MONTHS = [
 
 const WEEKDAYS = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"]
 
-export function CalendarView({ entries }: CalendarViewProps) {
+export function CalendarView({ blocks }: CalendarViewProps) {
   const today = new Date()
   const [year, setYear] = useState(today.getFullYear())
   const [month, setMonth] = useState(today.getMonth())
   const [selectedKey, setSelectedKey] = useState<string | null>(null)
 
-  const buckets = useMemo(() => bucketByDay(entries), [entries])
+  const buckets = useMemo(() => bucketByDay(blocks), [blocks])
   const cells = useMemo(
     () => buildCalendarGrid(year, month, buckets),
     [year, month, buckets]
@@ -126,7 +126,7 @@ export function CalendarView({ entries }: CalendarViewProps) {
               onClick={() =>
                 setSelectedKey(isSelected ? null : cell.dateKey)
               }
-              aria-label={`${cell.dateKey}: ${cell.bucket?.count ?? 0} entries${
+              aria-label={`${cell.dateKey}: ${cell.bucket?.count ?? 0} blocks${
                 cell.isToday ? ", today" : ""
               }`}
               aria-pressed={isSelected}
@@ -192,37 +192,37 @@ export function CalendarView({ entries }: CalendarViewProps) {
               style={{ borderTop: "1px dashed #C8B89F" }}
             />
             <span className="font-mono text-[10px] tracking-[0.12em] text-[#A89680]">
-              {String(selected.count).padStart(2, "0")} ITEMS
+              {String(selected.count).padStart(2, "0")} BLOCKS
               {selected.totalMinutes > 0 &&
                 ` · ${formatMinutes(selected.totalMinutes)}`}
             </span>
           </div>
           <ul className="space-y-2">
-            {selected.entries
+            {selected.blocks
               .slice()
               .sort(
                 (a, b) =>
-                  new Date(a.created_at).getTime() -
-                  new Date(b.created_at).getTime()
+                  new Date(a.started_at).getTime() -
+                  new Date(b.started_at).getTime()
               )
-              .map((entry) => (
+              .map((block) => (
                 <li
-                  key={entry.id}
+                  key={block.id}
                   className="flex items-start gap-3 text-[13.5px] leading-[1.5] text-[#2A1F14]"
                 >
                   <span className="mt-0.5 font-mono text-[11px] tracking-[0.04em] text-[#A89680]">
-                    {new Date(entry.created_at).toLocaleTimeString([], {
+                    {new Date(block.started_at).toLocaleTimeString([], {
                       hour: "2-digit",
                       minute: "2-digit",
                     })}
                   </span>
-                  <span className="flex-1">{entry.content}</span>
-                  {entry.project && (
+                  <span className="flex-1">{block.task_name || "unnamed time block"}</span>
+                  {block.category && (
                     <span
                       className="rounded-full px-2 py-0.5 text-[10px] tracking-wide text-[#6B5A47]"
                       style={{ background: "rgba(60, 40, 20, 0.06)" }}
                     >
-                      {entry.project}
+                      {block.category.replace("_", " ")}
                     </span>
                   )}
                 </li>

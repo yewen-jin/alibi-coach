@@ -1,14 +1,14 @@
-import type { Entry } from "@/lib/types"
+import type { TimeBlock, TimeBlockCategory } from "@/lib/types"
 
 export interface DayBucket {
   date: string // YYYY-MM-DD in user's local time
   count: number
   totalMinutes: number
-  entries: Entry[]
+  blocks: TimeBlock[]
 }
 
-export interface ProjectStat {
-  project: string
+export interface CategoryStat {
+  category: string
   count: number
   totalMinutes: number
 }
@@ -35,62 +35,85 @@ function localDateKey(iso: string): string {
   return `${y}-${m}-${day}`
 }
 
-/** Bucket entries by local calendar day. */
-export function bucketByDay(entries: Entry[]): Map<string, DayBucket> {
+function durationMinutes(block: TimeBlock): number {
+  if (typeof block.duration_seconds === "number") {
+    return Math.round(block.duration_seconds / 60)
+  }
+
+  if (!block.ended_at) {
+    return 0
+  }
+
+  const startedAt = new Date(block.started_at).getTime()
+  const endedAt = new Date(block.ended_at).getTime()
+
+  if (Number.isNaN(startedAt) || Number.isNaN(endedAt) || endedAt <= startedAt) {
+    return 0
+  }
+
+  return Math.round((endedAt - startedAt) / 60_000)
+}
+
+function categoryLabel(category: TimeBlockCategory | null): string {
+  return category?.replace("_", " ") ?? "uncategorized"
+}
+
+/** Bucket time blocks by local calendar day. */
+export function bucketByDay(blocks: TimeBlock[]): Map<string, DayBucket> {
   const map = new Map<string, DayBucket>()
-  for (const entry of entries) {
-    const key = localDateKey(entry.created_at)
+  for (const block of blocks) {
+    const key = localDateKey(block.started_at)
     const bucket = map.get(key) ?? {
       date: key,
       count: 0,
       totalMinutes: 0,
-      entries: [],
+      blocks: [],
     }
     bucket.count += 1
-    bucket.totalMinutes += entry.duration_minutes ?? 0
-    bucket.entries.push(entry)
+    bucket.totalMinutes += durationMinutes(block)
+    bucket.blocks.push(block)
     map.set(key, bucket)
   }
   return map
 }
 
-/** Aggregate by project (entries without project go under "untagged"). */
-export function aggregateByProject(entries: Entry[]): ProjectStat[] {
-  const map = new Map<string, ProjectStat>()
-  for (const entry of entries) {
-    const key = entry.project?.trim().toLowerCase() || "untagged"
-    const stat = map.get(key) ?? { project: key, count: 0, totalMinutes: 0 }
+/** Aggregate by category (blocks without category go under "uncategorized"). */
+export function aggregateByCategory(blocks: TimeBlock[]): CategoryStat[] {
+  const map = new Map<string, CategoryStat>()
+  for (const block of blocks) {
+    const key = categoryLabel(block.category)
+    const stat = map.get(key) ?? { category: key, count: 0, totalMinutes: 0 }
     stat.count += 1
-    stat.totalMinutes += entry.duration_minutes ?? 0
+    stat.totalMinutes += durationMinutes(block)
     map.set(key, stat)
   }
-  return Array.from(map.values()).sort((a, b) => b.count - a.count)
+  return Array.from(map.values()).sort((a, b) => b.totalMinutes - a.totalMinutes)
 }
 
 /** Aggregate by day-of-week to surface weekly rhythm. */
-export function aggregateByWeekday(entries: Entry[]): WeekdayStat[] {
+export function aggregateByWeekday(blocks: TimeBlock[]): WeekdayStat[] {
   const stats: WeekdayStat[] = WEEKDAY_LABELS.map((label, weekday) => ({
     weekday,
     label,
     count: 0,
     totalMinutes: 0,
   }))
-  for (const entry of entries) {
-    const wd = new Date(entry.created_at).getDay()
+  for (const block of blocks) {
+    const wd = new Date(block.started_at).getDay()
     stats[wd].count += 1
-    stats[wd].totalMinutes += entry.duration_minutes ?? 0
+    stats[wd].totalMinutes += durationMinutes(block)
   }
   return stats
 }
 
 /** Aggregate by hour to surface time-of-day patterns. */
-export function aggregateByHour(entries: Entry[]): HourStat[] {
+export function aggregateByHour(blocks: TimeBlock[]): HourStat[] {
   const stats: HourStat[] = Array.from({ length: 24 }, (_, hour) => ({
     hour,
     count: 0,
   }))
-  for (const entry of entries) {
-    const h = new Date(entry.created_at).getHours()
+  for (const block of blocks) {
+    const h = new Date(block.started_at).getHours()
     stats[h].count += 1
   }
   return stats
@@ -138,15 +161,15 @@ export function buildCalendarGrid(
   return cells
 }
 
-export function totalsFor(entries: Entry[]) {
+export function totalsFor(blocks: TimeBlock[]) {
   const distinctDays = new Set<string>()
   let totalMinutes = 0
-  for (const entry of entries) {
-    distinctDays.add(localDateKey(entry.created_at))
-    totalMinutes += entry.duration_minutes ?? 0
+  for (const block of blocks) {
+    distinctDays.add(localDateKey(block.started_at))
+    totalMinutes += durationMinutes(block)
   }
   return {
-    totalEntries: entries.length,
+    totalBlocks: blocks.length,
     distinctDays: distinctDays.size,
     totalMinutes,
   }
@@ -162,8 +185,8 @@ export interface MarkerStat {
   description: string
 }
 
-export function aggregateMarkers(entries: Entry[]): MarkerStat[] {
-  const total = entries.length
+export function aggregateMarkers(blocks: TimeBlock[]): MarkerStat[] {
+  const total = blocks.length
   if (total === 0) {
     return [
       { label: "avoidance conquered", key: "avoidance", count: 0, pct: 0, description: "tasks you were putting off" },
@@ -173,10 +196,10 @@ export function aggregateMarkers(entries: Entry[]): MarkerStat[] {
     ]
   }
 
-  const avoidance = entries.filter((e) => e.avoidance_marker).length
-  const hyperfocus = entries.filter((e) => e.hyperfocus_marker).length
-  const guilt = entries.filter((e) => e.guilt_marker).length
-  const novelty = entries.filter((e) => e.novelty_marker).length
+  const avoidance = blocks.filter((block) => block.avoidance_marker).length
+  const hyperfocus = blocks.filter((block) => block.hyperfocus_marker).length
+  const guilt = blocks.filter((block) => block.guilt_marker).length
+  const novelty = blocks.filter((block) => block.novelty_marker).length
 
   return [
     { label: "avoidance conquered", key: "avoidance", count: avoidance, pct: Math.round((avoidance / total) * 100), description: "tasks you were putting off" },
@@ -192,14 +215,14 @@ export interface EffortStat {
   pct: number
 }
 
-export function aggregateEffort(entries: Entry[]): EffortStat[] {
+export function aggregateEffort(blocks: TimeBlock[]): EffortStat[] {
   const levels = ["easy", "medium", "hard", "grind"] as const
-  const total = entries.filter((e) => e.effort_level).length
+  const total = blocks.filter((block) => block.effort_level).length
   if (total === 0) {
     return levels.map((level) => ({ level, count: 0, pct: 0 }))
   }
   return levels.map((level) => {
-    const count = entries.filter((e) => e.effort_level === level).length
+    const count = blocks.filter((block) => block.effort_level === level).length
     return { level, count, pct: Math.round((count / total) * 100) }
   })
 }
@@ -210,14 +233,14 @@ export interface SatisfactionStat {
   pct: number
 }
 
-export function aggregateSatisfaction(entries: Entry[]): SatisfactionStat[] {
+export function aggregateSatisfaction(blocks: TimeBlock[]): SatisfactionStat[] {
   const levels = ["satisfied", "mixed", "frustrated", "unclear"] as const
-  const total = entries.filter((e) => e.satisfaction).length
+  const total = blocks.filter((block) => block.satisfaction).length
   if (total === 0) {
     return levels.map((level) => ({ level, count: 0, pct: 0 }))
   }
   return levels.map((level) => {
-    const count = entries.filter((e) => e.satisfaction === level).length
+    const count = blocks.filter((block) => block.satisfaction === level).length
     return { level, count, pct: Math.round((count / total) * 100) }
   })
 }

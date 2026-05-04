@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation"
 import { createClient } from "@/lib/supabase/server"
-import { Alibi } from "@/components/alibi"
+import { TimerTrackerApp } from "@/components/timer-tracker-app"
 
 export default async function AppPage() {
   const supabase = await createClient()
@@ -12,5 +12,5 @@ export default async function AppPage() {
     redirect("/auth/login")
   }
 
-  return <Alibi userEmail={user.email ?? null} />
+  return <TimerTrackerApp userEmail={user.email ?? null} />
 }

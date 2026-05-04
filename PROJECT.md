@@ -9,13 +9,13 @@
 
 Not a planner. Not a tracker. A witness with a warm voice.
 
-The whole product is one input box, one list, one receipt — and an AI that knows when you're logging vs. spiralling and responds accordingly.
+The current v2 product centers on a timer-first block tracker, with the original drop-in/check-in flow kept in the codebase as legacy v1 behavior.
 
 ---
 
 ## SPECS.md v2 transition status
 
-`SPECS.md` is now v2 and supersedes parts of the older v1 implementation notes below. The current app still mostly runs the v1 drop-in/chat flow while v2 timer and calendar functionality is being added.
+`SPECS.md` is now v2 and supersedes parts of the older v1 implementation notes below. The authenticated `/app` route now runs the v2 timer and time-block flow while the v1 drop-in/chat components remain in the codebase.
 
 Server action status from the v2 architecture:
 
@@ -35,8 +35,8 @@ Where we are now:
 
 - **Database foundation:** complete for Phase 1 readiness. `active_timer` and `time_blocks` exist in Supabase with the v2 shape; app-data wipe/fresh-start status has not been independently verified from the repo because RLS hides user-owned rows from the anon key.
 - **Server foundation:** complete for Phase 1 readiness. Active timer hydration, timer start/stop, block save/update/delete, and calendar range reads exist for `time_blocks`.
-- **UI foundation:** not started for v2. The authenticated app still presents the v1 drop-in/chat interface, not the persistent timer, block editor, or time-block calendar.
-- **Next implementation step:** wire the Phase 1 UI around the implemented server actions, starting with the persistent timer control and post-stop block editor.
+- **UI foundation:** partially complete for v2. `/app` now renders a persistent timer control, post-stop block editor, and simple daily time-block list backed by the Phase 1 server actions.
+- **Next implementation step:** broaden the calendar experience beyond today's list and add manual block creation/backdating polish.
 - **Later server gap:** `analyseBlocks` is still missing and belongs to Phase 3, after block tracking and calendar views are usable.
 
 ---

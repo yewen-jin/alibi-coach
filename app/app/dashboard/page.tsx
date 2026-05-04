@@ -2,7 +2,7 @@ import Link from "next/link"
 import { redirect } from "next/navigation"
 import { ArrowRight } from "lucide-react"
 import { createClient } from "@/lib/supabase/server"
-import type { Entry } from "@/lib/types"
+import type { TimeBlock } from "@/lib/types"
 import { TopNav } from "@/components/top-nav"
 import { CalendarView } from "@/components/dashboard/calendar-view"
 import { RhythmChart } from "@/components/dashboard/rhythm-chart"
@@ -20,13 +20,14 @@ export default async function DashboardPage() {
 
   if (!user) redirect("/")
 
-  const { data: entries } = await supabase
-    .from("entries")
+  const { data: timeBlocks } = await supabase
+    .from("time_blocks")
     .select("*")
     .eq("user_id", user.id)
-    .order("created_at", { ascending: false })
+    .not("ended_at", "is", null)
+    .order("started_at", { ascending: false })
 
-  const safeEntries = (entries ?? []) as Entry[]
+  const safeBlocks = (timeBlocks ?? []) as TimeBlock[]
 
   return (
     <main className="relative min-h-screen w-full text-[#2A1F14]">
@@ -47,7 +48,7 @@ export default async function DashboardPage() {
           </p>
         </header>
 
-        {safeEntries.length === 0 ? (
+        {safeBlocks.length === 0 ? (
           <section
             className="flex flex-col items-center justify-center px-8 py-16 text-center"
             style={GLASS_PANEL_STYLE}
@@ -56,25 +57,25 @@ export default async function DashboardPage() {
               nothing on the record yet.
             </p>
             <p className="mt-1 text-[13px] text-[#A89680]">
-              go drop something in. i&apos;ll be watching.
+              start a timer, then save the block here.
             </p>
             <Link
               href="/app"
               className="mt-6 inline-flex items-center gap-2 rounded-full px-5 py-2.5 text-[13px] font-medium text-white transition-all active:scale-95"
               style={PRIMARY_BUTTON_STYLE}
             >
-              start logging
+              start tracking
               <ArrowRight className="h-3.5 w-3.5" strokeWidth={2.4} />
             </Link>
           </section>
         ) : (
           <div className="space-y-5">
-            <StatsOverview entries={safeEntries} />
-            <AdhdMarkers entries={safeEntries} />
-            <CalendarView entries={safeEntries} />
+            <StatsOverview blocks={safeBlocks} />
+            <AdhdMarkers blocks={safeBlocks} />
+            <CalendarView blocks={safeBlocks} />
             <div className="grid gap-5 md:grid-cols-2">
-              <RhythmChart entries={safeEntries} />
-              <ProjectDistribution entries={safeEntries} />
+              <RhythmChart blocks={safeBlocks} />
+              <ProjectDistribution blocks={safeBlocks} />
             </div>
           </div>
         )}

@@ -1,5 +1,6 @@
 "use server"
 
+import { revalidatePath } from "next/cache"
 import { createClient } from "@/lib/supabase/server"
 import type {
   ActiveTimer,
@@ -350,6 +351,9 @@ export async function stopTimer(): Promise<StopTimerResult> {
     }
   }
 
+  revalidatePath("/app")
+  revalidatePath("/app/dashboard")
+
   return {
     type: "stopped",
     timeBlock: timeBlock as TimeBlock,
@@ -402,6 +406,9 @@ export async function saveBlock(input: SaveBlockInput): Promise<SaveBlockResult>
       return { type: "not_found" }
     }
 
+    revalidatePath("/app")
+    revalidatePath("/app/dashboard")
+
     return {
       type: "saved",
       timeBlock: timeBlock as TimeBlock,
@@ -420,6 +427,9 @@ export async function saveBlock(input: SaveBlockInput): Promise<SaveBlockResult>
   if (insertError || !timeBlock) {
     return { type: "error", message: "couldn't save the time block. try again." }
   }
+
+  revalidatePath("/app")
+  revalidatePath("/app/dashboard")
 
   return {
     type: "saved",
@@ -461,6 +471,9 @@ export async function deleteBlock(input: DeleteBlockInput): Promise<DeleteBlockR
   if (!timeBlock) {
     return { type: "not_found" }
   }
+
+  revalidatePath("/app")
+  revalidatePath("/app/dashboard")
 
   return {
     type: "deleted",

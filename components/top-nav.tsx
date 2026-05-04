@@ -3,13 +3,13 @@
 import { useState } from "react"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
-import { BookOpen, LayoutGrid, LogOut, MessageCircle } from "lucide-react"
+import { BookOpen, Clock3, LayoutGrid, LogOut } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
 import { GLASS_PILL_STYLE } from "@/lib/ui-styles"
 import { cn } from "@/lib/utils"
 
 const LINKS = [
-  { href: "/app", label: "chat", icon: MessageCircle },
+  { href: "/app", label: "tracker", icon: Clock3 },
   { href: "/app/dashboard", label: "dashboard", icon: LayoutGrid },
   { href: "/app/docs", label: "docs", icon: BookOpen },
 ]

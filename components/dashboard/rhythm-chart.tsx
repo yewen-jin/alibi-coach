@@ -1,17 +1,17 @@
 "use client"
 
 import { useMemo } from "react"
-import type { Entry } from "@/lib/types"
+import type { TimeBlock } from "@/lib/types"
 import { aggregateByHour, aggregateByWeekday } from "@/lib/dashboard-data"
 import { GLASS_PANEL_STYLE } from "@/lib/ui-styles"
 
 interface RhythmChartProps {
-  entries: Entry[]
+  blocks: TimeBlock[]
 }
 
-export function RhythmChart({ entries }: RhythmChartProps) {
-  const weekday = useMemo(() => aggregateByWeekday(entries), [entries])
-  const hour = useMemo(() => aggregateByHour(entries), [entries])
+export function RhythmChart({ blocks }: RhythmChartProps) {
+  const weekday = useMemo(() => aggregateByWeekday(blocks), [blocks])
+  const hour = useMemo(() => aggregateByHour(blocks), [blocks])
 
   const maxWeekday = Math.max(...weekday.map((w) => w.count), 1)
   const maxHour = Math.max(...hour.map((h) => h.count), 1)
@@ -23,7 +23,7 @@ export function RhythmChart({ entries }: RhythmChartProps) {
           your rhythm
         </h2>
         <span className="text-[10px] font-medium uppercase tracking-[0.18em] text-[#A89680]">
-          when you log
+          when you track
         </span>
       </div>
 

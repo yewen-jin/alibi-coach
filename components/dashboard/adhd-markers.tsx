@@ -1,6 +1,6 @@
 "use client"
 
-import type { Entry } from "@/lib/types"
+import type { TimeBlock } from "@/lib/types"
 import {
   aggregateMarkers,
   aggregateEffort,
@@ -9,7 +9,7 @@ import {
 import { GLASS_PANEL_STYLE } from "@/lib/ui-styles"
 
 interface AdhdMarkersProps {
-  entries: Entry[]
+  blocks: TimeBlock[]
 }
 
 const MARKER_COLORS: Record<string, string> = {
@@ -33,10 +33,10 @@ const SATISFACTION_COLORS: Record<string, string> = {
   unclear: "#B8A898",
 }
 
-export function AdhdMarkers({ entries }: AdhdMarkersProps) {
-  const markers = aggregateMarkers(entries)
-  const effort = aggregateEffort(entries)
-  const satisfaction = aggregateSatisfaction(entries)
+export function AdhdMarkers({ blocks }: AdhdMarkersProps) {
+  const markers = aggregateMarkers(blocks)
+  const effort = aggregateEffort(blocks)
+  const satisfaction = aggregateSatisfaction(blocks)
 
   const hasAnyMarkers = markers.some((m) => m.count > 0)
   const hasEffortData = effort.some((e) => e.count > 0)
@@ -49,7 +49,7 @@ export function AdhdMarkers({ entries }: AdhdMarkersProps) {
           adhd patterns
         </h2>
         <p className="mt-0.5 text-[11px] text-[#A89680]">
-          what your entries say about how you work
+          what your blocks say about how you work
         </p>
       </div>
 
