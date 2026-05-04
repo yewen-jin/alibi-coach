@@ -1,9 +1,9 @@
 import type { CSSProperties } from "react"
 
 /**
- * ALIBI UI primitives.
- * v2 palette mirrors STYLES.md. New surfaces should prefer Tailwind
- * component classes in app/globals.css; these objects remain for legacy v1.
+ * @deprecated Use Tailwind component classes from app/globals.css instead.
+ * See STYLES.md for the migration table.
+ * Only retained because components/alibi.tsx (currently unused) imports here.
  */
 export const ALIBI = {
   ink: "#162044",
