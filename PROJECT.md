@@ -35,11 +35,11 @@ Database setup: v2 tables are installed in Supabase and verified through REST sc
 Where we are now:
 
 - **Database foundation:** complete for Phase 1 readiness. `active_timer` and `time_blocks` exist in Supabase with the v2 shape; app-data wipe/fresh-start status has not been independently verified from the repo because RLS hides user-owned rows from the anon key.
-- **Server foundation:** complete for Phase 1 plus first chat-agent pass. Active timer hydration, timer start/stop/resume, block save/update/delete, chat-controlled writes, clarification gating, and calendar range reads exist for `time_blocks`.
-- **UI foundation:** partially complete for v2. `/app` now renders a persistent timer control, post-stop block editor, latest-block resume button, chat panel, and simple daily time-block list backed by the same server actions.
-- **Chat progress:** implemented as a secondary input surface. It can start a timer, stop a timer into `time_blocks`, log completed blocks with extracted metadata, ask for missing timing before writes, and answer from saved blocks. New chat writes no longer go to `entries`.
+- **Server foundation:** complete for Phase 1 plus first chat-agent pass. Active timer hydration, timer start/stop/resume, manual block save/update/delete, chat-controlled writes, clarification gating, and calendar range reads exist for `time_blocks`.
+- **UI foundation:** partially complete for v2. `/app` now renders a persistent timer control, post-stop/manual block editor, latest-block resume button, chat panel, and simple daily time-block list backed by the same server actions.
+- **Chat progress:** implemented as a secondary input surface. It can start a timer, stop a timer into `time_blocks`, log completed blocks with extracted metadata, ask for missing timing/task/category before writes, and answer from saved blocks. New chat writes no longer go to `entries`.
 - **Verification:** `npm run build` passes after the chat reintroduction. Live Supabase/OpenRouter flows still need browser QA with an authenticated user.
-- **Next implementation step:** run live chat smoke tests, then broaden the calendar experience beyond today's list and add manual block creation/backdating polish.
+- **Next implementation step:** run live chat/manual-block smoke tests, then broaden the calendar experience beyond today's list.
 - **Later server gap:** broader period analysis is still basic; the first chat analysis path supports extracted ranges but needs richer week/month handling and deterministic summaries.
 
 ---

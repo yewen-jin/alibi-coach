@@ -129,6 +129,11 @@ interface RouterOutput extends CoachDraft {
   intent: RouterIntent
 }
 
+type CategoryInference = {
+  category: TimeBlockCategory | null
+  source: "extracted" | "inferred" | "none"
+}
+
 type Supabase = Awaited<ReturnType<typeof createClient>>
 
 function isCategory(value: unknown): value is TimeBlockCategory {
@@ -284,46 +289,55 @@ function deriveWindow(draft: CoachDraft): { startedAt: string; endedAt: string }
     }
   }
 
+  if (draft.duration_minutes) {
+    const endedAt = new Date()
+    return {
+      startedAt: new Date(endedAt.getTime() - draft.duration_minutes * 60_000).toISOString(),
+      endedAt: endedAt.toISOString(),
+    }
+  }
+
   return null
 }
 
-function defaultCategoryFor(text: string): TimeBlockCategory {
+const CATEGORY_KEYWORDS = {
+  deep_work: /\b(code|coding|bug|debug|write|writing|design|deep|client|build|research|draft|strategy|proposal)\b/,
+  admin: /\b(email|admin|invoice|invoices|paperwork|forms|planning|schedule|budget|tax|receipt|receipts)\b/,
+  social: /\b(meeting|call|coffee|lunch|friend|team|standup|sync|chat|catchup|catch-up)\b/,
+  errands: /\b(shop|shopping|grocery|groceries|errand|errands|bank|post office|pickup|pick up|delivery)\b/,
+  care: /\b(clean|cook|doctor|therapy|exercise|walk|shower|laundry|meds|meal|dinner|breakfast)\b/,
+  creative: /\b(draw|drawing|music|paint|painting|song|photo|creative|sketch|film|video|edit)\b/,
+  rest: /\b(rest|nap|sleep|break|recover|recovery|downtime)\b/,
+} satisfies Record<TimeBlockCategory, RegExp>
+
+function inferCategoryFromText(text: string): TimeBlockCategory | null {
   const lower = text.toLowerCase()
+  const matches = CATEGORIES.filter((category) => CATEGORY_KEYWORDS[category].test(lower))
 
-  if (/\b(code|coding|bug|debug|write|writing|design|deep|client|build)\b/.test(lower)) {
-    return "deep_work"
-  }
-
-  if (/\b(email|admin|invoice|paperwork|forms|planning)\b/.test(lower)) {
-    return "admin"
-  }
-
-  if (/\b(meeting|call|coffee|lunch|friend|team)\b/.test(lower)) {
-    return "social"
-  }
-
-  if (/\b(shop|shopping|grocery|groceries|errand|bank|post office)\b/.test(lower)) {
-    return "errands"
-  }
-
-  if (/\b(clean|cook|doctor|therapy|exercise|walk|shower|laundry)\b/.test(lower)) {
-    return "care"
-  }
-
-  if (/\b(draw|music|paint|song|photo|creative)\b/.test(lower)) {
-    return "creative"
-  }
-
-  if (/\b(rest|nap|sleep|break|recover)\b/.test(lower)) {
-    return "rest"
-  }
-
-  return "admin"
+  return matches.length === 1 ? matches[0] : null
 }
 
-function draftToSaveInput(draft: CoachDraft, window: { startedAt: string; endedAt: string }): SaveBlockInput {
+function categoryTextForDraft(draft: CoachDraft) {
+  return [draft.task_name, draft.notes, ...draft.hashtags].filter(Boolean).join(" ")
+}
+
+function resolveCategory(draft: CoachDraft): CategoryInference {
+  if (draft.category) {
+    return { category: draft.category, source: "extracted" }
+  }
+
+  const inferred = inferCategoryFromText(categoryTextForDraft(draft))
+  return inferred
+    ? { category: inferred, source: "inferred" }
+    : { category: null, source: "none" }
+}
+
+function draftToSaveInput(
+  draft: CoachDraft,
+  window: { startedAt: string; endedAt: string },
+  category: TimeBlockCategory,
+): SaveBlockInput {
   const taskName = draft.task_name?.trim() || "logged work"
-  const category = draft.category ?? defaultCategoryFor(`${taskName} ${draft.notes ?? ""}`)
 
   return {
     task_name: taskName,
@@ -665,7 +679,7 @@ function clarificationQuestion(draft: CoachDraft) {
     return "what should i call that block?"
   }
 
-  if (!draft.category) {
+  if (!resolveCategory(draft).category) {
     return "what category should i file it under?"
   }
 
@@ -840,7 +854,22 @@ export async function processCoachMessage(
     )
   }
 
-  const result = await saveBlock(draftToSaveInput(mergedDraft, window))
+  const category = resolveCategory(mergedDraft).category
+  if (!category) {
+    const question = clarificationQuestion(mergedDraft)
+    await savePendingDraft(supabase, user.id, mergedDraft)
+    return finishWithAssistant(
+      {
+        type: "clarify",
+        question,
+        draft: mergedDraft,
+      },
+      question,
+      "clarification",
+    )
+  }
+
+  const result = await saveBlock(draftToSaveInput(mergedDraft, window, category))
 
   if (result.type === "saved") {
     await resolvePendingDraft(supabase, user.id)

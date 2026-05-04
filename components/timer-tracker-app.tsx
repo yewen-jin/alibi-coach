@@ -7,6 +7,7 @@ import {
   Loader2,
   MessageCircle,
   Pencil,
+  Plus,
   Play,
   RefreshCw,
   RotateCcw,
@@ -40,8 +41,9 @@ const CATEGORIES = [
 ] satisfies Array<{ value: TimeBlockCategory; label: string; color: string }>
 
 type EditorState = {
-  block: TimeBlock
+  block?: TimeBlock
   isNewlyStopped: boolean
+  isManual: boolean
   taskName: string
   category: TimeBlockCategory | ""
   hashtags: string
@@ -180,12 +182,29 @@ function createEditorState(block: TimeBlock, isNewlyStopped = false): EditorStat
   return {
     block,
     isNewlyStopped,
+    isManual: false,
     taskName: block.task_name ?? "",
     category: block.category ?? "",
     hashtags: (block.hashtags ?? []).join(" "),
     notes: block.notes ?? "",
     startedAt: toDateTimeLocal(block.started_at),
     endedAt: toDateTimeLocal(block.ended_at),
+  }
+}
+
+function createManualEditorState(): EditorState {
+  const endedAt = new Date()
+  const startedAt = new Date(endedAt.getTime() - 30 * 60_000)
+
+  return {
+    isNewlyStopped: false,
+    isManual: true,
+    taskName: "",
+    category: "",
+    hashtags: "",
+    notes: "",
+    startedAt: toDateTimeLocal(startedAt.toISOString()),
+    endedAt: toDateTimeLocal(endedAt.toISOString()),
   }
 }
 
@@ -353,7 +372,7 @@ export function TimerTrackerApp({
       }
 
       const result = await saveBlock({
-        id: editor.block.id,
+        id: editor.block?.id,
         task_name: editor.taskName,
         category: editor.category,
         started_at: fromDateTimeLocal(editor.startedAt),
@@ -378,7 +397,7 @@ export function TimerTrackerApp({
       const result = await deleteBlock({ id: block.id })
 
       if (result.type === "deleted") {
-        if (editor?.block.id === block.id) {
+        if (editor?.block?.id === block.id) {
           setEditor(null)
         }
 
@@ -576,7 +595,7 @@ export function TimerTrackerApp({
                 editor={editor}
                 setEditor={setEditor}
                 onSave={handleSave}
-                onDelete={() => handleDelete(editor.block)}
+                onDelete={editor.block ? () => handleDelete(editor.block!) : undefined}
                 pending={isPending}
               />
             )}
@@ -594,6 +613,7 @@ export function TimerTrackerApp({
             loading={loading}
             blocks={timeBlocks}
             canResume={activeTimer === null}
+            onAdd={() => setEditor(createManualEditorState())}
             onEdit={(block) => setEditor(createEditorState(block))}
             onDelete={handleDelete}
             onResume={handleResume}
@@ -723,7 +743,7 @@ function BlockEditor({
   editor: EditorState
   setEditor: (editor: EditorState | null) => void
   onSave: () => void
-  onDelete: () => void
+  onDelete?: () => void
   pending: boolean
 }) {
   return (
@@ -736,7 +756,7 @@ function BlockEditor({
             block editor
           </p>
           <h2 className="mt-1 text-xl font-black text-alibi-blue">
-            {editor.isNewlyStopped ? "name this block" : "edit block"}
+            {editor.isNewlyStopped ? "name this block" : editor.isManual ? "add block" : "edit block"}
           </h2>
         </div>
         <button
@@ -822,15 +842,19 @@ function BlockEditor({
       </div>
 
       <div className="mt-5 flex flex-wrap items-center justify-between gap-3">
-        <button
-          type="button"
-          onClick={onDelete}
-          disabled={pending}
-          className="inline-flex h-10 items-center justify-center gap-2 rounded-2xl px-3 text-sm font-bold text-alibi-pink transition hover:-translate-y-0.5 hover:bg-alibi-pink/10 disabled:translate-y-0 disabled:opacity-55"
-        >
-          <Trash2 className="h-4 w-4" />
-          delete
-        </button>
+        {onDelete ? (
+          <button
+            type="button"
+            onClick={onDelete}
+            disabled={pending}
+            className="inline-flex h-10 items-center justify-center gap-2 rounded-2xl px-3 text-sm font-bold text-alibi-pink transition hover:-translate-y-0.5 hover:bg-alibi-pink/10 disabled:translate-y-0 disabled:opacity-55"
+          >
+            <Trash2 className="h-4 w-4" />
+            delete
+          </button>
+        ) : (
+          <div />
+        )}
 
         <div className="flex items-center gap-2">
           <button
@@ -861,6 +885,7 @@ function DailyBlocks({
   loading,
   blocks,
   canResume,
+  onAdd,
   onEdit,
   onDelete,
   onResume,
@@ -870,6 +895,7 @@ function DailyBlocks({
   loading: boolean
   blocks: TimeBlock[]
   canResume: boolean
+  onAdd: () => void
   onEdit: (block: TimeBlock) => void
   onDelete: (block: TimeBlock) => void
   onResume: (block: TimeBlock) => void
@@ -888,8 +914,20 @@ function DailyBlocks({
             {formatDateHeading(date)}
           </h2>
         </div>
-        <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-alibi-lavender/25 text-alibi-blue">
-          <CalendarDays className="h-4 w-4" />
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={onAdd}
+            disabled={pending}
+            aria-label="add completed block"
+            title="add block"
+            className="inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-alibi-teal text-white shadow-[0_10px_22px_rgba(67,132,157,0.22)] transition hover:-translate-y-0.5 hover:bg-alibi-blue disabled:translate-y-0 disabled:opacity-55"
+          >
+            <Plus className="h-4 w-4" />
+          </button>
+          <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-alibi-lavender/25 text-alibi-blue">
+            <CalendarDays className="h-4 w-4" />
+          </div>
         </div>
       </div>
 
