@@ -9,13 +9,13 @@
 
 Not a planner. Not a tracker. A witness with a warm voice.
 
-The current v2 product centers on a timer-first block tracker, with chat reintroduced as a secondary agentic input surface. Timer UI and chat both read/write `active_timer` and `time_blocks`; `entries` is legacy-only.
+The current product centers on a timer-first block tracker, with chat reintroduced as a secondary agentic input surface. Timer UI and chat both read/write `active_timer` and `time_blocks`; `entries` is legacy-only. V3 is now moving the product toward a notes-first insight engine: `time_blocks.notes` stays the human-authored source of truth, while derived insight tables preserve note history and extract lightweight patterns.
 
 ---
 
-## SPECS.md v2 transition status
+## SPECS.md v2/V3 transition status
 
-`SPECS.md` is now v2 and supersedes parts of the older v1 implementation notes below. The authenticated `/app` route now runs the v2 timer, time-block flow, and chat agent while older v1 receipt/chat components remain in the codebase for reference.
+`SPECS.md` now documents the v2 timer/chat foundation plus the V3 notes-first insight layer. The authenticated `/app` route runs the timer, time-block flow, block editor, and chat agent while older v1 receipt/chat components remain in the codebase for reference.
 
 Server action status from the v2 architecture:
 
@@ -30,18 +30,19 @@ Server action status from the v2 architecture:
 | `getCalendarData` | Implemented in `app/actions/timer.ts`; loads completed user-owned `time_blocks` that overlap the requested date range. |
 | `processCoachMessage` | Implemented in `app/actions/process-message.ts`; routes chat into conversational coaching, timer start/stop, completed-block logging, clarification, and analysis over `time_blocks`. Completed-block chat writes require clear log intent plus time, task, and explicit or confidently inferred category. |
 
-Database setup: v2 tables are installed in Supabase and verified through REST schema access. `active_timer`, `time_blocks`, `entries`, and `proactive_messages` all return `200` from the project REST API. The existing `entries`/v1 schema remains intact.
+Database setup: v2 tables are installed in Supabase and verified through REST schema access. `active_timer`, `time_blocks`, `entries`, and `proactive_messages` all return `200` from the project REST API. The V3 schema additions are present in `supabase-v2.sql` and must be applied to hosted databases: `time_block_note_versions`, `time_block_insights`, and `time_blocks.agent_metadata`. The existing `entries`/v1 schema remains intact.
 
 Where we are now:
 
-- **Database foundation:** complete for Phase 1 readiness. `active_timer` and `time_blocks` exist in Supabase with the v2 shape; app-data wipe/fresh-start status has not been independently verified from the repo because RLS hides user-owned rows from the anon key.
-- **Server foundation:** complete for Phase 1 plus first chat-agent pass. Active timer hydration, timer start/stop/resume, manual block save/update/delete, chat-controlled writes, clarification gating, and calendar range reads exist for `time_blocks`.
-- **UI foundation:** partially complete for v2. `/app` now renders a persistent timer control, post-stop/manual block editor, daily add-block button, latest-block resume button, chat panel, and simple daily time-block list backed by the same server actions.
-- **Chat progress:** implemented as a secondary input surface. It can respond conversationally without forcing a log, start a timer, stop a timer into `time_blocks`, log completed blocks with extracted metadata, ask for missing timing/task/category before writes, and answer from saved blocks. New chat writes no longer go to `entries`.
-- **Public/docs copy:** `/` and `/app/docs` now describe the v2 product shape: timer-first blocks, manual add-block flow, latest-block resume, structured chat logging, and shared `time_blocks` storage.
-- **Verification:** `npm run build` passes after the chat reintroduction. Live Supabase/OpenRouter flows still need browser QA with an authenticated user.
-- **Next implementation step:** run live chat/manual-block smoke tests, then broaden the calendar experience beyond today's list.
-- **Later server gap:** broader period analysis is still basic; the first chat analysis path supports extracted ranges but needs richer week/month handling and deterministic summaries.
+- **Database foundation:** v2 tables are live; V3 migration SQL is written but hosted databases still need the new note-version and note-insight tables applied where they are not already present.
+- **Server foundation:** active timer hydration, timer start/stop/resume, manual block save/update/delete, chat-controlled writes, clarification gating, calendar range reads, note-version preservation, and note-derived insight upserts exist for `time_blocks`.
+- **UI foundation:** `/app` renders a persistent timer control, post-stop/manual block editor, daily add-block button, latest-block resume button, chat panel, and simple daily time-block list. The editor now frames notes as “what really happened” without requiring them.
+- **Dashboard progress:** `/app/dashboard` renders totals, calendar/rhythm/category views, ADHD markers, and a V3 notes mirror. ADHD marker counts now merge explicit block booleans with note-derived insight signals so older derived rows are visible without SQL backfill.
+- **Chat progress:** implemented as a secondary input surface. It can respond conversationally without forcing a log, start a timer, stop a timer into `time_blocks`, log completed blocks with extracted metadata, ask for missing timing/task/category before writes, and answer from saved blocks. Analysis now prioritizes notes, then block metadata, then note-derived insights, then linked chat. New chat writes no longer go to `entries`.
+- **Public/docs copy:** `/` and `/app/docs` still mainly describe the v2 product shape; deeper V3 notes-first copy is documented in `SPECS.md` and should be reflected in app-facing docs later.
+- **Verification:** `npm run build` passes after the notes-first dashboard and analysis updates. Live Supabase/OpenRouter flows still need browser QA with an authenticated user after applying the hosted database migration.
+- **Next implementation step:** apply/verify the V3 database migration in the hosted database, run live note-save and dashboard smoke tests, then broaden analysis beyond today into explicit week/month summaries.
+- **Later server gap:** broader period analysis is still basic; the analysis path supports extracted ranges but needs richer week/month handling and deterministic longitudinal summaries.
 
 ---
 
@@ -73,11 +74,13 @@ A screenshot-friendly summary of today: counts, tracked time, project pills, tim
 - **UI:** [`components/daily-receipt.tsx`](./components/daily-receipt.tsx) — toggleable from the main view.
 - **Footer line:** *"this is your day. it counts."* — flat, not exclaimed.
 
-### 4. The mirror — pattern reflection (v1.1, not built)
+### 4. The mirror — pattern reflection
 
-Roadmap. Will surface gentle longitudinal patterns ("you're most productive 11am–2pm", "you log least on Sundays") without grading the user.
+Implemented as an initial V3 dashboard panel. It surfaces gentle note-derived observations with a small evidence trail, without scores or rankings.
 
-- **Status:** not implemented. Schema already captures `created_at`, `project`, `mood`, `duration_minutes`, which is enough to power this later.
+- **UI:** [`components/dashboard/notes-mirror.tsx`](./components/dashboard/notes-mirror.tsx) — reads `time_block_insights` and shows friction, hyperfocus/flow, satisfaction, and emotional-tone observations with note excerpts.
+- **Storage:** `time_block_insights` stores derived interpretations; `time_block_note_versions` preserves meaningful note edits.
+- **Status:** first vertical slice implemented. Longitudinal observations across weeks/months remain future work.
 
 ---
 
@@ -125,9 +128,19 @@ If a feature pushes the user, it doesn't ship.
 | `mood`             | text          | AI-extracted, nullable         |
 | `effort_level`     | text          | AI-extracted, nullable         |
 | `satisfaction`     | text          | AI-extracted, nullable         |
+| `avoidance_marker` | boolean       | explicit or note-derived marker |
+| `hyperfocus_marker` | boolean      | explicit or note-derived marker |
+| `guilt_marker`     | boolean       | explicit or note-derived marker |
+| `novelty_marker`   | boolean       | explicit marker                |
+| `agent_metadata`   | jsonb         | derived context only           |
 | `created_at`       | timestamptz   | default `now()`                |
 
 RLS: each user can only `select / insert / update / delete` their own rows.
+
+Additional V3 tables:
+
+- `time_block_note_versions` preserves every meaningful note change with `previous_notes`, `new_notes`, and `source`.
+- `time_block_insights` stores derived note interpretations such as friction, avoidance, hyperfocus, satisfaction, uncertainty, people/projects/themes, and evidence excerpts.
 
 ### Key files
 
@@ -144,6 +157,7 @@ components/
   top-nav.tsx                  # authenticated navigation
   dashboard/*                  # dashboard summaries over time_blocks
 lib/
+  note-insights.ts             # note-derived insight extraction and prompt formatting
   supabase/{client,server,middleware}.ts
   types.ts                     # time-block, timer, and legacy entry types
 middleware.ts                  # session refresh + protected routes

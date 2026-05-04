@@ -1,45 +1,74 @@
 # Alibi — The Friend Who Remembers Your Day
 
-A warm, anti-productivity companion for ADHD brains. Alibi witnesses what you actually do, celebrates it, and reflects your patterns back to you — with zero judgment and no performance pressure.
+A warm, anti-productivity companion for ADHD brains. Alibi records what actually happened, keeps the evidence tied to time, and reflects patterns back without scores, streak pressure, or productivity judgment.
+
+The current product is timer-first and notes-first:
+
+- Work is stored as dated `time_blocks`.
+- Notes are the human-authored source of truth: what happened, what got in the way, how it felt, what changed, and what the user noticed.
+- Chat is a secondary input surface that can start/stop timers, log completed blocks, ask clarifying questions, and answer from saved evidence.
+- Dashboard insights are grounded in saved blocks, note-derived signals, and visible evidence trails.
 
 ---
 
 ## The Problem It Solves
 
-ADHD shame isn't caused by underachievement. It's caused by **the gap between what you actually did and what you remember doing.** By 7pm, despite a full day of deep work, you feel like you accomplished nothing. The guilt spiral starts. Tomorrow is harder.
-
-Alibi closes that gap by being a witness with a warm voice.
+ADHD shame is often caused by the gap between what you actually did and what you remember doing. By evening, even a full day can feel like nothing. Alibi closes that gap by being a witness with a warm voice.
 
 ---
 
 ## What Alibi Does
 
-### 1. Drop-In (any time, any format)
-Message Alibi however your brain wants — one word, full sentence, voice note transcript. It parses silently, files the entry, and replies with warmth: *"on the record."* / *"got it."* / *"noted."*
+### 1. Timer-first tracking
 
-### 2. Check-In (when you spiral)
-Message: *"I feel like I did nothing today."* Alibi switches modes, reads your actual entries back to you with warmth and cites the evidence.
+Start the timer without naming the task first. Metadata comes after the work, so the app does not make planning the entry cost.
 
-### 3. The Receipt
-A thermal-paper-aesthetic record of your day, grouped TODAY / YESTERDAY / weekday. Timestamped, with project pills. Lives in the right panel of the chat. Pulls live from the database.
+### 2. Block editor
 
-### 4. The Dashboard (The Mirror)
-A self-portrait drawn from your own data. Calendar heatmap, project distribution, time-of-day rhythm, ADHD pattern markers. Not a productivity dashboard — a quiet reflection.
+Stopped and manual blocks can be edited with:
 
-### 5. Proactive Messages (The Chorus)
-Alibi initiates. Three internal agents run quietly after each drop-in:
-- **Fetcher** — pulls recent entries from the database
-- **Parser** — extracts patterns (active projects, time-of-day rhythms, mood shifts, streaks)
-- **Insight Generator** — writes one short message in Alibi's voice, stored as a proactive message
+- task name
+- category
+- start/end time
+- hashtags
+- notes
+- mood, effort, satisfaction, and ADHD marker metadata when available
 
-Frequency scales with data — silent when there's nothing meaningful, up to 3 messages/day with 50+ lifetime entries.
+Notes are optional, but the UI now frames them as “what really happened.”
 
-### 6. ADHD Marker Tracking
-Each entry is parsed for four ADHD-significant signals, stored in the database and visualised in the dashboard:
-- **Avoidance conquered** — "finally sent that email I was dreading"
-- **Hyperfocus** — long uninterrupted sessions, "lost track of time"
-- **Guilt moments** — self-critical language ("should have", "wasted")
-- **Novelty seeking** — "first time", "trying something new"
+### 3. Chat agent
+
+Chat can:
+
+- respond conversationally without forcing a log
+- start or stop the timer
+- log completed work into `time_blocks`
+- ask for missing timing/task/category before saving
+- answer check-ins and pattern questions from saved evidence
+
+Chat history is useful context, but block notes are treated as stronger evidence.
+
+### 4. Notes-first insight engine
+
+When a block is saved or updated:
+
+- meaningful note edits are preserved in `time_block_note_versions`
+- note-derived signals are stored in `time_block_insights`
+- raw notes remain untouched and remain the source of truth
+
+Extracted signals include friction, avoidance, hyperfocus/flow, satisfaction, uncertainty/self-criticism, emotional tone, people, projects, themes, and evidence excerpts.
+
+### 5. Dashboard mirror
+
+The dashboard shows:
+
+- totals and tracked time
+- calendar/rhythm/category summaries
+- ADHD marker counts
+- effort and satisfaction distributions
+- a notes mirror with note-grounded observations and evidence excerpts
+
+The ADHD patterns panel counts both explicit block markers and note-derived insight signals.
 
 ---
 
@@ -47,15 +76,15 @@ Each entry is parsed for four ADHD-significant signals, stored in the database a
 
 | Route | Purpose |
 |---|---|
-| `/` | Public landing page with demo chat (localStorage-backed) |
-| `/app` | Authenticated Alibi: chat panel + receipt |
-| `/app/dashboard` | Calendar heatmap, project distribution, rhythm chart, ADHD markers |
-| `/app/docs` | Feature guide with links to chat and dashboard |
+| `/` | Public landing page |
+| `/app` | Authenticated timer, block editor, daily block list, and chat panel |
+| `/app/dashboard` | Dashboard summaries, ADHD markers, and notes mirror |
+| `/app/docs` | Feature guide |
 | `/auth/login` | Email/password login |
 | `/auth/sign-up` | Sign up |
 | `/auth/sign-up-success` | Post sign-up confirmation |
 | `/auth/error` | Auth error page |
-| `/auth/callback` | Supabase OAuth callback |
+| `/auth/callback` | Supabase auth callback |
 
 ---
 
@@ -63,137 +92,194 @@ Each entry is parsed for four ADHD-significant signals, stored in the database a
 
 | Layer | Technology |
 |---|---|
-| Framework | Next.js 16 (App Router, React 19) |
-| Language | TypeScript (strict) |
-| Styling | Tailwind CSS v4, glass-morphism, warm cream palette |
+| Framework | Next.js 16 App Router, React 19 |
+| Language | TypeScript |
+| Styling | Tailwind CSS v4 |
 | Database | Supabase Postgres with Row Level Security |
-| Auth | Supabase Auth (email/password) |
-| AI | AI SDK v6 via OpenRouter (`@ai-sdk/openai-compatible`) |
-| Charts | Recharts (calendar heatmap, rhythm bars, project distribution) |
+| Auth | Supabase Auth |
+| AI | AI SDK v6 through OpenRouter |
 
 ---
 
 ## Database Schema
 
-### `entries`
+The primary schema is in [supabase-v2.sql](./supabase-v2.sql).
+
+### `time_blocks`
+
+Primary source of saved work.
+
 ```sql
-entries (
-  id                UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id           UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-  raw_input         TEXT,                      -- exact user message as typed
-  content           TEXT NOT NULL,             -- cleaned/extracted description
-  project           TEXT,                      -- auto-extracted project tag
-  mood              TEXT,                      -- joyful | neutral | flat | anxious | guilty | proud
-  duration_minutes  INTEGER,
-  effort_level      TEXT,                      -- easy | medium | hard | grind
-  satisfaction      TEXT,                      -- satisfied | mixed | frustrated | unclear
-  avoidance_marker  BOOLEAN DEFAULT FALSE,     -- ADHD: overcame avoidance
-  hyperfocus_marker BOOLEAN DEFAULT FALSE,     -- ADHD: deep flow state
-  guilt_marker      BOOLEAN DEFAULT FALSE,     -- ADHD: self-critical language
-  novelty_marker    BOOLEAN DEFAULT FALSE,     -- ADHD: novelty-seeking
-  created_at        TIMESTAMPTZ DEFAULT NOW()
+time_blocks (
+  id uuid primary key,
+  user_id uuid not null references auth.users(id) on delete cascade,
+  started_at timestamptz not null,
+  ended_at timestamptz,
+  duration_seconds integer generated always as (...) stored,
+  task_name text,
+  category text,
+  hashtags text[] not null default '{}',
+  notes text,
+  mood text,
+  effort_level text,
+  satisfaction text,
+  avoidance_marker boolean not null default false,
+  hyperfocus_marker boolean not null default false,
+  guilt_marker boolean not null default false,
+  novelty_marker boolean not null default false,
+  agent_metadata jsonb not null default '{}',
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
 )
 ```
 
-### `proactive_messages`
+### `active_timer`
+
+One active timer row per user.
+
 ```sql
-proactive_messages (
-  id                          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id                     UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-  content                     TEXT NOT NULL,
-  kind                        TEXT DEFAULT 'insight',  -- insight | nudge | celebration | pattern
-  entries_count_at_creation   INTEGER,
-  created_at                  TIMESTAMPTZ DEFAULT NOW(),
-  read_at                     TIMESTAMPTZ
+active_timer (
+  user_id uuid primary key references auth.users(id) on delete cascade,
+  started_at timestamptz not null default now(),
+  created_at timestamptz not null default now()
 )
 ```
 
-Both tables protected by RLS — users can only read and write their own rows.
+### `coach_messages`
+
+Chat history, with optional links to saved blocks.
+
+```sql
+coach_messages (
+  id uuid primary key,
+  user_id uuid not null references auth.users(id) on delete cascade,
+  role text not null,
+  content text not null,
+  message_type text not null default 'chat',
+  related_time_block_id uuid references time_blocks(id) on delete set null,
+  metadata jsonb not null default '{}',
+  created_at timestamptz not null default now()
+)
+```
+
+### `coach_drafts`
+
+Temporary clarification state when chat needs more details before saving a block.
+
+### `time_block_note_versions`
+
+Preserves meaningful note edits.
+
+```sql
+time_block_note_versions (
+  id uuid primary key,
+  time_block_id uuid not null references time_blocks(id) on delete cascade,
+  user_id uuid not null references auth.users(id) on delete cascade,
+  previous_notes text,
+  new_notes text,
+  source text not null check (source in ('manual', 'chat', 'agent')),
+  created_at timestamptz not null default now()
+)
+```
+
+### `time_block_insights`
+
+Derived interpretation from notes. This is not replacement truth.
+
+```sql
+time_block_insights (
+  id uuid primary key,
+  time_block_id uuid not null unique references time_blocks(id) on delete cascade,
+  user_id uuid not null references auth.users(id) on delete cascade,
+  source text not null default 'notes',
+  actions text[] not null default '{}',
+  emotional_tone text,
+  friction_points text[] not null default '{}',
+  avoidance_signals text[] not null default '{}',
+  hyperfocus_signals text[] not null default '{}',
+  satisfaction_signals text[] not null default '{}',
+  uncertainty_signals text[] not null default '{}',
+  people text[] not null default '{}',
+  projects text[] not null default '{}',
+  themes text[] not null default '{}',
+  evidence_excerpt text,
+  model_version text not null,
+  created_at timestamptz not null default now()
+)
+```
+
+### Legacy Tables
+
+`entries` and the older proactive-message path remain in the repo for legacy/reference purposes. New chat logging writes to `time_blocks`, not `entries`.
 
 ---
 
-## ADHD Marker Detection
+## ADHD Pattern Detection
 
-The AI classifier extracts markers from natural language on every drop-in. Examples:
+There are two layers:
 
-| User types | Markers detected |
-|---|---|
-| `"finally sent that email i was dreading"` | `avoidance_marker: true`, `effort_level: hard`, `satisfaction: satisfied` |
-| `"3 hours on the parser, lost track of time"` | `hyperfocus_marker: true`, `duration_minutes: 180` |
-| `"should have done more today"` | `guilt_marker: true`, `mood: guilty` |
-| `"tried a new approach to the routing problem"` | `novelty_marker: true` |
+1. Explicit block metadata on `time_blocks`
+   - `avoidance_marker`
+   - `hyperfocus_marker`
+   - `guilt_marker`
+   - `novelty_marker`
+   - `mood`
+   - `effort_level`
+   - `satisfaction`
 
-These are surfaced in the dashboard's **ADHD Markers** panel with counts, percentages, and effort/satisfaction distribution charts.
+2. Note-derived insight rows in `time_block_insights`
+   - avoidance signals
+   - hyperfocus/flow signals
+   - friction points
+   - satisfaction/reward signals
+   - uncertainty/self-criticism
+   - emotional tone
 
----
-
-## Proactive Message Cadence
-
-| Lifetime entries | Max messages/day |
-|---|---|
-| < 5 | 0 — stay silent |
-| 5–19 | 1 |
-| 20–49 | 2 |
-| 50+ | 3 |
-
-A message is only generated when: enough entries since last message (≥ 3 entries OR ≥ 4 hours) AND the daily limit isn't hit AND the parser found something worth saying. **Silence is a feature.**
+The dashboard merges both sources by block id, so a note-derived hyperfocus signal appears in the ADHD patterns card even if an older block boolean was never backfilled.
 
 ---
 
 ## File Structure
 
-```
+```text
 alibi-coach/
 ├── app/
-│   ├── page.tsx                        # Public landing page (demo chat)
+│   ├── page.tsx
 │   ├── layout.tsx
-│   ├── globals.css                     # Tailwind v4 + design tokens
+│   ├── globals.css
 │   ├── app/
-│   │   ├── page.tsx                    # Authenticated chat (Alibi)
-│   │   ├── dashboard/page.tsx          # Dashboard visualisations
-│   │   └── docs/page.tsx               # Feature guide
+│   │   ├── page.tsx
+│   │   ├── dashboard/page.tsx
+│   │   └── docs/page.tsx
 │   ├── auth/
-│   │   ├── login/page.tsx
-│   │   ├── sign-up/page.tsx
-│   │   ├── sign-up-success/page.tsx
-│   │   ├── error/page.tsx
-│   │   └── callback/route.ts
 │   └── actions/
-│       ├── process-message.ts          # Drop-in / check-in handler + AI parser
-│       ├── generate-insight.ts         # Proactive insight agent
-│       ├── get-entries.ts              # Fetch user entries from DB
-│       └── proactive-messages.ts       # Fetch unread proactive messages
+│       ├── timer.ts
+│       ├── process-message.ts
+│       ├── generate-insight.ts
+│       ├── get-entries.ts
+│       └── proactive-messages.ts
 ├── components/
-│   ├── alibi.tsx                       # Main chat + receipt panel (client)
-│   ├── top-nav.tsx                     # Nav: chat / dashboard / docs + sign out
-│   ├── proactive-bubble.tsx            # Proactive message display
-│   ├── ack-toast.tsx                   # Filed confirmation toast
-│   ├── coach-response.tsx              # Check-in reflection display
-│   ├── daily-receipt.tsx               # Thermal receipt component
-│   ├── entry-input.tsx                 # Chat input field
-│   ├── entry-list.tsx                  # Entry list (reference)
-│   ├── done-list-app.tsx               # Done list wrapper
+│   ├── timer-tracker-app.tsx
+│   ├── top-nav.tsx
+│   ├── proactive-bubble.tsx
+│   ├── coach-response.tsx
 │   └── dashboard/
-│       ├── adhd-markers.tsx            # ADHD markers + effort/satisfaction charts
-│       ├── calendar-view.tsx           # Month heatmap with day detail drawer
-│       ├── rhythm-chart.tsx            # Hour-of-day + weekday aggregation
-│       ├── project-distribution.tsx    # Time per project bar chart
-│       └── stats-overview.tsx          # Streak, total entries, total minutes
+│       ├── adhd-markers.tsx
+│       ├── notes-mirror.tsx
+│       ├── calendar-view.tsx
+│       ├── rhythm-chart.tsx
+│       ├── project-distribution.tsx
+│       └── stats-overview.tsx
 ├── lib/
-│   ├── supabase/
-│   │   ├── server.ts                   # SSR Supabase client
-│   │   ├── client.ts                   # Browser Supabase client
-│   │   └── middleware.ts               # Session refresh middleware
-│   ├── ai.ts                           # Shared OpenRouter model instance
-│   ├── cadence.ts                      # Proactive message frequency rules
-│   ├── dashboard-data.ts               # Aggregation helpers (heatmap, rhythm, markers)
-│   ├── ui-styles.ts                    # Shared glass-morphism + colour constants
-│   ├── types.ts                        # Entry, ProactiveMessage, Mood, EffortLevel types
-│   └── utils.ts
-├── proxy.ts                            # Next.js 16 middleware (session refresh)
-├── seed.sql                            # Optional test data (7 days, 40 entries)
-├── SPECS.md                            # Product specification
-└── RESEARCH.md                         # ADHD research grounding the feature decisions
+│   ├── note-insights.ts
+│   ├── dashboard-data.ts
+│   ├── ai.ts
+│   ├── types.ts
+│   └── supabase/
+├── supabase-v2.sql
+├── SPECS.md
+├── PROJECT.md
+└── RESEARCH.md
 ```
 
 ---
@@ -201,13 +287,15 @@ alibi-coach/
 ## Getting Started
 
 ### Prerequisites
+
 - Node.js 18+
-- pnpm
+- npm
 - Supabase project with auth enabled
 - OpenRouter API key
 
 ### Environment Variables
-```
+
+```bash
 NEXT_PUBLIC_SUPABASE_URL=
 NEXT_PUBLIC_SUPABASE_ANON_KEY=
 SUPABASE_SERVICE_ROLE_KEY=
@@ -216,28 +304,50 @@ OPENROUTER_API_KEY=
 ```
 
 ### Setup
+
 ```bash
 git clone https://github.com/yewen-jin/alibi-coach
 cd alibi-coach
-pnpm install
-pnpm dev
+npm install
+npm run dev
 ```
 
-Apply the schema in Supabase SQL editor (see `Database Schema` above), enable RLS, and add the policies shown in `seed.sql`.
+Apply [supabase-v2.sql](./supabase-v2.sql) in the Supabase SQL editor. If your hosted database already has the v2 tables, make sure the V3 additions are present:
+
+- `time_blocks.agent_metadata`
+- `time_block_note_versions`
+- `time_block_insights`
+
+### Verification
+
+```bash
+npm run build
+```
+
+The current build passes.
 
 ---
 
-## Design System
+## Current Status
 
-| Token | Value | Use |
-|---|---|---|
-| Cream | `#FAF6F0` | Page background |
-| Terracotta | `#C4704B` | Primary actions, calendar heat |
-| Sage | `#7A9A8A` | Secondary accents, success states |
-| Ink | `#2A1F14` | Body text |
-| Warm grey | `#A89680` | Muted text, timestamps |
+Implemented:
 
-Glass-morphism panels: `rgba(255,250,240,0.55)` with `backdrop-filter: blur(20px)`. Receipt inset: `rgba(250,245,235,0.7)`. Typography: `font-mono` for timestamps and stats; `font-sans` for body.
+- timer persistence through `active_timer`
+- start, stop, resume, save, edit, delete block flows
+- manual/backdated block creation
+- chat start/stop/log/clarification/check-in flows
+- notes-first analysis retrieval for coach responses
+- note version preservation
+- note-derived insight extraction
+- dashboard notes mirror
+- ADHD marker dashboard that merges explicit markers and note-derived signals
+
+Pending:
+
+- hosted database migration verification wherever the V3 tables are not yet applied
+- authenticated browser QA against live Supabase/OpenRouter
+- richer week/month analysis
+- time-block-aware proactive messages replacing the legacy `entries` cadence
 
 ---
 
@@ -245,19 +355,20 @@ Glass-morphism panels: `rgba(255,250,240,0.55)` with `backdrop-filter: blur(20px
 
 | Not | Why |
 |---|---|
-| A planner | Planning is the friction. Removed it. |
-| A tracker with timers | Timers require deciding to track *before* the work — exact ADHD failure mode. |
-| A goal-setter | Goals create expectation. We trade in evidence. |
-| A productivity dashboard | Numbers create comparison. We collect moments. |
-| A wellness app | You don't need techniques. You need a witness. |
+| A planner | Planning is the friction. |
+| A to-do list | Tasks create expectation. Alibi records evidence. |
+| A goal-setter | Goals create comparison. |
+| A coach who pushes | Push energy makes the app easier to avoid. |
+| A productivity dashboard | Numbers should support self-knowledge, not judgment. |
+| A vague freeform-only chatbot | Chat writes only through structured `time_blocks` and `active_timer` operations. |
 
 ---
 
 ## The Wellbeing Thesis
 
-> **Most apps make you do more. Alibi helps you see what you already did.**
+> Most apps make you do more. Alibi helps you see what you already did.
 
-The gap between what you accomplished and what you *remember* accomplishing is where shame lives. Alibi is a witness that closes that gap — no pressure to perform, no goals, no timers. Just a warm voice saying *"I saw you. You did that."*
+The gap between what you accomplished and what you remember accomplishing is where shame lives. Alibi is a witness that closes that gap: no scores, no rankings, no pressure to perform.
 
 ---
 

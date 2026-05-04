@@ -71,8 +71,8 @@ export function AdhdMarkers({ blocks, insights = [] }: AdhdMarkersProps) {
   const hasSatisfactionData = satisfaction.some((s) => s.count > 0)
 
   return (
-    <section className="alibi-card space-y-4">
-      <div className="px-5 pt-5">
+    <section className="alibi-card space-y-4 p-5">
+      <div>
         <h2 className="text-sm font-black uppercase tracking-[0.1em] text-alibi-blue">
           adhd patterns
         </h2>
@@ -82,7 +82,7 @@ export function AdhdMarkers({ blocks, insights = [] }: AdhdMarkersProps) {
       </div>
 
       {/* Markers Grid */}
-      <div className="grid grid-cols-2 gap-3 px-5">
+      <div className="grid grid-cols-2 gap-3">
         {mergedMarkers.map((m) => (
           <div
             key={m.key}
@@ -113,7 +113,7 @@ export function AdhdMarkers({ blocks, insights = [] }: AdhdMarkersProps) {
 
       {/* Effort Distribution */}
       {hasEffortData && (
-        <div className="px-5 pb-2">
+        <div>
           <p className="mb-2 text-xs font-black uppercase tracking-[0.1em] text-alibi-teal">
             effort level
           </p>
@@ -152,7 +152,7 @@ export function AdhdMarkers({ blocks, insights = [] }: AdhdMarkersProps) {
 
       {/* Satisfaction Distribution */}
       {hasSatisfactionData && (
-        <div className="px-5 pb-5">
+        <div>
           <p className="mb-2 text-xs font-black uppercase tracking-[0.1em] text-alibi-teal">
             satisfaction
           </p>
@@ -190,7 +190,7 @@ export function AdhdMarkers({ blocks, insights = [] }: AdhdMarkersProps) {
       )}
 
       {!hasAnyMarkers && !hasEffortData && !hasSatisfactionData && (
-        <p className="px-5 pb-5 text-sm font-semibold text-alibi-teal">
+        <p className="text-sm font-semibold text-alibi-teal">
           no patterns detected yet. keep logging and i&apos;ll start noticing.
         </p>
       )}
