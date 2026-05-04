@@ -50,7 +50,7 @@ function normalizeHashtags(hashtags: string[] | undefined): string[] {
     .filter(Boolean)
 }
 
-function validateSaveBlockInput(input: SaveBlockInput):
+function validateSaveBlockInput(input: unknown):
   | {
       type: "valid"
       id: string | undefined
@@ -69,30 +69,40 @@ function validateSaveBlockInput(input: SaveBlockInput):
     return { type: "error", message: "time block details are invalid." }
   }
 
+  const details = input as Partial<SaveBlockInput>
+
   if (
-    typeof input.task_name !== "string" ||
-    typeof input.started_at !== "string" ||
-    typeof input.ended_at !== "string"
+    typeof details.task_name !== "string" ||
+    typeof details.started_at !== "string" ||
+    typeof details.ended_at !== "string"
   ) {
     return { type: "error", message: "time block details are invalid." }
   }
 
-  if (input.hashtags !== undefined && !Array.isArray(input.hashtags)) {
+  if (details.hashtags !== undefined && !Array.isArray(details.hashtags)) {
     return { type: "error", message: "hashtags are invalid." }
   }
 
-  const taskName = input.task_name.trim()
+  if (details.id !== undefined && typeof details.id !== "string") {
+    return { type: "error", message: "time block details are invalid." }
+  }
+
+  if (details.notes !== undefined && details.notes !== null && typeof details.notes !== "string") {
+    return { type: "error", message: "time block details are invalid." }
+  }
+
+  const taskName = details.task_name.trim()
 
   if (!taskName) {
     return { type: "error", message: "task name is required." }
   }
 
-  if (!isTimeBlockCategory(input.category)) {
+  if (!isTimeBlockCategory(details.category)) {
     return { type: "error", message: "category is invalid." }
   }
 
-  const startedAt = parseBlockDate(input.started_at)
-  const endedAt = parseBlockDate(input.ended_at)
+  const startedAt = parseBlockDate(details.started_at)
+  const endedAt = parseBlockDate(details.ended_at)
 
   if (!startedAt || !endedAt) {
     return { type: "error", message: "start and end times must be valid dates." }
@@ -102,17 +112,17 @@ function validateSaveBlockInput(input: SaveBlockInput):
     return { type: "error", message: "end time must be after start time." }
   }
 
-  const notes = input.notes?.trim() || null
-  const id = input.id?.trim() || undefined
+  const notes = details.notes?.trim() || null
+  const id = details.id?.trim() || undefined
 
   return {
     type: "valid",
     id,
     taskName,
-    category: input.category,
+    category: details.category,
     startedAt: startedAt.toISOString(),
     endedAt: endedAt.toISOString(),
-    hashtags: normalizeHashtags(input.hashtags),
+    hashtags: normalizeHashtags(details.hashtags),
     notes,
   }
 }
