@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { createClient } from "@/lib/supabase/client"
@@ -10,7 +10,12 @@ export default function SignUpPage() {
   const [password, setPassword] = useState("")
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
+  const [fromDemo, setFromDemo] = useState(false)
   const router = useRouter()
+
+  useEffect(() => {
+    setFromDemo(new URLSearchParams(window.location.search).get("from") === "demo")
+  }, [])
 
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -24,7 +29,7 @@ export default function SignUpPage() {
       options: {
         emailRedirectTo:
           process.env.NEXT_PUBLIC_DEV_SUPABASE_REDIRECT_URL ??
-          `${window.location.origin}/auth/callback`,
+          `${window.location.origin}/auth/callback${fromDemo ? "?next=/app" : ""}`,
       },
     })
 
@@ -34,7 +39,7 @@ export default function SignUpPage() {
       return
     }
 
-    router.push("/auth/sign-up-success")
+    router.push(fromDemo ? "/app" : "/auth/sign-up-success")
   }
 
   return (
@@ -42,7 +47,11 @@ export default function SignUpPage() {
       <div className="w-full max-w-sm">
         <div className="text-center mb-8">
           <h1 className="font-serif text-3xl text-foreground mb-2">say hi to alibi</h1>
-          <p className="text-muted-foreground">a witness with a warm voice. no planning required.</p>
+          <p className="text-muted-foreground">
+            {fromDemo
+              ? "create an account, then import your demo blocks."
+              : "a witness with a warm voice. no planning required."}
+          </p>
         </div>
 
         <form onSubmit={handleSignUp} className="space-y-4">
@@ -94,7 +103,7 @@ export default function SignUpPage() {
 
         <p className="text-center text-sm text-muted-foreground mt-6">
           Already have an account?{" "}
-          <Link href="/auth/login" className="text-primary hover:underline">
+          <Link href={fromDemo ? "/auth/login?from=demo" : "/auth/login"} className="text-primary hover:underline">
             Sign in
           </Link>
         </p>

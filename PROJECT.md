@@ -1,199 +1,188 @@
-# Alibi — Project
+# Alibi - Project Tracker
 
-> Source of truth for the product vision: [`SPECS.md`](./SPECS.md).
-> This file documents what we're actually building, how it's structured, and what's done.
+> Living implementation, history, status, and roadmap tracker.
+> Product contract lives in [SPECS.md](./SPECS.md).
 
-## One-line objective
+## Objective
 
 > **Alibi is the friend who remembers your day, so you don't have to defend it to yourself.**
 
-Not a planner. Not a tracker. A witness with a warm voice.
+The product is evolving from a timer-first tracker into a V3 evidence engine: time blocks anchor the timeline, notes preserve what actually happened, chat helps elicit missing context and feelings, and derived insights make patterns visible without replacing raw user input.
 
-The current product centers on a timer-first block tracker, with chat reintroduced as a secondary agentic input surface. Timer UI and chat both read/write `active_timer` and `time_blocks`; `entries` is legacy-only. V3 is now moving the product toward a notes-first insight engine: `time_blocks.notes` stays the human-authored source of truth, while derived insight tables preserve note history and extract lightweight patterns.
+## Documentation Roles
 
----
+- **[SPECS.md](./SPECS.md):** product/system contract, data principles, interface behavior, AI behavior, guardrails, and V3 direction.
+- **PROJECT.md:** implementation history, current status, known gaps, verification, and future roadmap.
+- **[V3-PLAN.md](./V3-PLAN.md):** detailed roadmap reference for the notes-first insight engine.
+- **[RESEARCH.md](./RESEARCH.md):** ADHD/product psychology foundation.
 
-## SPECS.md v2/V3 transition status
+## Evolution History
 
-`SPECS.md` now documents the v2 timer/chat foundation plus the V3 notes-first insight layer. The authenticated `/app` route runs the timer, time-block flow, block editor, and chat agent while older v1 receipt/chat components remain in the codebase for reference.
+### v1 - Freeform Chat / Receipt Prototype
 
-Server action status from the v2 architecture:
+The first direction treated chat as the primary input. It captured user text and generated warm reflections, but it lacked reliable structure. The model had too little grounded data to answer specific questions about time, patterns, or actual work.
+
+What remains useful:
+
+- warm, nonjudgmental voice;
+- ADHD-informed affect schema;
+- "receipt" framing as proof that the day counted;
+- Supabase + OpenRouter foundation.
+
+### v2 - Timer And Time Blocks
+
+The project moved to `time_blocks` as the primary data model. Timer, manual entry, and chat all write structured blocks with start/end time, task, category, hashtags, notes, and optional affect/marker fields.
+
+Implemented v2 foundation:
+
+- persistent `active_timer`;
+- start/stop timer flow;
+- latest-block resume;
+- manual completed-block creation;
+- edit/delete for user-owned time blocks;
+- chat start/stop timer;
+- chat completed-block logging with clarification;
+- daily block list and dashboard summaries.
+
+### V3 - Notes-First Evidence Engine
+
+The current direction treats notes as the most valuable data in the product. A block is not just "task X for Y hours"; it may contain parallel activity, useful distraction, avoidance, drift, emotional context, and later reinterpretation.
+
+Implemented V3 foundation:
+
+- custom categories through `time_block_categories`;
+- meaningful note edits preserved in `time_block_note_versions`;
+- note-derived insight extraction into `time_block_insights`;
+- note edits regenerate current insight rows;
+- chat analysis prioritizes notes, then metadata, then derived insights, then linked/general chat;
+- dashboard notes mirror surfaces note-grounded observations;
+- hosted Supabase V3 schema has been applied and REST-verified.
+
+## Current Status
+
+Branch: `dev`
+
+Database setup:
+
+- `active_timer`, `time_blocks`, `entries`, and `proactive_messages` are live and REST-visible.
+- V3 additions are applied and REST-visible: `time_block_categories`, `time_block_note_versions`, `time_block_insights`, `time_blocks.category_id`, and `time_blocks.agent_metadata`.
+- Default category rows are visible through REST.
+- `entries` remains legacy-only for the current app path.
+
+Server action status:
 
 | Function | Status |
 | --- | --- |
-| `getActiveTimer` | Implemented in `app/actions/timer.ts`; loads the current user's `active_timer` row so the Phase 1 timer UI can hydrate after refresh/navigation. |
-| `startTimer` | Implemented in `app/actions/timer.ts`; creates the current user's `active_timer` row and preserves an already-running timer. |
-| `resumeBlock` | Implemented in `app/actions/timer.ts`; reopens the latest completed block into `active_timer` from its original start time while preserving block metadata. |
-| `stopTimer` | Implemented in `app/actions/timer.ts`; moves the current user's `active_timer` into `time_blocks` and clears the active timer. Stopped blocks intentionally have no metadata until the block editor exists. |
-| `saveBlock` | Implemented in `app/actions/timer.ts`; creates manual/backdated blocks when `id` is absent, saves post-stop metadata edits for user-owned `time_blocks`, preserves meaningful note edits, and stores note-derived insights when notes exist. |
-| `deleteBlock` | Implemented in `app/actions/timer.ts`; deletes user-owned `time_blocks` rows and returns `not_found` for missing or non-owned blocks. |
-| `getCalendarData` | Implemented in `app/actions/timer.ts`; loads completed user-owned `time_blocks` that overlap the requested date range. |
-| `getCategories` / `createCategory` | Implemented in `app/actions/timer.ts`; loads default plus user-owned categories and creates user categories from editor/chat category names. |
-| `processCoachMessage` | Implemented in `app/actions/process-message.ts`; routes chat into conversational coaching, timer start/stop, completed-block logging, clarification, and analysis over `time_blocks`. Completed-block chat writes require clear log intent plus time, task, and explicit or confidently inferred category. |
+| `getActiveTimer` | Implemented; hydrates the current user's `active_timer`. |
+| `startTimer` | Implemented; creates/preserves one running timer. |
+| `resumeBlock` | Implemented; reopens latest completed block from original start time. |
+| `stopTimer` | Implemented; moves active timer into `time_blocks`. |
+| `saveBlock` | Implemented; creates/updates manual and edited blocks, preserves note versions, refreshes note insights. |
+| `deleteBlock` | Implemented; deletes user-owned blocks. |
+| `getCalendarData` | Implemented; loads blocks for date ranges. |
+| `getCategories` / `createCategory` | Implemented; default and user-owned categories. |
+| `processCoachMessage` | Implemented; routes coach chat, timer control, block logging, clarification, and notes-first analysis. |
 
-Database setup: v2 tables are installed in Supabase and verified through REST schema access. `active_timer`, `time_blocks`, `entries`, and `proactive_messages` all return `200` from the project REST API. The V3 schema additions are present in `supabase-v2.sql` and must be applied to hosted databases: `time_block_categories`, `time_block_note_versions`, `time_block_insights`, `time_blocks.category_id`, and `time_blocks.agent_metadata`. The existing `entries`/v1 schema remains intact.
+UI status:
 
-Where we are now:
+- `/app` has timer, post-stop/manual block editor, daily add-block button, latest-block resume, chat panel, and simple daily block list.
+- `/app/dashboard` has totals, calendar/rhythm/category views, ADHD markers, and notes mirror.
+- `/app/docs` is now a wiki-style guide explaining what Alibi is, how the evidence model works, how to write useful notes, how to use chat well, and where the V3/RAG direction is going.
+- `/` now describes the notes-first product, existing feature set, and future RAG ambition instead of embedding a fake chat demo.
+- `/demo` provides an unauthenticated localStorage-backed demo with name entry, timer, manual blocks, chat-style logging, edit/delete, latest-block resume, and a sign-up CTA.
+- `/app` detects completed local demo blocks after login/sign-up and offers to import them into the authenticated account.
 
-- **Database foundation:** v2 tables are live; V3 migration SQL is written but hosted databases still need the new category, note-version, and note-insight tables/columns applied where they are not already present.
-- **Server foundation:** active timer hydration, timer start/stop/resume, manual block save/update/delete, custom category creation, chat-controlled writes, clarification gating, calendar range reads, note-version preservation, and note-derived insight upserts exist for `time_blocks`.
-- **UI foundation:** `/app` renders a persistent timer control, post-stop/manual block editor, daily add-block button, latest-block resume button, chat panel, and simple daily time-block list. The editor now frames notes as “what really happened” and lets users type a new category name while logging.
-- **Dashboard progress:** `/app/dashboard` renders totals, calendar/rhythm/category views, ADHD markers, and a V3 notes mirror. ADHD marker counts now merge explicit block booleans with note-derived insight signals so older derived rows are visible without SQL backfill.
-- **Chat progress:** implemented as a secondary input surface. It can respond conversationally without forcing a log, start a timer, stop a timer into `time_blocks`, log completed blocks with extracted metadata, ask for missing timing/task/category before writes, create/use custom categories from category names, and answer from saved blocks. Analysis now prioritizes notes, then block metadata, then note-derived insights, then linked chat. New chat writes no longer go to `entries`.
-- **Public/docs copy:** `/` and `/app/docs` still mainly describe the v2 product shape; deeper V3 notes-first copy is documented in `SPECS.md` and should be reflected in app-facing docs later.
-- **Verification:** `npm run build` passes after the notes-first dashboard and analysis updates. Live Supabase/OpenRouter flows still need browser QA with an authenticated user after applying the hosted database migration.
-- **Next implementation step:** apply/verify the V3 database migration in the hosted database, run live note-save and dashboard smoke tests, then broaden analysis beyond today into explicit week/month summaries.
-- **Later server gap:** broader period analysis is still basic; the analysis path supports extracted ranges but needs richer week/month handling and deterministic longitudinal summaries.
+Verification:
 
----
+- `npm run build` passes.
+- Hosted schema was checked through Supabase REST table/column probes.
+- Authenticated browser QA is still needed for note-save, note-edit insight regeneration, custom category creation, chat logging, chat analysis, and dashboard display.
 
-## The four moments (mapped to the build)
+Known working principle:
 
-The spec defines four user moments. Here's where each one lives in the codebase.
+- Timer UI, manual block creation, and chat logging share `time_blocks`.
+- Notes remain human-authored source text.
+- Derived insight rows are replaceable and traceable.
+- Public demo data stays in browser `localStorage` until the user imports completed blocks into an authenticated account.
 
-### 1. The chat log — log anything with structure
+## Current Gaps
 
-User can talk normally. Alibi responds as a conversational coach unless the message clearly intends to save completed work. When the user does log something, Alibi parses it into v2 time-block fields, asks for missing timing/task/category before writing, saves one `time_blocks` row, and replies with one warm phrase ("on the record.", "got it.", "noted.").
+- Full weekly/monthly calendar timeline views remain pending.
+- Period analysis exists but is still shallow; week/month summaries need deterministic aggregation and stronger evidence trails.
+- Notes mirror is an initial vertical slice, not a full longitudinal pattern engine.
+- Chat can analyze saved data, but its elicitation style should become more deliberate: it should ask better questions about feelings, drift, mixed outcomes, and context.
+- RAG is not implemented yet. The project first needs cleaner source records and evidence pointers.
+- Agentic database evolution is not implemented. Future work should let the agent propose schema changes, not mutate production schema directly.
+- Demo chat is a local approximation, not the OpenRouter-backed authenticated agent. It is useful for product feel, but not a complete AI demo.
 
-- **UI:** [`components/timer-tracker-app.tsx`](./components/timer-tracker-app.tsx) — chat panel beside the timer/list experience.
-- **AI:** [`app/actions/process-message.ts`](./app/actions/process-message.ts) — routes intent, handles `coach_chat`, extracts time-block metadata for clear log attempts, clarifies missing timing/task/category, executes v2 writes, and generates a warm one-liner ack.
-- **Display:** [`components/ack-toast.tsx`](./components/ack-toast.tsx) — a soft fade-in/fade-out italic line, no celebratory tone.
-- **Storage:** `time_blocks` table, RLS scoped to `auth.uid()`.
+## Roadmap
 
-### 2. The check-in — guilt-spiral mode
+### Phase 1 - Live QA And Copy Alignment
 
-User types something like *"i feel like i did nothing today"* or *"what did i do today?"* Alibi switches mode automatically — no separate button, no toggle. It pulls today's `time_blocks`, prioritizes block notes as the strongest evidence, and reads the day back to the user with warmth.
+- Run authenticated smoke tests for note save/edit, custom categories, chat logging, chat analysis, and dashboard notes mirror.
+- Smoke test `/demo` localStorage persistence, timer stop/edit, manual block save, chat-created block, resume, clear demo, sign-up/sign-in, and authenticated import.
+- Keep `/app/docs` as a wiki, not a feature list. It should explain what Alibi is, how it works, how to write useful notes, and how to prompt chat well.
+- Fix any remaining UI copy that treats notes as a minor optional field instead of primary evidence.
 
-- **Detection:** Same AI call classifies `intent: "analyse_blocks"`.
-- **Reflection:** Same server action pulls today's completed `time_blocks` and prompts the model to reflect them back. Hard system rules forbid toxic positivity, exclamation marks, breathing exercises, or productivity lectures. Lowercase, conversational, under 90 words.
-- **UI:** [`components/coach-response.tsx`](./components/coach-response.tsx) — a calm, dismissible reflection card.
+### Phase 2 - Better Note Capture
 
-### 3. The receipt — end-of-day card
+- Improve the block editor so notes are easier to write without turning them into a long required form.
+- Support richer note prompts around intended versus actual work, parallel activity, attention shifts, useful distractions, friction, body state, feeling, and outcome.
+- Keep one human-written note as the primary source, then derive structure beside it.
+- Preserve note-history behavior when notes are edited after the fact.
 
-A screenshot-friendly summary of today: counts, tracked time, project pills, timestamped list. No ratings, no stars, no performance.
+### Phase 3 - Better Chat Elicitation
 
-- **UI:** [`components/daily-receipt.tsx`](./components/daily-receipt.tsx) — toggleable from the main view.
-- **Footer line:** *"this is your day. it counts."* — flat, not exclaimed.
+- Update the chat prompt so the agent helps the user reconstruct messy time blocks: parallel activity, attention shifts, useful distractions, friction, mood, and body state.
+- Separate logging mode from reflection mode so ordinary emotional check-ins do not become forced block writes.
+- Let chat help expand or revise notes while preserving note history.
+- Add prompt patterns for "ask me questions before saving," "turn this into a useful note," and "help me name what actually happened."
+- Ensure chat asks for missing details before writing valid blocks.
 
-### 4. The mirror — pattern reflection
+### Phase 4 - Source-Linked Evidence Layer
 
-Implemented as an initial V3 dashboard panel. It surfaces gentle note-derived observations with a small evidence trail, without scores or rankings.
+- Evolve `time_block_insights` toward smaller atomic evidence items only after real usage shows what claims recur.
+- Track claim type, source type, source id, time block id, confidence, and evidence excerpt for each extracted claim.
+- Use evidence items for attention shifts, useful distractions, friction, satisfaction, uncertainty, people, projects, and recurring themes.
+- Keep raw notes and chat as the highest-trust source material.
 
-- **UI:** [`components/dashboard/notes-mirror.tsx`](./components/dashboard/notes-mirror.tsx) — reads `time_block_insights` and shows friction, hyperfocus/flow, satisfaction, and emotional-tone observations with note excerpts.
-- **Storage:** `time_block_insights` stores derived interpretations; `time_block_note_versions` preserves meaningful note edits.
-- **Status:** first vertical slice implemented. Longitudinal observations across weeks/months remain future work.
+### Phase 5 - Timeline-Linked Pattern Analysis
 
----
+- Build richer week/month analysis over notes, metadata, linked chat, and source-linked evidence items.
+- Add evidence-backed observations such as recurring friction by hour, satisfying contexts, avoidance that became useful work, or flatness after certain block types.
+- Keep every observation traceable to source blocks/notes/messages.
 
-## What we explicitly are NOT building
+### Phase 6 - Messy Block Data Model
 
-Pulled from the spec — these are guardrails for every future change:
+- Do not redesign the schema for multi-activity blocks until enough real notes prove the shape.
+- Consider `block_activity_segments` if one time block often needs multiple activity slices.
+- Consider explicit attention-shift records if "intended task versus actual task" becomes central.
+- Keep the timeline simple until the extra structure removes more ambiguity than it creates.
 
-- ❌ Todos / planning / goal-setting
-- ❌ Timers that demand task planning before action (the v2 timer starts first; metadata comes after)
-- ❌ Push notifications nagging the user
-- ❌ Streaks, scores, ratings, or comparison
-- ❌ Breathing exercises, journaling prompts, "wellness techniques"
-- ❌ Toxic positivity, exclamation-mark cheerleading
-- ❌ A productivity dashboard
+### Phase 7 - Evidence Model For RAG
 
-If a feature pushes the user, it doesn't ship.
+- Introduce an explicit retrieval/chunk layer only after enough real usage reveals the right retrieval shape.
+- Store source pointers from chunks to notes, note versions, chat messages, time blocks, evidence items, and derived observations.
+- Add embeddings and retrieval only for source-backed evidence.
+- Require RAG answers to cite dated blocks, note excerpts, chat turns, or stored evidence.
 
----
+### Phase 8 - Agent-Assisted Schema Evolution
 
-## Architecture
+- Let the agent inspect current schema and propose migration drafts for new evidence/RAG tables.
+- Keep production database changes explicit, reviewed, and migration-based.
+- Track every schema change in this document and the migration SQL.
 
-### Stack
+## Demo Flow
 
-- **Framework:** Next.js 15 App Router
-- **Auth + DB:** Supabase (RLS-protected)
-- **AI:** Vercel AI SDK 6 through OpenRouter (`lib/ai.ts`)
-- **Styling:** Tailwind v4 with custom warm palette + Lora (serif) / Nunito (sans) fonts
-- **Voice input:** Web Speech API (client-side, no server transcription)
+1. Open `/app`.
+2. Start the timer.
+3. Stop it and add a nuanced note about what actually happened.
+4. Edit the note later; the prior version is preserved and insight rows refresh.
+5. Add a manual block with a new custom category.
+6. Ask chat to log a completed block; it asks for missing time/task/category before saving.
+7. Ask "what patterns do you see today?" and get a note-grounded response.
+8. Open `/app/dashboard` and see evidence-backed notes mirror observations.
 
-### Database schema
+## Next Step
 
-`public.time_blocks`:
-
-| column             | type          | note                           |
-| ------------------ | ------------- | ------------------------------ |
-| `id`               | uuid pk       | `gen_random_uuid()`            |
-| `user_id`          | uuid          | FK → `auth.users`, cascade     |
-| `started_at`       | timestamptz   | block start                    |
-| `ended_at`         | timestamptz   | block end, nullable while running |
-| `duration_seconds` | integer       | generated from start/end       |
-| `task_name`        | text          | short block label              |
-| `category`         | text          | category slug, default or user-created |
-| `category_id`      | uuid          | optional FK to `time_block_categories` |
-| `hashtags`         | text[]        | optional context tags          |
-| `notes`            | text          | optional but primary reflection evidence: what happened, friction, feeling, changes, and noticed context |
-| `mood`             | text          | AI-extracted, nullable         |
-| `effort_level`     | text          | AI-extracted, nullable         |
-| `satisfaction`     | text          | AI-extracted, nullable         |
-| `avoidance_marker` | boolean       | explicit or note-derived marker |
-| `hyperfocus_marker` | boolean      | explicit or note-derived marker |
-| `guilt_marker`     | boolean       | explicit or note-derived marker |
-| `novelty_marker`   | boolean       | explicit marker                |
-
-`public.time_block_categories`:
-
-| column       | type        | note                                  |
-| ------------ | ----------- | ------------------------------------- |
-| `id`         | uuid pk     | category id                           |
-| `user_id`    | uuid/null   | null for defaults, user id for custom |
-| `slug`       | text        | stable category key                   |
-| `name`       | text        | display label                         |
-| `color`      | text        | hex color                             |
-| `is_default` | boolean     | default category marker               |
-| `agent_metadata`   | jsonb         | derived context only           |
-| `created_at`       | timestamptz   | default `now()`                |
-
-RLS: each user can only `select / insert / update / delete` their own rows.
-
-Additional V3 tables:
-
-- `time_block_note_versions` preserves every meaningful note change with `previous_notes`, `new_notes`, and `source`.
-- `time_block_insights` stores derived note interpretations such as friction, avoidance, hyperfocus, satisfaction, uncertainty, people/projects/themes, and evidence excerpts.
-
-### Key files
-
-```
-app/
-  actions/process-message.ts   # chat router: classify → clarify/write/analyse
-  actions/timer.ts             # v2 active_timer + time_blocks actions
-  auth/                        # Supabase email/password auth
-  app/page.tsx                 # auth gate + v2 tracker
-  layout.tsx                   # fonts, metadata, theme
-  globals.css                  # warm palette + coach-mode tokens
-components/
-  timer-tracker-app.tsx        # main v2 app shell: timer, editor, list, chat
-  top-nav.tsx                  # authenticated navigation
-  dashboard/*                  # dashboard summaries over time_blocks
-lib/
-  note-insights.ts             # note-derived insight extraction and prompt formatting
-  supabase/{client,server,middleware}.ts
-  types.ts                     # time-block, timer, and legacy entry types
-middleware.ts                  # session refresh + protected routes
-```
-
----
-
-## Demo flow (90 seconds, from the spec)
-
-1. **Open `/app`.** Calm timer-first interface, today's blocks visible.
-2. **Tap start.** One `active_timer` row is created.
-3. **Type:** *"stop timer, socket bug, coding"* → one `time_blocks` row is created and appears in today's list.
-4. **Tap resume on the latest block.** That block reopens from its original start time, keeps its metadata, and disappears from the completed list while running.
-5. **Tap stop.** The same `time_blocks` row is completed again with the extended end time.
-6. **Tap the plus button in today's blocks.** The editor opens with start set to 30 minutes ago and end set to now; saving with task/category creates one completed `time_blocks` row.
-7. **Type:** *"worked on gallery meeting from 2 to 2:45, social"* → another completed `time_blocks` row appears.
-8. **Type:** *"worked on something"* → chat stores a draft and asks for timing before writing.
-9. **Type:** *"i feel like i did nothing today"* → chat reflects the saved `time_blocks` back with specifics.
-
-That's the core demo. No accounts step, no settings, no scores.
-
----
-
-## Closing pitch line
-
-> *Todo lists are glass half empty. Done lists are glass half full. Alibi is the friend who proves the glass was fuller than you thought.*
+Run live authenticated QA, then update landing-page copy so the visible product language matches the V3 spec.

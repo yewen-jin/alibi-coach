@@ -43,6 +43,11 @@ import type {
 } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { TopNav } from "./top-nav";
+import {
+  clearDemoSession,
+  readDemoSession,
+  type DemoStoredBlock,
+} from "@/lib/demo-storage";
 
 const FALLBACK_CATEGORIES = [
   { id: "deep_work", user_id: null, slug: "deep_work", name: "deep work", color: "#3253C7", is_default: true, created_at: "", updated_at: "" },
@@ -285,6 +290,9 @@ export function TimerTrackerApp({
   const [hasPendingDraft, setHasPendingDraft] = useState(
     initialHasPendingDraft,
   );
+  const [demoImportBlocks, setDemoImportBlocks] = useState<DemoStoredBlock[]>([]);
+  const [demoImportName, setDemoImportName] = useState<string | null>(null);
+  const [isImportingDemo, setIsImportingDemo] = useState(false);
   const [isPending, startTransition] = useTransition();
   const [isChatPending, startChatTransition] = useTransition();
 
@@ -339,6 +347,19 @@ export function TimerTrackerApp({
   useEffect(() => {
     const interval = window.setInterval(() => setNow(Date.now()), 1000);
     return () => window.clearInterval(interval);
+  }, []);
+
+  useEffect(() => {
+    const demoSession = readDemoSession();
+    const importableBlocks =
+      demoSession?.blocks.filter(
+        (block) => block.ended_at && block.task_name && block.category,
+      ) ?? [];
+
+    if (demoSession && importableBlocks.length > 0) {
+      setDemoImportName(demoSession.name);
+      setDemoImportBlocks(importableBlocks);
+    }
   }, []);
 
   const refreshBlocks = useCallback(async () => {
@@ -513,6 +534,50 @@ export function TimerTrackerApp({
     });
   };
 
+  const handleImportDemoBlocks = async () => {
+    if (demoImportBlocks.length === 0 || isImportingDemo) {
+      return;
+    }
+
+    setError(null);
+    setIsImportingDemo(true);
+
+    for (const block of demoImportBlocks) {
+      if (!block.ended_at || !block.task_name || !block.category) {
+        continue;
+      }
+
+      const result = await saveBlock({
+        task_name: block.task_name,
+        category: block.category,
+        started_at: block.started_at,
+        ended_at: block.ended_at,
+        hashtags: block.hashtags,
+        notes: block.notes,
+        note_source: "manual",
+      });
+
+      if (result.type !== "saved") {
+        setError(result.type === "not_found" ? "time block was not found." : result.message);
+        setIsImportingDemo(false);
+        return;
+      }
+    }
+
+    clearDemoSession();
+    setDemoImportBlocks([]);
+    setDemoImportName(null);
+    setIsImportingDemo(false);
+    await Promise.all([
+      refreshBlocks(),
+      getCategories().then((categoriesResult) => {
+        if (categoriesResult.type === "loaded") {
+          setCategories(categoriesResult.categories);
+        }
+      }),
+    ]);
+  };
+
   const handleCoachMessage = useCallback(
     async (text: string) => {
       const trimmed = text.trim();
@@ -599,6 +664,44 @@ export function TimerTrackerApp({
     <main className="alibi-page px-4 py-4 sm:px-6 lg:px-8">
       <div className="mx-auto flex w-full max-w-6xl flex-col gap-6">
         <TopNav userEmail={userEmail} />
+
+        {demoImportBlocks.length > 0 && (
+          <section className="rounded-2xl border-2 border-alibi-lavender/30 bg-white/75 px-4 py-3 shadow-[0_10px_24px_rgba(50,83,199,0.08)]">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <p className="text-sm font-black text-alibi-blue">
+                  import your demo blocks
+                </p>
+                <p className="mt-1 text-sm font-semibold leading-6 text-alibi-teal">
+                  {demoImportName ? `${demoImportName}'s demo session` : "your demo session"} has{" "}
+                  {demoImportBlocks.length} completed block
+                  {demoImportBlocks.length === 1 ? "" : "s"} ready to save into this account.
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setDemoImportBlocks([]);
+                    setDemoImportName(null);
+                  }}
+                  className="h-10 rounded-2xl px-4 text-sm font-bold text-alibi-teal transition hover:bg-alibi-lavender/15 hover:text-alibi-pink"
+                >
+                  not now
+                </button>
+                <button
+                  type="button"
+                  onClick={handleImportDemoBlocks}
+                  disabled={isImportingDemo}
+                  className="inline-flex h-10 items-center justify-center gap-2 rounded-2xl bg-alibi-teal px-4 text-sm font-black text-white shadow-[0_10px_22px_rgba(67,132,157,0.28)] transition hover:-translate-y-0.5 hover:bg-alibi-blue disabled:translate-y-0 disabled:opacity-55"
+                >
+                  {isImportingDemo && <Loader2 className="h-4 w-4 animate-spin" />}
+                  import
+                </button>
+              </div>
+            </div>
+          </section>
+        )}
 
         <section className="grid gap-5 lg:grid-cols-[minmax(0,0.95fr)_minmax(0,1.25fr)]">
           <div className="flex flex-col gap-5">
