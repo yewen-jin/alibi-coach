@@ -1,6 +1,7 @@
 "use server"
 
 import { revalidatePath } from "next/cache"
+import { deriveInsightFromNotes } from "@/lib/note-insights"
 import { createClient } from "@/lib/supabase/server"
 import type {
   ActiveTimer,
@@ -20,8 +21,11 @@ import type {
   TimeBlockCategory,
   EffortLevel,
   Mood,
+  NoteVersionSource,
   Satisfaction,
 } from "@/lib/types"
+
+type Supabase = Awaited<ReturnType<typeof createClient>>
 
 const TIME_BLOCK_CATEGORIES = [
   "deep_work",
@@ -342,6 +346,93 @@ function validateGetCalendarDataInput(input: unknown):
   }
 }
 
+function normalizeNotes(value: string | null | undefined) {
+  return value?.trim() || null
+}
+
+function notesChanged(previousNotes: string | null | undefined, newNotes: string | null | undefined) {
+  return normalizeNotes(previousNotes) !== normalizeNotes(newNotes)
+}
+
+function noteSourceFromInput(source: NoteVersionSource | undefined): NoteVersionSource {
+  return source === "chat" || source === "agent" ? source : "manual"
+}
+
+function deriveMarkersFromNotes(notes: string | null | undefined) {
+  const insight = deriveInsightFromNotes(notes ?? null)
+
+  return {
+    avoidance: Boolean(insight?.avoidance_signals.length),
+    hyperfocus: Boolean(insight?.hyperfocus_signals.length),
+    guilt: insight?.emotional_tone === "self-critical" || Boolean(insight?.uncertainty_signals.length),
+  }
+}
+
+async function preserveNoteVersion(
+  supabase: Supabase,
+  userId: string,
+  timeBlockId: string,
+  previousNotes: string | null | undefined,
+  newNotes: string | null | undefined,
+  source: NoteVersionSource,
+) {
+  const previous = normalizeNotes(previousNotes)
+  const next = normalizeNotes(newNotes)
+
+  if (previous === next || (!previous && !next)) {
+    return
+  }
+
+  await supabase.from("time_block_note_versions").insert({
+    time_block_id: timeBlockId,
+    user_id: userId,
+    previous_notes: previous,
+    new_notes: next,
+    source,
+  })
+}
+
+async function storeNoteInsight(
+  supabase: Supabase,
+  userId: string,
+  timeBlock: TimeBlock,
+) {
+  const insight = deriveInsightFromNotes(timeBlock.notes)
+
+  if (!insight) {
+    await supabase
+      .from("time_block_insights")
+      .delete()
+      .eq("time_block_id", timeBlock.id)
+      .eq("user_id", userId)
+    return
+  }
+
+  await supabase
+    .from("time_block_insights")
+    .upsert(
+      {
+        time_block_id: timeBlock.id,
+        user_id: userId,
+        ...insight,
+      },
+      { onConflict: "time_block_id" },
+    )
+}
+
+async function preserveNotesAndInsights(
+  supabase: Supabase,
+  userId: string,
+  timeBlock: TimeBlock,
+  previousNotes: string | null | undefined,
+  source: NoteVersionSource,
+) {
+  await Promise.all([
+    preserveNoteVersion(supabase, userId, timeBlock.id, previousNotes, timeBlock.notes, source),
+    storeNoteInsight(supabase, userId, timeBlock),
+  ])
+}
+
 /**
  * Load the current user's running timer, if one exists.
  */
@@ -615,8 +706,10 @@ export async function stopTimer(input?: StopTimerInput): Promise<StopTimerResult
   }
 
   let timeBlock: TimeBlock
+  const derivedMarkers = deriveMarkersFromNotes(validatedInput.notes)
 
   if (openBlock) {
+    const previousNotes = (openBlock as TimeBlock).notes
     const updateValues: Record<string, unknown> = {
       ended_at: endedAt.toISOString(),
       updated_at: new Date().toISOString(),
@@ -630,9 +723,9 @@ export async function stopTimer(input?: StopTimerInput): Promise<StopTimerResult
       updateValues.mood = validatedInput.mood
       updateValues.effort_level = validatedInput.effortLevel
       updateValues.satisfaction = validatedInput.satisfaction
-      updateValues.avoidance_marker = validatedInput.avoidanceMarker
-      updateValues.hyperfocus_marker = validatedInput.hyperfocusMarker
-      updateValues.guilt_marker = validatedInput.guiltMarker
+      updateValues.avoidance_marker = validatedInput.avoidanceMarker || derivedMarkers.avoidance
+      updateValues.hyperfocus_marker = validatedInput.hyperfocusMarker || derivedMarkers.hyperfocus
+      updateValues.guilt_marker = validatedInput.guiltMarker || derivedMarkers.guilt
       updateValues.novelty_marker = validatedInput.noveltyMarker
     }
 
@@ -649,6 +742,13 @@ export async function stopTimer(input?: StopTimerInput): Promise<StopTimerResult
     }
 
     timeBlock = updatedBlock as TimeBlock
+    await preserveNotesAndInsights(
+      supabase,
+      user.id,
+      timeBlock,
+      input !== undefined ? previousNotes : timeBlock.notes,
+      noteSourceFromInput(input?.note_source),
+    )
   } else {
     const { data: insertedBlock, error: insertError } = await supabase
       .from("time_blocks")
@@ -663,9 +763,9 @@ export async function stopTimer(input?: StopTimerInput): Promise<StopTimerResult
         mood: validatedInput.mood,
         effort_level: validatedInput.effortLevel,
         satisfaction: validatedInput.satisfaction,
-        avoidance_marker: validatedInput.avoidanceMarker,
-        hyperfocus_marker: validatedInput.hyperfocusMarker,
-        guilt_marker: validatedInput.guiltMarker,
+        avoidance_marker: validatedInput.avoidanceMarker || derivedMarkers.avoidance,
+        hyperfocus_marker: validatedInput.hyperfocusMarker || derivedMarkers.hyperfocus,
+        guilt_marker: validatedInput.guiltMarker || derivedMarkers.guilt,
         novelty_marker: validatedInput.noveltyMarker,
       })
       .select("*")
@@ -676,6 +776,13 @@ export async function stopTimer(input?: StopTimerInput): Promise<StopTimerResult
     }
 
     timeBlock = insertedBlock as TimeBlock
+    await preserveNotesAndInsights(
+      supabase,
+      user.id,
+      timeBlock,
+      null,
+      noteSourceFromInput(input?.note_source),
+    )
   }
 
   const { error: deleteError } = await supabase
@@ -729,20 +836,38 @@ export async function saveBlock(input: SaveBlockInput): Promise<SaveBlockResult>
     ended_at: validated.endedAt,
     updated_at: new Date().toISOString(),
   }
+  const derivedMarkers = deriveMarkersFromNotes(validated.notes)
 
   if (validated.mood !== undefined) values.mood = validated.mood
   if (validated.effortLevel !== undefined) values.effort_level = validated.effortLevel
   if (validated.satisfaction !== undefined) values.satisfaction = validated.satisfaction
-  if (validated.avoidanceMarker !== undefined) {
-    values.avoidance_marker = validated.avoidanceMarker
+  if (validated.avoidanceMarker !== undefined || derivedMarkers.avoidance) {
+    values.avoidance_marker = validated.avoidanceMarker === true || derivedMarkers.avoidance
   }
-  if (validated.hyperfocusMarker !== undefined) {
-    values.hyperfocus_marker = validated.hyperfocusMarker
+  if (validated.hyperfocusMarker !== undefined || derivedMarkers.hyperfocus) {
+    values.hyperfocus_marker = validated.hyperfocusMarker === true || derivedMarkers.hyperfocus
   }
-  if (validated.guiltMarker !== undefined) values.guilt_marker = validated.guiltMarker
+  if (validated.guiltMarker !== undefined || derivedMarkers.guilt) {
+    values.guilt_marker = validated.guiltMarker === true || derivedMarkers.guilt
+  }
   if (validated.noveltyMarker !== undefined) values.novelty_marker = validated.noveltyMarker
 
   if (validated.id) {
+    const { data: existingBlock, error: existingError } = await supabase
+      .from("time_blocks")
+      .select("id, notes")
+      .eq("id", validated.id)
+      .eq("user_id", user.id)
+      .maybeSingle()
+
+    if (existingError) {
+      return { type: "error", message: "couldn't load the time block. try again." }
+    }
+
+    if (!existingBlock) {
+      return { type: "not_found" }
+    }
+
     const { data: timeBlock, error: updateError } = await supabase
       .from("time_blocks")
       .update(values)
@@ -758,6 +883,14 @@ export async function saveBlock(input: SaveBlockInput): Promise<SaveBlockResult>
     if (!timeBlock) {
       return { type: "not_found" }
     }
+
+    await preserveNotesAndInsights(
+      supabase,
+      user.id,
+      timeBlock as TimeBlock,
+      (existingBlock as { notes: string | null }).notes,
+      noteSourceFromInput(input.note_source),
+    )
 
     revalidatePath("/app")
     revalidatePath("/app/dashboard")
@@ -780,6 +913,14 @@ export async function saveBlock(input: SaveBlockInput): Promise<SaveBlockResult>
   if (insertError || !timeBlock) {
     return { type: "error", message: "couldn't save the time block. try again." }
   }
+
+  await preserveNotesAndInsights(
+    supabase,
+    user.id,
+    timeBlock as TimeBlock,
+    null,
+    noteSourceFromInput(input.note_source),
+  )
 
   revalidatePath("/app")
   revalidatePath("/app/dashboard")

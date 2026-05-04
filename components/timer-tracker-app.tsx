@@ -404,6 +404,7 @@ export function TimerTrackerApp({
         ended_at: fromDateTimeLocal(editor.endedAt),
         hashtags: parseHashtags(editor.hashtags),
         notes: editor.notes,
+        note_source: "manual",
       });
 
       if (result.type === "saved") {
@@ -899,13 +900,14 @@ function BlockEditor({
         </label>
 
         <label className="grid gap-1.5 text-sm font-bold text-alibi-blue">
-          notes
+          notes · what really happened
           <textarea
             value={editor.notes}
             onChange={(event) =>
               setEditor({ ...editor, notes: event.target.value })
             }
             className="alibi-input min-h-24 resize-y py-2"
+            placeholder="what you did, what got in the way, how it felt, what changed, what you noticed"
           />
         </label>
       </div>

@@ -62,8 +62,41 @@ export interface TimeBlock {
   hyperfocus_marker: boolean
   guilt_marker: boolean
   novelty_marker: boolean
+  agent_metadata?: Record<string, unknown>
   created_at: string
   updated_at: string
+}
+
+export type NoteVersionSource = "manual" | "chat" | "agent"
+
+export interface TimeBlockNoteVersion {
+  id: string
+  time_block_id: string
+  user_id: string
+  previous_notes: string | null
+  new_notes: string | null
+  source: NoteVersionSource
+  created_at: string
+}
+
+export interface TimeBlockInsight {
+  id: string
+  time_block_id: string
+  user_id: string
+  source: "notes"
+  actions: string[]
+  emotional_tone: string | null
+  friction_points: string[]
+  avoidance_signals: string[]
+  hyperfocus_signals: string[]
+  satisfaction_signals: string[]
+  uncertainty_signals: string[]
+  people: string[]
+  projects: string[]
+  themes: string[]
+  evidence_excerpt: string | null
+  model_version: string
+  created_at: string
 }
 
 export type CoachMessageRole = "user" | "assistant"
@@ -95,6 +128,7 @@ export interface SaveBlockInput {
   hyperfocus_marker?: boolean
   guilt_marker?: boolean
   novelty_marker?: boolean
+  note_source?: NoteVersionSource
 }
 
 export interface StopTimerInput {
@@ -109,6 +143,7 @@ export interface StopTimerInput {
   hyperfocus_marker?: boolean
   guilt_marker?: boolean
   novelty_marker?: boolean
+  note_source?: NoteVersionSource
 }
 
 export interface DeleteBlockInput {

@@ -25,7 +25,7 @@ Server action status from the v2 architecture:
 | `startTimer` | Implemented in `app/actions/timer.ts`; creates the current user's `active_timer` row and preserves an already-running timer. |
 | `resumeBlock` | Implemented in `app/actions/timer.ts`; reopens the latest completed block into `active_timer` from its original start time while preserving block metadata. |
 | `stopTimer` | Implemented in `app/actions/timer.ts`; moves the current user's `active_timer` into `time_blocks` and clears the active timer. Stopped blocks intentionally have no metadata until the block editor exists. |
-| `saveBlock` | Implemented in `app/actions/timer.ts`; creates manual/backdated blocks when `id` is absent and saves post-stop metadata edits for user-owned `time_blocks`. |
+| `saveBlock` | Implemented in `app/actions/timer.ts`; creates manual/backdated blocks when `id` is absent, saves post-stop metadata edits for user-owned `time_blocks`, preserves meaningful note edits, and stores note-derived insights when notes exist. |
 | `deleteBlock` | Implemented in `app/actions/timer.ts`; deletes user-owned `time_blocks` rows and returns `not_found` for missing or non-owned blocks. |
 | `getCalendarData` | Implemented in `app/actions/timer.ts`; loads completed user-owned `time_blocks` that overlap the requested date range. |
 | `processCoachMessage` | Implemented in `app/actions/process-message.ts`; routes chat into conversational coaching, timer start/stop, completed-block logging, clarification, and analysis over `time_blocks`. Completed-block chat writes require clear log intent plus time, task, and explicit or confidently inferred category. |
@@ -60,7 +60,7 @@ User can talk normally. Alibi responds as a conversational coach unless the mess
 
 ### 2. The check-in — guilt-spiral mode
 
-User types something like *"i feel like i did nothing today"* or *"what did i do today?"* Alibi switches mode automatically — no separate button, no toggle. It pulls today's `time_blocks` and reads the day back to the user, with warmth, using their actual logged evidence.
+User types something like *"i feel like i did nothing today"* or *"what did i do today?"* Alibi switches mode automatically — no separate button, no toggle. It pulls today's `time_blocks`, prioritizes block notes as the strongest evidence, and reads the day back to the user with warmth.
 
 - **Detection:** Same AI call classifies `intent: "analyse_blocks"`.
 - **Reflection:** Same server action pulls today's completed `time_blocks` and prompts the model to reflect them back. Hard system rules forbid toxic positivity, exclamation marks, breathing exercises, or productivity lectures. Lowercase, conversational, under 90 words.
@@ -121,7 +121,7 @@ If a feature pushes the user, it doesn't ship.
 | `task_name`        | text          | short block label              |
 | `category`         | text          | v2 category enum               |
 | `hashtags`         | text[]        | optional context tags          |
-| `notes`            | text          | optional context               |
+| `notes`            | text          | optional but primary reflection evidence: what happened, friction, feeling, changes, and noticed context |
 | `mood`             | text          | AI-extracted, nullable         |
 | `effort_level`     | text          | AI-extracted, nullable         |
 | `satisfaction`     | text          | AI-extracted, nullable         |
