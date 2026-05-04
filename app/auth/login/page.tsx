@@ -59,26 +59,29 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center px-4 py-12">
-      <div className="w-full max-w-sm">
-        <div className="text-center mb-8">
-          <h1 className="font-serif text-3xl text-foreground mb-2">welcome back</h1>
-          <p className="text-muted-foreground">
+    <main className="alibi-page flex items-center justify-center px-4 py-12 sm:px-6">
+      <section className="alibi-card-pop w-full max-w-md p-7 sm:p-8">
+        <div className="mb-8 text-center">
+          <p className="alibi-label">auth</p>
+          <h1 className="mt-3 text-[1.8rem] font-black tracking-tight text-alibi-blue">
+            welcome back
+          </h1>
+          <p className="mt-3 text-[15px] leading-relaxed text-alibi-teal">
             {fromDemo
               ? "sign in, then import your demo blocks."
-              : "your day&apos;s still here, on the record."}
+              : "your day's still here, on the record."}
           </p>
         </div>
 
         <form onSubmit={handleLogin} className="space-y-4">
           {error && (
-            <div className="bg-destructive/10 border border-destructive/20 text-destructive rounded-lg p-3 text-sm">
+            <div className="rounded-2xl border-2 border-alibi-pink/25 bg-alibi-pink/10 p-3 text-sm font-semibold text-alibi-pink">
               {error}
             </div>
           )}
 
           <div>
-            <label htmlFor="email" className="block text-sm font-medium text-foreground mb-1.5">
+            <label htmlFor="email" className="alibi-label mb-1.5 block">
               Email
             </label>
             <input
@@ -87,13 +90,13 @@ export default function LoginPage() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
-              className="w-full px-4 py-2.5 bg-card border border-border rounded-lg text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+              className="alibi-input h-11 w-full placeholder:text-alibi-teal/60"
               placeholder="you@example.com"
             />
           </div>
 
           <div>
-            <label htmlFor="password" className="block text-sm font-medium text-foreground mb-1.5">
+            <label htmlFor="password" className="alibi-label mb-1.5 block">
               Password
             </label>
             <input
@@ -102,7 +105,7 @@ export default function LoginPage() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
-              className="w-full px-4 py-2.5 bg-card border border-border rounded-lg text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+              className="alibi-input h-11 w-full placeholder:text-alibi-teal/60"
               placeholder="Your password"
             />
           </div>
@@ -110,16 +113,16 @@ export default function LoginPage() {
           <button
             type="submit"
             disabled={loading || Boolean(oauthLoading)}
-            className="w-full py-2.5 bg-primary text-primary-foreground rounded-lg font-medium hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="alibi-button-primary h-11 w-full text-sm disabled:cursor-not-allowed"
           >
             {loading ? "Signing in..." : "Sign in"}
           </button>
         </form>
 
         <div className="my-6 flex items-center gap-3">
-          <div className="h-px flex-1 bg-border" />
-          <span className="text-xs uppercase tracking-wide text-muted-foreground">or</span>
-          <div className="h-px flex-1 bg-border" />
+          <div className="h-px flex-1 bg-alibi-blue/15" />
+          <span className="alibi-label text-alibi-teal/70">or</span>
+          <div className="h-px flex-1 bg-alibi-blue/15" />
         </div>
 
         <div className="space-y-3">
@@ -127,7 +130,7 @@ export default function LoginPage() {
             type="button"
             disabled={loading || Boolean(oauthLoading)}
             onClick={() => handleOAuthLogin("google")}
-            className="w-full py-2.5 bg-card border border-border text-foreground rounded-lg font-medium hover:bg-muted transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="alibi-button-secondary h-11 w-full text-sm disabled:cursor-not-allowed"
           >
             {oauthLoading === "google" ? "Continuing with Google..." : "Continue with Google"}
           </button>
@@ -136,19 +139,22 @@ export default function LoginPage() {
             type="button"
             disabled={loading || Boolean(oauthLoading)}
             onClick={() => handleOAuthLogin("github")}
-            className="w-full py-2.5 bg-card border border-border text-foreground rounded-lg font-medium hover:bg-muted transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="alibi-button-secondary h-11 w-full text-sm disabled:cursor-not-allowed"
           >
             {oauthLoading === "github" ? "Continuing with GitHub..." : "Continue with GitHub"}
           </button>
         </div>
 
-        <p className="text-center text-sm text-muted-foreground mt-6">
+        <p className="mt-6 text-center text-sm font-semibold text-alibi-teal">
           Don&apos;t have an account?{" "}
-          <Link href={fromDemo ? "/auth/sign-up?from=demo" : "/auth/sign-up"} className="text-primary hover:underline">
+          <Link
+            href={fromDemo ? "/auth/sign-up?from=demo" : "/auth/sign-up"}
+            className="font-bold text-alibi-blue transition-colors hover:text-alibi-pink"
+          >
             Sign up
           </Link>
         </p>
-      </div>
-    </div>
+      </section>
+    </main>
   )
 }

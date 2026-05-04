@@ -90,6 +90,7 @@ UI status:
 - `/app/docs` is now a wiki-style guide explaining what Alibi is, how the evidence model works, how to write useful notes, how to use chat well, and where the V3/RAG direction is going.
 - `/` now describes the notes-first product, existing feature set, and future RAG ambition instead of embedding a fake chat demo.
 - `/demo` provides an unauthenticated localStorage-backed demo with name entry, timer, manual blocks, chat-style logging, edit/delete, latest-block resume, and a sign-up CTA.
+- `/auth/login` and `/auth/sign-up` use the `STYLES.md` Alibi auth surface, including OAuth provider buttons, while preserving demo redirects and callback behavior.
 - `/app` detects completed local demo blocks after login/sign-up and offers to import them into the authenticated account.
 
 Verification:
