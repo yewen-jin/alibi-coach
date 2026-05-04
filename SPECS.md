@@ -269,10 +269,10 @@ Current implementation status:
 |---|---|
 | Timer persistence | Implemented through `active_timer`. |
 | Stop-to-block flow | Implemented; stopped timers create `time_blocks`. |
-| Block save/edit/delete | Implemented for user-owned `time_blocks`, including manual completed-block creation. |
+| Block save/edit/delete | Implemented for user-owned `time_blocks`, including manual completed-block creation from `/app`. |
 | Chat start/stop timer | Implemented through `processCoachMessage`. |
-| Chat completed-block logging | Implemented; writes to `time_blocks` only. |
-| Chat clarification gate | Implemented for missing timing/task/category details before completed-block writes. |
+| Chat completed-block logging | Implemented; writes to `time_blocks` only and never creates new legacy `entries`. |
+| Chat clarification gate | Implemented for missing timing/task/category details before completed-block writes; category may be inferred only from confident keyword matches. |
 | Chat analysis | First pass implemented over saved `time_blocks`; richer period summaries remain future work. |
 | Legacy `entries` writes | Removed from the new chat logging path; table remains legacy-only. |
 | Verification | `npm run build` passes; authenticated browser QA for live Supabase/OpenRouter flows remains. |
@@ -282,6 +282,24 @@ Current implementation status:
 2. Block editor (task name, category, hashtags, notes) — implemented
 3. Daily calendar view (timeline/list of blocks) — simple daily list implemented; full timeline remains
 4. Manual block creation (backdating) — implemented through the daily add-block button and `saveBlock`
+
+Manual block creation behavior:
+
+- The daily blocks header exposes an add-block button with a plus icon.
+- The existing block editor is reused for unsaved manual drafts.
+- New manual drafts default to start = 30 minutes before now, end = now.
+- Task, category, hashtags, and notes start blank.
+- Save calls `saveBlock` without an `id`, creating one completed `time_blocks` row.
+- Task name, category, and valid start/end ordering use the same validation as regular block edits.
+
+Chat completed-block behavior:
+
+- Chat writes completed work to `time_blocks` only.
+- Before saving, chat requires a usable time window or enough data to derive one from start/end/duration.
+- A duration-only completed log is treated as a block ending now.
+- Chat requires a task name before saving.
+- Chat uses an extracted category first, then a deterministic keyword inference when exactly one category matches.
+- If category is ambiguous or missing, chat stores the draft in `coach_drafts` and asks: "what category should i file it under?"
 
 ### Phase 2 — Calendar breadth
 5. Weekly calendar view — pending
