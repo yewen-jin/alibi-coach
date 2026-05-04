@@ -1,11 +1,14 @@
 "use server"
 
-import { generateText } from "ai"
-import { aiModel, extractJSON } from "@/lib/ai"
+import { generateText, Output } from "ai"
+import { z } from "zod"
+import { aiModel } from "@/lib/ai"
 import { createClient } from "@/lib/supabase/server"
 import { getCalendarData, saveBlock, startTimer, stopTimer } from "./timer"
 import type {
   ActiveTimer,
+  CoachMessage,
+  CoachMessageType,
   EffortLevel,
   Mood,
   Satisfaction,
@@ -22,15 +25,36 @@ const CATEGORIES = [
   "care",
   "creative",
   "rest",
-] satisfies TimeBlockCategory[]
-const MOODS = ["joyful", "neutral", "flat", "anxious", "guilty", "proud"] satisfies Mood[]
-const EFFORT_LEVELS = ["easy", "medium", "hard", "grind"] satisfies EffortLevel[]
+] as const satisfies readonly TimeBlockCategory[]
+const MOODS = ["joyful", "neutral", "flat", "anxious", "guilty", "proud"] as const satisfies readonly Mood[]
+const EFFORT_LEVELS = ["easy", "medium", "hard", "grind"] as const satisfies readonly EffortLevel[]
 const SATISFACTION_LEVELS = [
   "satisfied",
   "mixed",
   "frustrated",
   "unclear",
-] satisfies Satisfaction[]
+] as const satisfies readonly Satisfaction[]
+
+const coachDraftSchema = z.object({
+  task_name: z.string().nullable(),
+  category: z.enum(CATEGORIES).nullable(),
+  hashtags: z.array(z.string()),
+  notes: z.string().nullable(),
+  started_at: z.string().nullable(),
+  ended_at: z.string().nullable(),
+  duration_minutes: z.number().nullable(),
+  mood: z.enum(MOODS).nullable(),
+  effort_level: z.enum(EFFORT_LEVELS).nullable(),
+  satisfaction: z.enum(SATISFACTION_LEVELS).nullable(),
+  avoidance_marker: z.boolean(),
+  hyperfocus_marker: z.boolean(),
+  guilt_marker: z.boolean(),
+  novelty_marker: z.boolean(),
+})
+
+const routerSchema = coachDraftSchema.extend({
+  intent: z.enum(["log_block", "start_timer", "stop_timer", "analyse_blocks", "clarify"]),
+})
 
 export interface CoachDraft {
   task_name: string | null
@@ -56,49 +80,56 @@ export interface ProcessCoachMessageInput {
 }
 
 export type ProcessCoachMessageResult =
-  | {
-      type: "logged"
-      ack: string
-      timeBlock: TimeBlock
-    }
-  | {
-      type: "timer_started"
-      ack: string
-      activeTimer: ActiveTimer
-    }
-  | {
-      type: "timer_already_running"
-      ack: string
-      activeTimer: ActiveTimer
-    }
-  | {
-      type: "timer_stopped"
-      ack: string
-      timeBlock: TimeBlock
-    }
-  | {
-      type: "timer_not_running"
-      message: string
-    }
-  | {
-      type: "analysis"
-      message: string
-    }
-  | {
-      type: "clarify"
-      question: string
-      draft: CoachDraft
-    }
-  | {
-      type: "error"
-      message: string
-    }
+  (
+    | {
+        type: "logged"
+        ack: string
+        timeBlock: TimeBlock
+      }
+    | {
+        type: "timer_started"
+        ack: string
+        activeTimer: ActiveTimer
+      }
+    | {
+        type: "timer_already_running"
+        ack: string
+        activeTimer: ActiveTimer
+      }
+    | {
+        type: "timer_stopped"
+        ack: string
+        timeBlock: TimeBlock
+      }
+    | {
+        type: "timer_not_running"
+        message: string
+      }
+    | {
+        type: "analysis"
+        message: string
+      }
+    | {
+        type: "clarify"
+        question: string
+        draft: CoachDraft
+      }
+    | {
+        type: "error"
+        message: string
+      }
+  ) & {
+    messages: CoachMessage[]
+    hasPendingDraft: boolean
+  }
 
 type RouterIntent = "log_block" | "start_timer" | "stop_timer" | "analyse_blocks" | "clarify"
 
 interface RouterOutput extends CoachDraft {
   intent: RouterIntent
 }
+
+type Supabase = Awaited<ReturnType<typeof createClient>>
 
 function isCategory(value: unknown): value is TimeBlockCategory {
   return typeof value === "string" && (CATEGORIES as readonly string[]).includes(value)
@@ -172,7 +203,20 @@ function mergeDraft(base: CoachDraft | null | undefined, next: CoachDraft): Coac
   }
 }
 
-function normalizeRouterOutput(parsed: Record<string, unknown> | null, fallbackText: string): RouterOutput {
+function normalizeDraft(value: unknown): CoachDraft | null {
+  const parsed = coachDraftSchema.safeParse(value)
+
+  if (!parsed.success) {
+    return null
+  }
+
+  return normalizeRouterOutput({ intent: "log_block", ...parsed.data }, "").draft
+}
+
+function normalizeRouterOutput(
+  parsed: Partial<z.infer<typeof routerSchema>> | null,
+  fallbackText: string,
+): RouterOutput & { draft: CoachDraft } {
   const intent = parsed?.intent
   const normalizedIntent: RouterIntent =
     intent === "start_timer" ||
@@ -183,7 +227,7 @@ function normalizeRouterOutput(parsed: Record<string, unknown> | null, fallbackT
       ? intent
       : "log_block"
 
-  return {
+  const output: RouterOutput = {
     intent: normalizedIntent,
     task_name: cleanString(parsed?.task_name) ?? (parsed ? null : fallbackText),
     category: isCategory(parsed?.category) ? parsed.category : null,
@@ -199,6 +243,11 @@ function normalizeRouterOutput(parsed: Record<string, unknown> | null, fallbackT
     hyperfocus_marker: parsed?.hyperfocus_marker === true,
     guilt_marker: parsed?.guilt_marker === true,
     novelty_marker: parsed?.novelty_marker === true,
+  }
+
+  return {
+    ...output,
+    draft: output,
   }
 }
 
@@ -337,17 +386,158 @@ function formatBlockForPrompt(block: TimeBlock) {
   return `- ${startedAt}: ${task} (${category}, ${duration})${tags}`
 }
 
+function formatMessageForPrompt(message: CoachMessage) {
+  return `${message.role}: ${message.content}`
+}
+
+async function fetchCoachMessagesForUser(supabase: Supabase, userId: string) {
+  const { data, error } = await supabase
+    .from("coach_messages")
+    .select("*")
+    .eq("user_id", userId)
+    .order("created_at", { ascending: true })
+
+  if (error) {
+    return { type: "error" as const, message: "couldn't load chat history." }
+  }
+
+  return { type: "loaded" as const, messages: (data ?? []) as CoachMessage[] }
+}
+
+async function insertCoachMessage(
+  supabase: Supabase,
+  userId: string,
+  values: {
+    role: "user" | "assistant"
+    content: string
+    messageType?: CoachMessageType
+    relatedTimeBlockId?: string | null
+    metadata?: Record<string, unknown>
+  },
+) {
+  const { data, error } = await supabase
+    .from("coach_messages")
+    .insert({
+      user_id: userId,
+      role: values.role,
+      content: values.content,
+      message_type: values.messageType ?? "chat",
+      related_time_block_id: values.relatedTimeBlockId ?? null,
+      metadata: values.metadata ?? {},
+    })
+    .select("*")
+    .single()
+
+  if (error || !data) {
+    return { type: "error" as const, message: "couldn't save chat history." }
+  }
+
+  return { type: "inserted" as const, message: data as CoachMessage }
+}
+
+async function getPendingDraft(supabase: Supabase, userId: string) {
+  const { data, error } = await supabase
+    .from("coach_drafts")
+    .select("draft, expires_at")
+    .eq("user_id", userId)
+    .eq("status", "pending")
+    .maybeSingle()
+
+  if (error || !data) {
+    return null
+  }
+
+  if (data.expires_at && new Date(data.expires_at).getTime() <= Date.now()) {
+    await supabase
+      .from("coach_drafts")
+      .update({ status: "resolved", updated_at: new Date().toISOString() })
+      .eq("user_id", userId)
+    return null
+  }
+
+  return normalizeDraft(data.draft)
+}
+
+async function savePendingDraft(supabase: Supabase, userId: string, draft: CoachDraft) {
+  await supabase
+    .from("coach_drafts")
+    .upsert({
+      user_id: userId,
+      draft,
+      status: "pending",
+      updated_at: new Date().toISOString(),
+      expires_at: null,
+    })
+}
+
+async function resolvePendingDraft(supabase: Supabase, userId: string) {
+  await supabase
+    .from("coach_drafts")
+    .update({ status: "resolved", updated_at: new Date().toISOString() })
+    .eq("user_id", userId)
+    .eq("status", "pending")
+}
+
+async function getMessageState(supabase: Supabase, userId: string) {
+  const [messagesResult, pendingDraft] = await Promise.all([
+    fetchCoachMessagesForUser(supabase, userId),
+    getPendingDraft(supabase, userId),
+  ])
+
+  return {
+    messages: messagesResult.type === "loaded" ? messagesResult.messages : [],
+    hasPendingDraft: pendingDraft !== null,
+  }
+}
+
+async function withMessageState<T extends Omit<ProcessCoachMessageResult, "messages" | "hasPendingDraft">>(
+  supabase: Supabase,
+  userId: string,
+  result: T,
+): Promise<T & { messages: CoachMessage[]; hasPendingDraft: boolean }> {
+  const state = await getMessageState(supabase, userId)
+  return { ...result, ...state }
+}
+
+export async function getCoachMessages(): Promise<CoachMessage[]> {
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  if (!user) {
+    return []
+  }
+
+  const result = await fetchCoachMessagesForUser(supabase, user.id)
+  return result.type === "loaded" ? result.messages : []
+}
+
+export async function getCoachHasPendingDraft(): Promise<boolean> {
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  if (!user) {
+    return false
+  }
+
+  return (await getPendingDraft(supabase, user.id)) !== null
+}
+
 async function routeMessage(
   text: string,
   draft: CoachDraft | null | undefined,
   timezone: string | null | undefined,
+  recentMessages: CoachMessage[],
 ): Promise<RouterOutput> {
   try {
-    const { text: routerText } = await generateText({
+    const { output } = await generateText({
       model: aiModel,
+      output: Output.object({ schema: routerSchema }),
       prompt: [
         "Classify this Alibi chat message and extract structured time-block data.",
-        "Reply ONLY with one JSON object.",
         "",
         "Valid intents: log_block, start_timer, stop_timer, analyse_blocks, clarify.",
         "Use log_block when the user is recording completed work.",
@@ -384,11 +574,13 @@ async function routeMessage(
         `Current timestamp: ${new Date().toISOString()}`,
         `User timezone: ${timezone || "unknown"}`,
         `Prior draft, if any: ${JSON.stringify(draft ?? null)}`,
+        "Recent visible messages:",
+        recentMessages.length ? recentMessages.map(formatMessageForPrompt).join("\n") : "(none)",
         `User message: ${text}`,
       ].join("\n"),
     })
 
-    return normalizeRouterOutput(extractJSON(routerText), text)
+    return normalizeRouterOutput(output, text)
   } catch {
     return normalizeRouterOutput(null, text)
   }
@@ -415,7 +607,11 @@ async function makeAck(kind: "logged" | "started" | "stopped", subject: string) 
   }
 }
 
-async function analyseBlocks(message: string, draft: CoachDraft | null | undefined) {
+async function analyseBlocks(
+  message: string,
+  draft: CoachDraft | null | undefined,
+  recentMessages: CoachMessage[],
+) {
   const range = getAnalysisRange(draft)
   const result = await getCalendarData(range)
 
@@ -439,6 +635,9 @@ async function analyseBlocks(message: string, draft: CoachDraft | null | undefin
       ].join("\n"),
       prompt: [
         `User asked: ${message}`,
+        `Pending draft, if any: ${JSON.stringify(draft ?? null)}`,
+        "Recent visible messages:",
+        recentMessages.length ? recentMessages.map(formatMessageForPrompt).join("\n") : "(none)",
         "",
         "Saved time_blocks in range:",
         context,
@@ -477,12 +676,11 @@ export async function processCoachMessage(
   input: ProcessCoachMessageInput | string,
 ): Promise<ProcessCoachMessageResult> {
   const text = typeof input === "string" ? input : input.text
-  const draft = typeof input === "string" ? null : input.draft ?? null
   const timezone = typeof input === "string" ? null : input.timezone ?? null
   const trimmed = text.trim()
 
   if (!trimmed) {
-    return { type: "error", message: "say something." }
+    return { type: "error", message: "say something.", messages: [], hasPendingDraft: false }
   }
 
   const supabase = await createClient()
@@ -491,31 +689,73 @@ export async function processCoachMessage(
   } = await supabase.auth.getUser()
 
   if (!user) {
-    return { type: "error", message: "not signed in." }
+    return { type: "error", message: "not signed in.", messages: [], hasPendingDraft: false }
   }
 
-  const routed = await routeMessage(trimmed, draft, timezone)
-  const mergedDraft = mergeDraft(draft, routed)
+  const userMessage = await insertCoachMessage(supabase, user.id, {
+    role: "user",
+    content: trimmed,
+  })
+
+  if (userMessage.type === "error") {
+    return withMessageState(supabase, user.id, { type: "error", message: userMessage.message })
+  }
+
+  const pendingDraft = await getPendingDraft(supabase, user.id)
+  const messagesAfterUser = await fetchCoachMessagesForUser(supabase, user.id)
+  const recentMessages =
+    messagesAfterUser.type === "loaded" ? messagesAfterUser.messages.slice(-6) : [userMessage.message]
+  const routed = await routeMessage(trimmed, pendingDraft, timezone, recentMessages)
+  const mergedDraft = mergeDraft(pendingDraft, routed)
+
+  const finishWithAssistant = async <T extends Omit<ProcessCoachMessageResult, "messages" | "hasPendingDraft">>(
+    result: T,
+    content: string,
+    messageType: CoachMessageType,
+    relatedTimeBlockId: string | null = null,
+    metadata: Record<string, unknown> = {},
+  ) => {
+    await insertCoachMessage(supabase, user.id, {
+      role: "assistant",
+      content,
+      messageType,
+      relatedTimeBlockId,
+      metadata,
+    })
+
+    return withMessageState(supabase, user.id, result)
+  }
 
   if (routed.intent === "start_timer") {
     const result = await startTimer()
     if (result.type === "started") {
-      return {
-        type: "timer_started",
-        ack: await makeAck("started", mergedDraft.task_name ?? "timer"),
-        activeTimer: result.activeTimer,
-      }
+      await resolvePendingDraft(supabase, user.id)
+      const ack = await makeAck("started", mergedDraft.task_name ?? "timer")
+      return finishWithAssistant(
+        {
+          type: "timer_started",
+          ack,
+          activeTimer: result.activeTimer,
+        },
+        ack,
+        "ack",
+      )
     }
 
     if (result.type === "already_running") {
-      return {
-        type: "timer_already_running",
-        ack: "timer already running.",
-        activeTimer: result.activeTimer,
-      }
+      await resolvePendingDraft(supabase, user.id)
+      return finishWithAssistant(
+        {
+          type: "timer_already_running",
+          ack: "timer already running.",
+          activeTimer: result.activeTimer,
+        },
+        "timer already running.",
+        "ack",
+      )
     }
 
-    return result
+    return finishWithAssistant(result, result.message, "error")
   }
 
   if (routed.intent === "stop_timer") {
@@ -534,59 +774,98 @@ export async function processCoachMessage(
     })
 
     if (result.type === "stopped") {
-      return {
-        type: "timer_stopped",
-        ack: await makeAck("stopped", mergedDraft.task_name ?? "timer"),
-        timeBlock: result.timeBlock,
-      }
+      await resolvePendingDraft(supabase, user.id)
+      const ack = await makeAck("stopped", mergedDraft.task_name ?? "timer")
+      return finishWithAssistant(
+        {
+          type: "timer_stopped",
+          ack,
+          timeBlock: result.timeBlock,
+        },
+        ack,
+        "ack",
+        result.timeBlock.id,
+      )
     }
 
     if (result.type === "not_running") {
-      return { type: "timer_not_running", message: "no timer is running." }
+      return finishWithAssistant(
+        { type: "timer_not_running", message: "no timer is running." },
+        "no timer is running.",
+        "error",
+      )
     }
 
-    return result
+    return finishWithAssistant(result, result.message, "error", result.timeBlock?.id ?? null)
   }
 
   if (routed.intent === "analyse_blocks") {
-    return {
-      type: "analysis",
-      message: await analyseBlocks(trimmed, mergedDraft),
-    }
+    const message = await analyseBlocks(trimmed, mergedDraft, recentMessages)
+    return finishWithAssistant(
+      {
+        type: "analysis",
+        message,
+      },
+      message,
+      "analysis",
+    )
   }
 
   const window = deriveWindow(mergedDraft)
   if (!window) {
-    return {
-      type: "clarify",
-      question: clarificationQuestion(mergedDraft),
-      draft: mergedDraft,
-    }
+    const question = clarificationQuestion(mergedDraft)
+    await savePendingDraft(supabase, user.id, mergedDraft)
+    return finishWithAssistant(
+      {
+        type: "clarify",
+        question,
+        draft: mergedDraft,
+      },
+      question,
+      "clarification",
+    )
   }
 
   if (!mergedDraft.task_name?.trim()) {
-    return {
-      type: "clarify",
-      question: clarificationQuestion(mergedDraft),
-      draft: mergedDraft,
-    }
+    const question = clarificationQuestion(mergedDraft)
+    await savePendingDraft(supabase, user.id, mergedDraft)
+    return finishWithAssistant(
+      {
+        type: "clarify",
+        question,
+        draft: mergedDraft,
+      },
+      question,
+      "clarification",
+    )
   }
 
   const result = await saveBlock(draftToSaveInput(mergedDraft, window))
 
   if (result.type === "saved") {
-    return {
-      type: "logged",
-      ack: await makeAck("logged", mergedDraft.task_name ?? "time block"),
-      timeBlock: result.timeBlock,
-    }
+    await resolvePendingDraft(supabase, user.id)
+    const ack = await makeAck("logged", mergedDraft.task_name ?? "time block")
+    return finishWithAssistant(
+      {
+        type: "logged",
+        ack,
+        timeBlock: result.timeBlock,
+      },
+      ack,
+      "ack",
+      result.timeBlock.id,
+    )
   }
 
   if (result.type === "not_found") {
-    return { type: "error", message: "time block was not found." }
+    return finishWithAssistant(
+      { type: "error", message: "time block was not found." },
+      "time block was not found.",
+      "error",
+    )
   }
 
-  return result
+  return finishWithAssistant(result, result.message, "error")
 }
 
 export const processMessage = processCoachMessage

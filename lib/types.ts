@@ -66,6 +66,20 @@ export interface TimeBlock {
   updated_at: string
 }
 
+export type CoachMessageRole = "user" | "assistant"
+export type CoachMessageType = "chat" | "ack" | "clarification" | "analysis" | "error"
+
+export interface CoachMessage {
+  id: string
+  user_id: string
+  role: CoachMessageRole
+  content: string
+  message_type: CoachMessageType
+  related_time_block_id: string | null
+  metadata: Record<string, unknown>
+  created_at: string
+}
+
 export interface SaveBlockInput {
   id?: string
   task_name: string

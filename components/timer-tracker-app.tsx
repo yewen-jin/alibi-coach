@@ -15,7 +15,7 @@ import {
   Trash2,
   X,
 } from "lucide-react"
-import { processCoachMessage, type CoachDraft } from "@/app/actions/process-message"
+import { processCoachMessage } from "@/app/actions/process-message"
 import {
   deleteBlock,
   getActiveTimer,
@@ -25,7 +25,7 @@ import {
   startTimer,
   stopTimer,
 } from "@/app/actions/timer"
-import type { ActiveTimer, TimeBlock, TimeBlockCategory } from "@/lib/types"
+import type { ActiveTimer, CoachMessage, TimeBlock, TimeBlockCategory } from "@/lib/types"
 import { cn } from "@/lib/utils"
 import { TopNav } from "./top-nav"
 
@@ -58,6 +58,8 @@ type ChatMessage = {
 
 interface TimerTrackerAppProps {
   userEmail: string | null
+  initialChatMessages?: CoachMessage[]
+  initialHasPendingDraft?: boolean
 }
 
 function formatElapsed(totalSeconds: number) {
@@ -195,15 +197,29 @@ function getCategoryMeta(category: TimeBlockCategory | null) {
   }
 }
 
-export function TimerTrackerApp({ userEmail }: TimerTrackerAppProps) {
+function coachMessageToChatMessage(message: CoachMessage): ChatMessage {
+  return {
+    id: message.id,
+    role: message.role,
+    text: message.content,
+  }
+}
+
+export function TimerTrackerApp({
+  userEmail,
+  initialChatMessages = [],
+  initialHasPendingDraft = false,
+}: TimerTrackerAppProps) {
   const [activeTimer, setActiveTimer] = useState<ActiveTimer | null>(null)
   const [timeBlocks, setTimeBlocks] = useState<TimeBlock[]>([])
   const [editor, setEditor] = useState<EditorState | null>(null)
   const [now, setNow] = useState(() => Date.now())
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([])
-  const [chatDraft, setChatDraft] = useState<CoachDraft | null>(null)
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>(() =>
+    (Array.isArray(initialChatMessages) ? initialChatMessages : []).map(coachMessageToChatMessage),
+  )
+  const [hasPendingDraft, setHasPendingDraft] = useState(initialHasPendingDraft)
   const [isPending, startTransition] = useTransition()
   const [isChatPending, startChatTransition] = useTransition()
 
@@ -411,7 +427,6 @@ export function TimerTrackerApp({ userEmail }: TimerTrackerAppProps) {
         const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone
         const result = await processCoachMessage({
           text: trimmed,
-          draft: chatDraft,
           timezone,
         })
 
@@ -425,25 +440,31 @@ export function TimerTrackerApp({ userEmail }: TimerTrackerAppProps) {
             },
           ])
         }
+        const reconcileMessages = () => {
+          if (Array.isArray(result.messages) && result.messages.length > 0) {
+            setChatMessages(result.messages.map(coachMessageToChatMessage))
+          }
+          setHasPendingDraft(result.hasPendingDraft === true)
+        }
 
         if (result.type === "error") {
-          setChatDraft(null)
-          addAssistantMessage(result.message)
+          reconcileMessages()
+          if (!Array.isArray(result.messages) || result.messages.length === 0) {
+            addAssistantMessage(result.message)
+          }
           return
         }
 
         if (result.type === "clarify") {
-          setChatDraft(result.draft)
-          addAssistantMessage(result.question)
+          reconcileMessages()
           return
         }
 
-        setChatDraft(null)
+        reconcileMessages()
 
         if (result.type === "timer_started" || result.type === "timer_already_running") {
           setActiveTimer(result.activeTimer)
           setNow(Date.now())
-          addAssistantMessage(result.ack)
           return
         }
 
@@ -451,22 +472,16 @@ export function TimerTrackerApp({ userEmail }: TimerTrackerAppProps) {
           setActiveTimer(null)
           setEditor(createEditorState(result.timeBlock, !result.timeBlock.task_name))
           await refreshBlocks()
-          addAssistantMessage(result.ack)
           return
         }
 
         if (result.type === "logged") {
           await refreshBlocks()
-          addAssistantMessage(result.ack)
           return
-        }
-
-        if (result.type === "timer_not_running" || result.type === "analysis") {
-          addAssistantMessage(result.message)
         }
       })
     },
-    [chatDraft, isChatPending, refreshBlocks],
+    [isChatPending, refreshBlocks],
   )
 
   return (
@@ -569,7 +584,7 @@ export function TimerTrackerApp({ userEmail }: TimerTrackerAppProps) {
             <CoachChatPanel
               messages={chatMessages}
               pending={isChatPending}
-              hasDraft={chatDraft !== null}
+              hasDraft={hasPendingDraft}
               onSubmit={handleCoachMessage}
             />
           </div>
