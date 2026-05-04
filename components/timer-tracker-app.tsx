@@ -4,6 +4,7 @@ import {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
   useTransition,
   type FormEvent,
@@ -75,6 +76,7 @@ type ChatMessage = {
   id: string;
   role: "user" | "assistant";
   text: string;
+  createdAt: string;
 };
 
 interface TimerTrackerAppProps {
@@ -148,6 +150,21 @@ function formatTime(value: string | null) {
     hour: "numeric",
     minute: "2-digit",
   }).format(new Date(value));
+}
+
+function formatChatTimestamp(value: string) {
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return "";
+  }
+
+  return new Intl.DateTimeFormat(undefined, {
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  }).format(date);
 }
 
 function formatDateHeading(date: Date) {
@@ -267,6 +284,7 @@ function coachMessageToChatMessage(message: CoachMessage): ChatMessage {
     id: message.id,
     role: message.role,
     text: message.content,
+    createdAt: message.created_at,
   };
 }
 
@@ -589,6 +607,7 @@ export function TimerTrackerApp({
         id: `user-${Date.now()}`,
         role: "user",
         text: trimmed,
+        createdAt: new Date().toISOString(),
       };
 
       setChatMessages((messages) => [...messages, userMessage]);
@@ -608,6 +627,7 @@ export function TimerTrackerApp({
               id: `assistant-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
               role: "assistant",
               text,
+              createdAt: new Date().toISOString(),
             },
           ]);
         };
@@ -844,6 +864,14 @@ function CoachChatPanel({
   onSubmit: (text: string) => Promise<void>;
 }) {
   const [value, setValue] = useState("");
+  const latestMessageRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    latestMessageRef.current?.scrollIntoView({
+      behavior: "smooth",
+      block: "end",
+    });
+  }, [messages.length, pending]);
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -887,7 +915,16 @@ function CoachChatPanel({
                   : "mr-auto bg-white/85 text-alibi-ink",
               )}
             >
-              {message.text}
+              <p className="whitespace-pre-wrap">{message.text}</p>
+              <time
+                dateTime={message.createdAt}
+                className={cn(
+                  "mt-1 block font-mono text-[10px] font-black uppercase leading-4",
+                  message.role === "user" ? "text-white/70" : "text-alibi-teal/70",
+                )}
+              >
+                {formatChatTimestamp(message.createdAt)}
+              </time>
             </div>
           ))
         )}
@@ -897,6 +934,7 @@ function CoachChatPanel({
             thinking.
           </div>
         )}
+        <div ref={latestMessageRef} />
       </div>
 
       {hasDraft && (

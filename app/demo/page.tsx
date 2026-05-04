@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react"
 import Link from "next/link"
 import {
   ArrowRight,
@@ -73,6 +73,19 @@ function formatTime(value: string | null) {
     hour: "numeric",
     minute: "2-digit",
   }).format(new Date(value))
+}
+
+function formatChatTimestamp(value: string) {
+  const date = new Date(value)
+
+  if (Number.isNaN(date.getTime())) return ""
+
+  return new Intl.DateTimeFormat(undefined, {
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  }).format(date)
 }
 
 function formatDuration(start: string, end: string | null) {
@@ -686,6 +699,14 @@ function CoachChatPanel({
   onSubmit: (text: string) => Promise<void>
 }) {
   const [value, setValue] = useState("")
+  const latestMessageRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    latestMessageRef.current?.scrollIntoView({
+      behavior: "smooth",
+      block: "end",
+    })
+  }, [messages.length, pending])
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
@@ -725,7 +746,16 @@ function CoachChatPanel({
                   : "mr-auto bg-white/85 text-alibi-ink",
               )}
             >
-              {message.text}
+              <p className="whitespace-pre-wrap">{message.text}</p>
+              <time
+                dateTime={message.created_at}
+                className={cn(
+                  "mt-1 block font-mono text-[10px] font-black uppercase leading-4",
+                  message.role === "user" ? "text-white/70" : "text-alibi-teal/70",
+                )}
+              >
+                {formatChatTimestamp(message.created_at)}
+              </time>
             </div>
           ))
         )}
@@ -735,6 +765,7 @@ function CoachChatPanel({
             thinking.
           </div>
         )}
+        <div ref={latestMessageRef} />
       </div>
 
       {hasDraft && (
