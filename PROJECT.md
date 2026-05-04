@@ -92,6 +92,7 @@ UI status:
 - `/demo` provides an unauthenticated localStorage-backed demo with name entry, timer, manual blocks, chat-style logging, edit/delete, latest-block resume, and a sign-up CTA.
 - `/auth/login` and `/auth/sign-up` use the `STYLES.md` Alibi auth surface, including OAuth provider buttons, while preserving demo redirects and callback behavior.
 - `/app` detects completed local demo blocks after login/sign-up and offers to import them into the authenticated account.
+- Authenticated and demo chat logs display per-message timestamps and auto-scroll to the newest message.
 
 Verification:
 
@@ -109,6 +110,7 @@ Known working principle:
 ## Current Gaps
 
 - Full weekly/monthly calendar timeline views remain pending.
+- External calendar/todo/agenda overlays are not implemented yet. Future work should explore Google Calendar or other calendar APIs/MCP connectors so scheduled events and tasks can appear alongside Alibi time blocks.
 - Period analysis exists but is still shallow; week/month summaries need deterministic aggregation and stronger evidence trails.
 - Notes mirror is an initial vertical slice, not a full longitudinal pattern engine.
 - Chat can analyze saved data, but its elicitation style should become more deliberate: it should ask better questions about feelings, drift, mixed outcomes, and context.
@@ -172,6 +174,14 @@ Known working principle:
 - Let the agent inspect current schema and propose migration drafts for new evidence/RAG tables.
 - Keep production database changes explicit, reviewed, and migration-based.
 - Track every schema change in this document and the migration SQL.
+
+### Phase 9 - External Calendar And Agenda Context
+
+- Explore Google Calendar, external calendar APIs, or MCP connectors for user-authorized calendar/todo/agenda access.
+- Display external scheduled events and tasks as contextual overlays on Alibi calendar views alongside saved `time_blocks`.
+- Keep imported calendar/agenda items visually distinct from logged time blocks unless the user explicitly converts or links them.
+- Use external agenda data as context for reflection and reconstruction, not as proof of what actually happened.
+- Require clear OAuth/permission boundaries, sync status, and disconnect behavior before enabling this in production.
 
 ## Demo Flow
 

@@ -192,6 +192,14 @@
   - Every RAG answer should cite dated blocks, note excerpts, chat turns, or stored evidence.
   - Acceptance: retrieval returns grounded evidence from the user's timeline, not generic summaries.
 
+  ## Phase 11 — External Calendar And Agenda Context
+
+  - Add a user-authorized integration path for Google Calendar, external calendar APIs, or MCP calendar/todo connectors.
+  - Show calendar events, todos, and agenda items as overlays on Alibi calendar/timeline views.
+  - Keep external agenda data separate from `time_blocks` unless the user explicitly converts or links an event to a logged block.
+  - Use planned/scheduled events as context for reconstruction, gap-finding, and reflection, while preserving Alibi notes and logged blocks as the evidence of what actually happened.
+  - Acceptance: a user can connect a calendar source, see external agenda items on the calendar next to logged time blocks, and disconnect the source without deleting Alibi records.
+
   ## Schema Additions
 
   - time_block_note_versions
