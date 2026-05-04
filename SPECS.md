@@ -19,7 +19,7 @@ The original spec used a freeform chat as the primary input mechanism. That crea
 
 - **Primary input: time blocks** — you start a timer, stop it, and a block is recorded. You control what gets logged.
 - **Primary interface: calendar** — the calendar is the main view, not the chat.
-- **Chat is read-only analysis** — the AI reads your blocks and tells you things. It does not accept input.
+- **Chat is a secondary input surface** — the AI can start/stop the timer, log completed blocks, ask clarifying questions, and analyse saved blocks. It writes to the same v2 tables as the timer UI.
 
 ---
 
@@ -103,9 +103,19 @@ Blocks can be created manually (not just from the timer) for backdating things y
 
 ---
 
-### 4. The analysis chat (read-only)
+### 4. The chat agent (secondary input + analysis)
 
-The AI coach lives in a side panel or separate route. It has **read access to your blocks** but **cannot be used to log new ones**.
+The AI coach lives in a side panel or separate route. It has read/write access to the v2 time-block model and can be used when natural language is lower-friction than the timer UI.
+
+It can control the timer:
+- *"start the timer"*
+- *"stop the timer, client bug, coding"*
+
+It can log completed blocks:
+- *"worked on client bug from 2 to 3:30, coding"*
+- *"finally sent the invoice, 20 minutes, admin"*
+
+If the user tries to log completed work without a usable time window or duration, it asks a follow-up instead of guessing.
 
 It answers questions like:
 - *"What did I do today?"*
@@ -132,7 +142,7 @@ The coach still uses the ADHD-informed reframing logic from RESEARCH.md:
 | A goal-setter | Goals create comparison. We collect moments. |
 | A coach who pushes | Push energy makes you avoid the app. |
 | A productivity dashboard | Numbers create judgment. We surface self-knowledge. |
-| A freeform chatbot | Chat is for reading your data, not inputting it. |
+| A vague freeform-only chatbot | Chat may write, but only through structured `time_blocks` and `active_timer` operations. |
 
 ---
 
@@ -224,7 +234,7 @@ The old freeform drop-in table. Retained during transition. May be migrated into
 │                       ├ Timer control (persistent)      │
 │                       ├ Calendar (month/week/day)       │
 │                       ├ Block editor (slide-in)         │
-│                       └ Analysis chat (side panel)      │
+│                       └ Chat agent (side panel)         │
 └──────────┬──────────────────────────────────────────────┘
            │
            ▼
@@ -236,7 +246,7 @@ The old freeform drop-in table. Retained during transition. May be migrated into
 │  ├ saveBlock         — create/update time_blocks        │
 │  ├ deleteBlock       — delete time_blocks row           │
 │  ├ getCalendarData   — blocks for a date range          │
-│  └ analyseBlocks     — LLM call with block context      │
+│  └ processCoachMessage — chat router/executor           │
 └──────────┬──────────────────────────────────────────────┘
            │
      ┌─────┴──────┐
@@ -251,24 +261,38 @@ The old freeform drop-in table. Retained during transition. May be migrated into
 
 ## Build priority
 
-Backend readiness for Phase 1 is in place in `app/actions/timer.ts`: `getActiveTimer`, `startTimer`, `stopTimer`, `saveBlock`, `deleteBlock`, and `getCalendarData`. The required v2 Supabase tables are installed and REST-visible: `active_timer`, `time_blocks`, `entries`, and `proactive_messages` all return `200` from the project REST API. `analyseBlocks` remains Phase 3.
+Backend readiness for Phase 1 is in place in `app/actions/timer.ts`: `getActiveTimer`, `startTimer`, `stopTimer`, `saveBlock`, `deleteBlock`, and `getCalendarData`. `/app` now implements the Phase 1 UI slice with the persistent timer, post-stop block editor, today's block list, and a v2 chat panel. The required v2 Supabase tables are installed and REST-visible: `active_timer`, `time_blocks`, `entries`, and `proactive_messages` all return `200` from the project REST API. `processCoachMessage` routes natural-language chat into `active_timer` and `time_blocks`; `entries` is legacy-only.
+
+Current implementation status:
+
+| Area | Status |
+|---|---|
+| Timer persistence | Implemented through `active_timer`. |
+| Stop-to-block flow | Implemented; stopped timers create `time_blocks`. |
+| Block save/edit/delete | Implemented for user-owned `time_blocks`. |
+| Chat start/stop timer | Implemented through `processCoachMessage`. |
+| Chat completed-block logging | Implemented; writes to `time_blocks` only. |
+| Chat clarification gate | Implemented for missing timing/task details before completed-block writes. |
+| Chat analysis | First pass implemented over saved `time_blocks`; richer period summaries remain future work. |
+| Legacy `entries` writes | Removed from the new chat logging path; table remains legacy-only. |
+| Verification | `npm run build` passes; authenticated browser QA for live Supabase/OpenRouter flows remains. |
 
 ### Phase 1 — Core tracker
-1. Timer control (start / stop)
-2. Block editor (task name, category, hashtags, notes)
-3. Daily calendar view (timeline of blocks)
+1. Timer control (start / stop) — implemented
+2. Block editor (task name, category, hashtags, notes) — implemented
+3. Daily calendar view (timeline/list of blocks) — simple daily list implemented; full timeline remains
 
 ### Phase 2 — Calendar breadth
-4. Weekly calendar view
-5. Monthly calendar view
+4. Weekly calendar view — pending
+5. Monthly calendar view — pending
 
-### Phase 3 — Analysis
-6. Analysis chat (reads blocks, ADHD-informed responses)
-7. Pattern markers (avoidance, hyperfocus) flagged by AI post-hoc
+### Phase 3 — Chat + analysis
+6. Chat agent (starts/stops timer, logs completed blocks, reads blocks for ADHD-informed responses) — first pass implemented
+7. Pattern markers (avoidance, hyperfocus) flagged by AI post-hoc — partially captured during chat extraction; post-hoc pass pending
 
 ### Phase 4 — Polish
-8. Proactive messages (AI initiates observations)
-9. Manual block creation (backdating)
+8. Proactive messages (AI initiates observations) — legacy v1 path exists; v2 time-block version pending
+9. Manual block creation (backdating) — possible through `saveBlock`; dedicated UI polish pending
 
 ---
 

@@ -74,9 +74,34 @@ export interface SaveBlockInput {
   ended_at: string
   hashtags?: string[]
   notes?: string | null
+  mood?: Mood | null
+  effort_level?: EffortLevel | null
+  satisfaction?: Satisfaction | null
+  avoidance_marker?: boolean
+  hyperfocus_marker?: boolean
+  guilt_marker?: boolean
+  novelty_marker?: boolean
+}
+
+export interface StopTimerInput {
+  task_name?: string | null
+  category?: TimeBlockCategory | null
+  hashtags?: string[]
+  notes?: string | null
+  mood?: Mood | null
+  effort_level?: EffortLevel | null
+  satisfaction?: Satisfaction | null
+  avoidance_marker?: boolean
+  hyperfocus_marker?: boolean
+  guilt_marker?: boolean
+  novelty_marker?: boolean
 }
 
 export interface DeleteBlockInput {
+  id: string
+}
+
+export interface ResumeBlockInput {
   id: string
 }
 
@@ -140,6 +165,23 @@ export type DeleteBlockResult =
   | {
       type: "deleted"
       id: string
+    }
+  | {
+      type: "not_found"
+    }
+  | {
+      type: "error"
+      message: string
+    }
+
+export type ResumeBlockResult =
+  | {
+      type: "resumed"
+      activeTimer: ActiveTimer
+    }
+  | {
+      type: "already_running"
+      activeTimer: ActiveTimer
     }
   | {
       type: "not_found"

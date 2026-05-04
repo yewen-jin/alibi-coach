@@ -1,11 +1,12 @@
 import type { Metadata, Viewport } from "next"
-import { Inter, JetBrains_Mono } from "next/font/google"
+import { Figtree, JetBrains_Mono } from "next/font/google"
 import "./globals.css"
 
-const inter = Inter({
+const figtree = Figtree({
   subsets: ["latin"],
-  variable: "--font-inter",
+  variable: "--font-figtree",
   display: "swap",
+  weight: ["300", "400", "500", "600", "700", "800", "900"],
 })
 
 const jetbrainsMono = JetBrains_Mono({
@@ -23,7 +24,7 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
-  themeColor: "#F4EDE0",
+  themeColor: "#F8FAFF",
 }
 
 export default function RootLayout({
@@ -32,7 +33,7 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="en" className={`${inter.variable} ${jetbrainsMono.variable}`}>
+    <html lang="en" className={`${figtree.variable} ${jetbrainsMono.variable}`}>
       <body className="font-sans antialiased">{children}</body>
     </html>
   )

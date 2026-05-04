@@ -1,36 +1,35 @@
 "use client"
 
 import { useMemo } from "react"
-import type { Entry } from "@/lib/types"
+import type { TimeBlock } from "@/lib/types"
 import { aggregateByHour, aggregateByWeekday } from "@/lib/dashboard-data"
-import { GLASS_PANEL_STYLE } from "@/lib/ui-styles"
 
 interface RhythmChartProps {
-  entries: Entry[]
+  blocks: TimeBlock[]
 }
 
-export function RhythmChart({ entries }: RhythmChartProps) {
-  const weekday = useMemo(() => aggregateByWeekday(entries), [entries])
-  const hour = useMemo(() => aggregateByHour(entries), [entries])
+export function RhythmChart({ blocks }: RhythmChartProps) {
+  const weekday = useMemo(() => aggregateByWeekday(blocks), [blocks])
+  const hour = useMemo(() => aggregateByHour(blocks), [blocks])
 
   const maxWeekday = Math.max(...weekday.map((w) => w.count), 1)
   const maxHour = Math.max(...hour.map((h) => h.count), 1)
 
   return (
-    <section className="p-5" style={GLASS_PANEL_STYLE}>
+    <section className="alibi-card p-5">
       <div className="mb-4 flex items-baseline gap-3">
-        <h2 className="text-[16px] font-semibold tracking-tight text-[#2A1F14]">
+        <h2 className="text-[16px] font-black tracking-tight text-alibi-blue">
           your rhythm
         </h2>
-        <span className="text-[10px] font-medium uppercase tracking-[0.18em] text-[#A89680]">
-          when you log
+        <span className="rounded-full bg-alibi-pink/15 px-2 py-1 text-xs font-black uppercase tracking-[0.12em] text-alibi-pink">
+          when you track
         </span>
       </div>
 
       <div className="space-y-5">
         {/* Day of week */}
         <div>
-          <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-[#6B5A47]">
+          <p className="mb-2 text-xs font-black uppercase tracking-[0.12em] text-alibi-teal">
             by day of week
           </p>
           <div className="flex h-24 items-end gap-2" role="presentation">
@@ -48,13 +47,13 @@ export function RhythmChart({ entries }: RhythmChartProps) {
                         height: `${Math.max(height, w.count > 0 ? 4 : 0)}%`,
                         background:
                           w.count > 0
-                            ? "linear-gradient(180deg, rgba(200,85,61,0.9), rgba(200,85,61,0.65))"
+                            ? "linear-gradient(180deg, #BF7DAD, #3253C7)"
                             : "transparent",
                       }}
                       title={`${w.label}: ${w.count} entries`}
                     />
                   </div>
-                  <span className="text-[10px] font-medium uppercase tracking-[0.12em] text-[#A89680]">
+                  <span className="text-xs font-bold uppercase tracking-[0.08em] text-alibi-teal">
                     {w.label}
                   </span>
                 </div>
@@ -65,7 +64,7 @@ export function RhythmChart({ entries }: RhythmChartProps) {
 
         {/* Hour of day */}
         <div>
-          <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-[#6B5A47]">
+          <p className="mb-2 text-xs font-black uppercase tracking-[0.12em] text-alibi-teal">
             by hour
           </p>
           <div className="flex h-16 items-end gap-[2px]" role="presentation">
@@ -84,14 +83,14 @@ export function RhythmChart({ entries }: RhythmChartProps) {
                         height: `${Math.max(height, h.count > 0 ? 6 : 0)}%`,
                         background:
                           h.count > 0
-                            ? "linear-gradient(180deg, rgba(139,157,127,0.9), rgba(139,157,127,0.55))"
+                            ? "linear-gradient(180deg, #43849D, #93A5E4)"
                             : "transparent",
                       }}
                       title={`${formatHour(h.hour)}: ${h.count} entries`}
                     />
                   </div>
                   {showLabel && (
-                    <span className="font-mono text-[9px] tabular-nums text-[#A89680]">
+                    <span className="font-mono text-xs font-bold tabular-nums text-alibi-teal">
                       {formatHour(h.hour)}
                     </span>
                   )}

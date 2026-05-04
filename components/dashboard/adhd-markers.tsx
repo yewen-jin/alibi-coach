@@ -1,55 +1,54 @@
 "use client"
 
-import type { Entry } from "@/lib/types"
+import type { TimeBlock } from "@/lib/types"
 import {
   aggregateMarkers,
   aggregateEffort,
   aggregateSatisfaction,
 } from "@/lib/dashboard-data"
-import { GLASS_PANEL_STYLE } from "@/lib/ui-styles"
 
 interface AdhdMarkersProps {
-  entries: Entry[]
+  blocks: TimeBlock[]
 }
 
 const MARKER_COLORS: Record<string, string> = {
-  avoidance: "#7A9A8A", // sage green — positive
-  hyperfocus: "#8B7355", // warm brown — neutral
-  guilt: "#C4704B", // terracotta — watch
-  novelty: "#6B8E7A", // lighter sage — curious
+  avoidance: "#43849D",
+  hyperfocus: "#3253C7",
+  guilt: "#BF7DAD",
+  novelty: "#93A5E4",
 }
 
 const EFFORT_COLORS: Record<string, string> = {
-  easy: "#A8C4A2",
-  medium: "#8B9E85",
-  hard: "#7A9A8A",
-  grind: "#5A7A6A",
+  easy: "#93A5E4",
+  medium: "#43849D",
+  hard: "#3253C7",
+  grind: "#BF7DAD",
 }
 
 const SATISFACTION_COLORS: Record<string, string> = {
-  satisfied: "#7A9A8A",
-  mixed: "#A89680",
-  frustrated: "#C4704B",
-  unclear: "#B8A898",
+  satisfied: "#43849D",
+  mixed: "#93A5E4",
+  frustrated: "#BF7DAD",
+  unclear: "#3253C7",
 }
 
-export function AdhdMarkers({ entries }: AdhdMarkersProps) {
-  const markers = aggregateMarkers(entries)
-  const effort = aggregateEffort(entries)
-  const satisfaction = aggregateSatisfaction(entries)
+export function AdhdMarkers({ blocks }: AdhdMarkersProps) {
+  const markers = aggregateMarkers(blocks)
+  const effort = aggregateEffort(blocks)
+  const satisfaction = aggregateSatisfaction(blocks)
 
   const hasAnyMarkers = markers.some((m) => m.count > 0)
   const hasEffortData = effort.some((e) => e.count > 0)
   const hasSatisfactionData = satisfaction.some((s) => s.count > 0)
 
   return (
-    <section className="space-y-4" style={GLASS_PANEL_STYLE}>
+    <section className="alibi-card space-y-4">
       <div className="px-5 pt-5">
-        <h2 className="text-[13px] font-semibold uppercase tracking-[0.14em] text-[#6B5A47]">
+        <h2 className="text-sm font-black uppercase tracking-[0.1em] text-alibi-blue">
           adhd patterns
         </h2>
-        <p className="mt-0.5 text-[11px] text-[#A89680]">
-          what your entries say about how you work
+        <p className="mt-0.5 text-sm font-semibold text-alibi-teal">
+          what your blocks say about how you work
         </p>
       </div>
 
@@ -58,10 +57,10 @@ export function AdhdMarkers({ entries }: AdhdMarkersProps) {
         {markers.map((m) => (
           <div
             key={m.key}
-            className="rounded-lg p-3"
+            className="rounded-2xl p-3"
             style={{
-              background: "rgba(255, 250, 240, 0.4)",
-              border: "1px solid rgba(60, 40, 20, 0.06)",
+              background: "rgba(147, 165, 228, 0.14)",
+              border: "1px solid rgba(50, 83, 199, 0.12)",
             }}
           >
             <div className="flex items-baseline justify-between">
@@ -72,13 +71,13 @@ export function AdhdMarkers({ entries }: AdhdMarkersProps) {
                 {m.count}
               </span>
               {m.pct > 0 && (
-                <span className="text-[10px] text-[#A89680]">{m.pct}%</span>
+                <span className="text-xs font-bold text-alibi-teal">{m.pct}%</span>
               )}
             </div>
-            <p className="mt-1 text-[11px] font-medium text-[#6B5A47]">
+            <p className="mt-1 text-sm font-bold text-alibi-blue">
               {m.label}
             </p>
-            <p className="mt-0.5 text-[9px] text-[#A89680]">{m.description}</p>
+            <p className="mt-0.5 text-xs font-semibold text-alibi-teal">{m.description}</p>
           </div>
         ))}
       </div>
@@ -86,10 +85,10 @@ export function AdhdMarkers({ entries }: AdhdMarkersProps) {
       {/* Effort Distribution */}
       {hasEffortData && (
         <div className="px-5 pb-2">
-          <p className="mb-2 text-[10px] font-medium uppercase tracking-[0.12em] text-[#A89680]">
+          <p className="mb-2 text-xs font-black uppercase tracking-[0.1em] text-alibi-teal">
             effort level
           </p>
-          <div className="flex h-3 overflow-hidden rounded-full bg-[rgba(60,40,20,0.04)]">
+          <div className="flex h-3 overflow-hidden rounded-full bg-alibi-lavender/20">
             {effort
               .filter((e) => e.count > 0)
               .map((e) => (
@@ -113,7 +112,7 @@ export function AdhdMarkers({ entries }: AdhdMarkersProps) {
                     className="h-2 w-2 rounded-full"
                     style={{ backgroundColor: EFFORT_COLORS[e.level] }}
                   />
-                  <span className="text-[9px] text-[#6B5A47]">
+                  <span className="text-xs font-semibold text-alibi-teal">
                     {e.level} ({e.count})
                   </span>
                 </span>
@@ -125,10 +124,10 @@ export function AdhdMarkers({ entries }: AdhdMarkersProps) {
       {/* Satisfaction Distribution */}
       {hasSatisfactionData && (
         <div className="px-5 pb-5">
-          <p className="mb-2 text-[10px] font-medium uppercase tracking-[0.12em] text-[#A89680]">
+          <p className="mb-2 text-xs font-black uppercase tracking-[0.1em] text-alibi-teal">
             satisfaction
           </p>
-          <div className="flex h-3 overflow-hidden rounded-full bg-[rgba(60,40,20,0.04)]">
+          <div className="flex h-3 overflow-hidden rounded-full bg-alibi-lavender/20">
             {satisfaction
               .filter((s) => s.count > 0)
               .map((s) => (
@@ -152,7 +151,7 @@ export function AdhdMarkers({ entries }: AdhdMarkersProps) {
                     className="h-2 w-2 rounded-full"
                     style={{ backgroundColor: SATISFACTION_COLORS[s.level] }}
                   />
-                  <span className="text-[9px] text-[#6B5A47]">
+                  <span className="text-xs font-semibold text-alibi-teal">
                     {s.level} ({s.count})
                   </span>
                 </span>
@@ -162,7 +161,7 @@ export function AdhdMarkers({ entries }: AdhdMarkersProps) {
       )}
 
       {!hasAnyMarkers && !hasEffortData && !hasSatisfactionData && (
-        <p className="px-5 pb-5 text-[11px] text-[#A89680]">
+        <p className="px-5 pb-5 text-sm font-semibold text-alibi-teal">
           no patterns detected yet. keep logging and i&apos;ll start noticing.
         </p>
       )}

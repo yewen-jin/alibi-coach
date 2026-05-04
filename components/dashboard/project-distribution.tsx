@@ -1,52 +1,47 @@
 "use client"
 
 import { useMemo } from "react"
-import type { Entry } from "@/lib/types"
-import { aggregateByProject } from "@/lib/dashboard-data"
-import { GLASS_PANEL_STYLE } from "@/lib/ui-styles"
+import type { TimeBlock } from "@/lib/types"
+import { aggregateByCategory } from "@/lib/dashboard-data"
 
 interface ProjectDistributionProps {
-  entries: Entry[]
+  blocks: TimeBlock[]
 }
 
 // Warm categorical palette — drawn from Alibi's accents.
 // Deliberately purple-free; sorted from most-to-least saturated.
 const PROJECT_COLORS = [
-  "#C8553D", // terracotta
-  "#8B9D7F", // sage
-  "#D4A574", // ochre
-  "#7E8C7B", // deep sage
-  "#B5A898", // warm taupe
-  "#8B95A8", // warm slate
-  "#C9B87A", // warm wheat
-  "#D49B8C", // warm pink
+  "#3253C7",
+  "#BF7DAD",
+  "#43849D",
+  "#93A5E4",
 ]
 
-export function ProjectDistribution({ entries }: ProjectDistributionProps) {
-  const projects = useMemo(() => aggregateByProject(entries), [entries])
-  const total = projects.reduce((sum, p) => sum + p.count, 0)
+export function ProjectDistribution({ blocks }: ProjectDistributionProps) {
+  const categories = useMemo(() => aggregateByCategory(blocks), [blocks])
+  const total = categories.reduce((sum, category) => sum + category.totalMinutes, 0)
 
-  if (projects.length === 0) {
+  if (categories.length === 0) {
     return (
-      <section className="p-5" style={GLASS_PANEL_STYLE}>
-        <h2 className="mb-2 text-[16px] font-semibold tracking-tight text-[#2A1F14]">
+      <section className="alibi-card p-5">
+        <h2 className="mb-2 text-[16px] font-black tracking-tight text-alibi-blue">
           where you spent time
         </h2>
-        <p className="text-[13px] text-[#6B5A47]">
-          nothing logged yet. drop something in.
+        <p className="text-base font-semibold text-alibi-teal">
+          nothing tracked yet.
         </p>
       </section>
     )
   }
 
   return (
-    <section className="p-5" style={GLASS_PANEL_STYLE}>
+    <section className="alibi-card p-5">
       <div className="mb-4 flex items-baseline gap-3">
-        <h2 className="text-[16px] font-semibold tracking-tight text-[#2A1F14]">
+        <h2 className="text-[16px] font-black tracking-tight text-alibi-blue">
           where you spent time
         </h2>
-        <span className="text-[10px] font-medium uppercase tracking-[0.18em] text-[#A89680]">
-          by project
+        <span className="rounded-full bg-alibi-lavender/20 px-2 py-1 text-xs font-black uppercase tracking-[0.12em] text-alibi-teal">
+          by category
         </span>
       </div>
 
@@ -55,22 +50,22 @@ export function ProjectDistribution({ entries }: ProjectDistributionProps) {
         className="mb-4 flex h-3 w-full overflow-hidden"
         style={{
           borderRadius: 999,
-          background: "rgba(60, 40, 20, 0.06)",
+          background: "rgba(147, 165, 228, 0.22)",
         }}
         role="img"
         aria-label="project distribution bar"
       >
-        {projects.map((p, i) => {
-          const pct = (p.count / total) * 100
+        {categories.map((category, i) => {
+          const pct = total > 0 ? (category.totalMinutes / total) * 100 : 0
           if (pct < 1) return null
           return (
             <div
-              key={p.project}
+              key={category.category}
               style={{
                 width: `${pct}%`,
                 background: PROJECT_COLORS[i % PROJECT_COLORS.length],
               }}
-              title={`${p.project}: ${p.count} entries`}
+              title={`${category.category}: ${formatMinutes(category.totalMinutes)}`}
             />
           )
         })}
@@ -78,12 +73,12 @@ export function ProjectDistribution({ entries }: ProjectDistributionProps) {
 
       {/* Legend / list */}
       <ul className="space-y-2">
-        {projects.slice(0, 8).map((p, i) => {
-          const pct = (p.count / total) * 100
+        {categories.slice(0, 8).map((category, i) => {
+          const pct = total > 0 ? (category.totalMinutes / total) * 100 : 0
           return (
             <li
-              key={p.project}
-              className="flex items-center gap-3 text-[13px]"
+              key={category.category}
+              className="flex items-center gap-3 text-base"
             >
               <span
                 className="h-2.5 w-2.5 shrink-0 rounded-sm"
@@ -92,13 +87,13 @@ export function ProjectDistribution({ entries }: ProjectDistributionProps) {
                 }}
                 aria-hidden="true"
               />
-              <span className="flex-1 capitalize text-[#2A1F14]">
-                {p.project}
+              <span className="flex-1 font-semibold capitalize text-alibi-ink">
+                {category.category}
               </span>
-              <span className="font-mono tabular-nums text-[#6B5A47]">
-                {p.count}
+              <span className="font-mono font-bold tabular-nums text-alibi-blue">
+                {formatMinutes(category.totalMinutes)}
               </span>
-              <span className="w-10 text-right font-mono tabular-nums text-[#A89680]">
+              <span className="w-10 text-right font-mono font-bold tabular-nums text-alibi-teal">
                 {pct.toFixed(0)}%
               </span>
             </li>
@@ -107,4 +102,12 @@ export function ProjectDistribution({ entries }: ProjectDistributionProps) {
       </ul>
     </section>
   )
+}
+
+function formatMinutes(min: number): string {
+  if (min <= 0) return "0m"
+  if (min < 60) return `${min}m`
+  const h = Math.floor(min / 60)
+  const m = min % 60
+  return m === 0 ? `${h}h` : `${h}h ${m}m`
 }
