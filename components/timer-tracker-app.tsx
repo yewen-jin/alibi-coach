@@ -1,17 +1,20 @@
 "use client"
 
-import { useCallback, useEffect, useMemo, useState, useTransition } from "react"
+import { useCallback, useEffect, useMemo, useState, useTransition, type FormEvent } from "react"
 import {
   CalendarDays,
   Clock,
   Loader2,
+  MessageCircle,
   Pencil,
   Play,
   RefreshCw,
+  Send,
   Square,
   Trash2,
   X,
 } from "lucide-react"
+import { processCoachMessage, type CoachDraft } from "@/app/actions/process-message"
 import {
   deleteBlock,
   getActiveTimer,
@@ -25,13 +28,13 @@ import { cn } from "@/lib/utils"
 import { TopNav } from "./top-nav"
 
 const CATEGORIES = [
-  { value: "deep_work", label: "deep work", color: "#C8553D" },
-  { value: "admin", label: "admin", color: "#D4A574" },
-  { value: "social", label: "social", color: "#6F8E9B" },
-  { value: "errands", label: "errands", color: "#8B9D7F" },
-  { value: "care", label: "care", color: "#B26F91" },
-  { value: "creative", label: "creative", color: "#7A6AAE" },
-  { value: "rest", label: "rest", color: "#6B8A7A" },
+  { value: "deep_work", label: "deep work", color: "#3253C7" },
+  { value: "admin", label: "admin", color: "#93A5E4" },
+  { value: "social", label: "social", color: "#BF7DAD" },
+  { value: "errands", label: "errands", color: "#43849D" },
+  { value: "care", label: "care", color: "#BF7DAD" },
+  { value: "creative", label: "creative", color: "#3253C7" },
+  { value: "rest", label: "rest", color: "#43849D" },
 ] satisfies Array<{ value: TimeBlockCategory; label: string; color: string }>
 
 type EditorState = {
@@ -43,6 +46,12 @@ type EditorState = {
   notes: string
   startedAt: string
   endedAt: string
+}
+
+type ChatMessage = {
+  id: string
+  role: "user" | "assistant"
+  text: string
 }
 
 interface TimerTrackerAppProps {
@@ -180,7 +189,7 @@ function getCategoryMeta(category: TimeBlockCategory | null) {
   return CATEGORIES.find((item) => item.value === category) ?? {
     value: "admin" as TimeBlockCategory,
     label: "uncategorized",
-    color: "#A89680",
+    color: "#93A5E4",
   }
 }
 
@@ -191,7 +200,10 @@ export function TimerTrackerApp({ userEmail }: TimerTrackerAppProps) {
   const [now, setNow] = useState(() => Date.now())
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([])
+  const [chatDraft, setChatDraft] = useState<CoachDraft | null>(null)
   const [isPending, startTransition] = useTransition()
+  const [isChatPending, startChatTransition] = useTransition()
 
   const today = useMemo(() => getTodayRange(), [])
   const elapsed = getElapsedSeconds(activeTimer, now)
@@ -360,30 +372,111 @@ export function TimerTrackerApp({ userEmail }: TimerTrackerAppProps) {
     })
   }
 
+  const handleCoachMessage = useCallback(
+    async (text: string) => {
+      const trimmed = text.trim()
+      if (!trimmed || isChatPending) {
+        return
+      }
+
+      const userMessage: ChatMessage = {
+        id: `user-${Date.now()}`,
+        role: "user",
+        text: trimmed,
+      }
+
+      setChatMessages((messages) => [...messages, userMessage])
+      setError(null)
+
+      startChatTransition(async () => {
+        const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone
+        const result = await processCoachMessage({
+          text: trimmed,
+          draft: chatDraft,
+          timezone,
+        })
+
+        const addAssistantMessage = (text: string) => {
+          setChatMessages((messages) => [
+            ...messages,
+            {
+              id: `assistant-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+              role: "assistant",
+              text,
+            },
+          ])
+        }
+
+        if (result.type === "error") {
+          setChatDraft(null)
+          addAssistantMessage(result.message)
+          return
+        }
+
+        if (result.type === "clarify") {
+          setChatDraft(result.draft)
+          addAssistantMessage(result.question)
+          return
+        }
+
+        setChatDraft(null)
+
+        if (result.type === "timer_started" || result.type === "timer_already_running") {
+          setActiveTimer(result.activeTimer)
+          setNow(Date.now())
+          addAssistantMessage(result.ack)
+          return
+        }
+
+        if (result.type === "timer_stopped") {
+          setActiveTimer(null)
+          setEditor(createEditorState(result.timeBlock, !result.timeBlock.task_name))
+          await refreshBlocks()
+          addAssistantMessage(result.ack)
+          return
+        }
+
+        if (result.type === "logged") {
+          await refreshBlocks()
+          addAssistantMessage(result.ack)
+          return
+        }
+
+        if (result.type === "timer_not_running" || result.type === "analysis") {
+          addAssistantMessage(result.message)
+        }
+      })
+    },
+    [chatDraft, isChatPending, refreshBlocks],
+  )
+
   return (
-    <main className="min-h-screen px-4 py-4 text-[#2A1F14] sm:px-6 lg:px-8">
+    <main className="alibi-page px-4 py-4 sm:px-6 lg:px-8">
       <div className="mx-auto flex w-full max-w-6xl flex-col gap-6">
         <TopNav userEmail={userEmail} />
 
         <section className="grid gap-5 lg:grid-cols-[minmax(0,0.95fr)_minmax(0,1.25fr)]">
           <div className="flex flex-col gap-5">
             <section
-              className="border border-white/60 bg-[#F8F1E3]/80 p-5 shadow-[0_22px_60px_rgba(42,31,20,0.10)] backdrop-blur"
-              style={{ borderRadius: 8 }}
+              className="alibi-card-pop relative overflow-hidden p-5"
             >
+              <div className="pointer-events-none absolute -right-8 -top-10 h-28 w-28 rounded-full bg-alibi-pink/25" />
+              <div className="pointer-events-none absolute -bottom-10 left-12 h-24 w-24 rounded-full bg-alibi-lavender/35" />
               <div className="flex items-center justify-between gap-3">
                 <div>
-                  <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-[#A89680]">
+                  <p className="font-mono text-xs font-black uppercase tracking-[0.12em] text-alibi-teal">
                     active timer
                   </p>
-                  <h1 className="mt-2 text-3xl font-semibold tracking-normal text-[#2A1F14] sm:text-4xl">
+                  <h1 className="mt-2 text-4xl font-black tracking-normal text-alibi-blue sm:text-5xl">
                     {formatElapsed(elapsed)}
                   </h1>
                 </div>
                 <div
                   className={cn(
-                    "flex h-12 w-12 items-center justify-center rounded-full",
-                    activeTimer ? "bg-[#C8553D]/15 text-[#C8553D]" : "bg-white/55 text-[#8B9D7F]",
+                    "flex h-14 w-14 items-center justify-center rounded-2xl border-2",
+                    activeTimer
+                      ? "border-alibi-pink/30 bg-alibi-pink/20 text-alibi-pink"
+                      : "border-alibi-teal/25 bg-alibi-teal/15 text-alibi-teal",
                   )}
                 >
                   <Clock className="h-5 w-5" />
@@ -396,8 +489,7 @@ export function TimerTrackerApp({ userEmail }: TimerTrackerAppProps) {
                     type="button"
                     onClick={handleStop}
                     disabled={isPending}
-                    className="inline-flex h-11 min-w-32 items-center justify-center gap-2 bg-[#C8553D] px-4 text-sm font-semibold text-white transition hover:bg-[#A9412D] disabled:opacity-55"
-                    style={{ borderRadius: 8 }}
+                    className="inline-flex h-11 min-w-32 items-center justify-center gap-2 rounded-2xl bg-alibi-pink px-4 text-sm font-black text-white shadow-[0_10px_22px_rgba(191,125,173,0.34)] transition hover:-translate-y-0.5 hover:bg-alibi-blue disabled:translate-y-0 disabled:opacity-55"
                   >
                     {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Square className="h-4 w-4" />}
                     stop
@@ -407,8 +499,7 @@ export function TimerTrackerApp({ userEmail }: TimerTrackerAppProps) {
                     type="button"
                     onClick={handleStart}
                     disabled={isPending || loading}
-                    className="inline-flex h-11 min-w-32 items-center justify-center gap-2 bg-[#2A1F14] px-4 text-sm font-semibold text-white transition hover:bg-[#463421] disabled:opacity-55"
-                    style={{ borderRadius: 8 }}
+                    className="alibi-button-primary inline-flex h-11 min-w-32 items-center justify-center gap-2 text-sm"
                   >
                     {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
                     start
@@ -424,14 +515,13 @@ export function TimerTrackerApp({ userEmail }: TimerTrackerAppProps) {
                   disabled={isPending || loading}
                   aria-label="refresh timer and blocks"
                   title="refresh"
-                  className="inline-flex h-11 w-11 items-center justify-center border border-[#C8B89F]/70 bg-white/45 text-[#6B5A47] transition hover:bg-white/75 disabled:opacity-55"
-                  style={{ borderRadius: 8 }}
+                  className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border-2 border-alibi-lavender/40 bg-white/75 text-alibi-teal transition hover:-translate-y-0.5 hover:border-alibi-pink hover:text-alibi-pink disabled:translate-y-0 disabled:opacity-55"
                 >
                   {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
                 </button>
               </div>
 
-              <p className="mt-4 text-sm leading-6 text-[#6B5A47]">
+              <p className="relative mt-4 text-sm font-medium leading-6 text-alibi-teal">
                 {activeTimer
                   ? `running since ${formatTime(activeTimer.started_at)}`
                   : "start when you begin, stop when the block is real."}
@@ -441,8 +531,7 @@ export function TimerTrackerApp({ userEmail }: TimerTrackerAppProps) {
             {error && (
               <div
                 role="alert"
-                className="border border-[#C8553D]/30 bg-[#C8553D]/10 px-4 py-3 text-sm text-[#8A2F20]"
-                style={{ borderRadius: 8 }}
+                className="rounded-2xl border-2 border-alibi-pink/25 bg-alibi-pink/10 px-4 py-3 text-sm font-semibold text-alibi-pink"
               >
                 {error}
               </div>
@@ -457,6 +546,13 @@ export function TimerTrackerApp({ userEmail }: TimerTrackerAppProps) {
                 pending={isPending}
               />
             )}
+
+            <CoachChatPanel
+              messages={chatMessages}
+              pending={isChatPending}
+              hasDraft={chatDraft !== null}
+              onSubmit={handleCoachMessage}
+            />
           </div>
 
           <DailyBlocks
@@ -470,6 +566,114 @@ export function TimerTrackerApp({ userEmail }: TimerTrackerAppProps) {
         </section>
       </div>
     </main>
+  )
+}
+
+function CoachChatPanel({
+  messages,
+  pending,
+  hasDraft,
+  onSubmit,
+}: {
+  messages: ChatMessage[]
+  pending: boolean
+  hasDraft: boolean
+  onSubmit: (text: string) => Promise<void>
+}) {
+  const [value, setValue] = useState("")
+
+  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+
+    const trimmed = value.trim()
+    if (!trimmed || pending) {
+      return
+    }
+
+    setValue("")
+    void onSubmit(trimmed)
+  }
+
+  return (
+    <section className="alibi-card p-5">
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <p className="font-mono text-xs font-black uppercase tracking-[0.12em] text-alibi-teal">
+            alibi
+          </p>
+          <h2 className="mt-1 text-xl font-black text-alibi-blue">
+            chat log
+          </h2>
+        </div>
+        <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-alibi-pink/15 text-alibi-pink">
+          <MessageCircle className="h-4 w-4" />
+        </div>
+      </div>
+
+      <div className="mt-4 flex max-h-80 min-h-44 flex-col gap-3 overflow-y-auto rounded-3xl border-2 border-alibi-lavender/25 bg-alibi-lavender/10 p-3">
+        {messages.length === 0 ? (
+          <p className="mt-auto text-sm font-semibold leading-6 text-alibi-teal">
+            nothing here yet.
+          </p>
+        ) : (
+          messages.map((message) => (
+            <div
+              key={message.id}
+              className={cn(
+                "max-w-[88%] break-words rounded-2xl px-3 py-2 text-sm font-semibold leading-6 shadow-sm",
+                message.role === "user"
+                  ? "ml-auto bg-alibi-blue text-white"
+                  : "mr-auto bg-white/85 text-alibi-ink",
+              )}
+            >
+              {message.text}
+            </div>
+          ))
+        )}
+        {pending && (
+          <div className="mr-auto inline-flex items-center gap-2 rounded-2xl bg-white/85 px-3 py-2 text-sm font-semibold text-alibi-teal">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            thinking.
+          </div>
+        )}
+      </div>
+
+      {hasDraft && (
+        <p className="mt-3 text-sm font-bold leading-6 text-alibi-pink">
+          one more detail.
+        </p>
+      )}
+
+      <form onSubmit={handleSubmit} className="mt-4 flex items-end gap-2">
+        <label className="sr-only" htmlFor="coach-message">
+          message alibi
+        </label>
+        <textarea
+          id="coach-message"
+          value={value}
+          onChange={(event) => setValue(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === "Enter" && !event.shiftKey) {
+              event.preventDefault()
+              event.currentTarget.form?.requestSubmit()
+            }
+          }}
+          rows={2}
+          disabled={pending}
+          placeholder="message alibi"
+          className="alibi-input min-h-11 flex-1 resize-none py-2 leading-6 placeholder:text-alibi-teal/60 disabled:opacity-55"
+        />
+        <button
+          type="submit"
+          disabled={!value.trim() || pending}
+          aria-label="send message"
+          title="send"
+          className="inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-alibi-teal text-white shadow-[0_10px_22px_rgba(67,132,157,0.28)] transition hover:-translate-y-0.5 hover:bg-alibi-pink disabled:translate-y-0 disabled:opacity-55"
+        >
+          {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+        </button>
+      </form>
+    </section>
   )
 }
 
@@ -488,15 +692,14 @@ function BlockEditor({
 }) {
   return (
     <section
-      className="border border-[#C8B89F]/60 bg-white/45 p-5 shadow-[0_18px_48px_rgba(42,31,20,0.08)]"
-      style={{ borderRadius: 8 }}
+      className="alibi-card p-5"
     >
       <div className="flex items-center justify-between gap-3">
         <div>
-          <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-[#A89680]">
+          <p className="font-mono text-xs font-black uppercase tracking-[0.12em] text-alibi-teal">
             block editor
           </p>
-          <h2 className="mt-1 text-lg font-semibold text-[#2A1F14]">
+          <h2 className="mt-1 text-xl font-black text-alibi-blue">
             {editor.isNewlyStopped ? "name this block" : "edit block"}
           </h2>
         </div>
@@ -505,34 +708,31 @@ function BlockEditor({
           onClick={() => setEditor(null)}
           aria-label="close editor"
           title="close"
-          className="flex h-9 w-9 items-center justify-center text-[#6B5A47] transition hover:bg-white/55 hover:text-[#2A1F14]"
-          style={{ borderRadius: 8 }}
+          className="flex h-9 w-9 items-center justify-center rounded-2xl text-alibi-teal transition hover:-translate-y-0.5 hover:bg-alibi-pink/15 hover:text-alibi-pink"
         >
           <X className="h-4 w-4" />
         </button>
       </div>
 
       <div className="mt-5 grid gap-4">
-        <label className="grid gap-1.5 text-sm font-medium text-[#2A1F14]">
+        <label className="grid gap-1.5 text-sm font-bold text-alibi-blue">
           task name
           <input
             value={editor.taskName}
             onChange={(event) => setEditor({ ...editor, taskName: event.target.value })}
-            className="h-11 border border-[#C8B89F]/70 bg-[#F8F1E3]/80 px-3 text-sm outline-none transition focus:border-[#C8553D]"
-            style={{ borderRadius: 8 }}
+            className="alibi-input h-11"
             placeholder="what happened?"
           />
         </label>
 
-        <label className="grid gap-1.5 text-sm font-medium text-[#2A1F14]">
+        <label className="grid gap-1.5 text-sm font-bold text-alibi-blue">
           category
           <select
             value={editor.category}
             onChange={(event) =>
               setEditor({ ...editor, category: event.target.value as TimeBlockCategory | "" })
             }
-            className="h-11 border border-[#C8B89F]/70 bg-[#F8F1E3]/80 px-3 text-sm outline-none transition focus:border-[#C8553D]"
-            style={{ borderRadius: 8 }}
+            className="alibi-input h-11"
           >
             <option value="">choose one</option>
             {CATEGORIES.map((category) => (
@@ -544,47 +744,43 @@ function BlockEditor({
         </label>
 
         <div className="grid gap-4 sm:grid-cols-2">
-          <label className="grid gap-1.5 text-sm font-medium text-[#2A1F14]">
+          <label className="grid gap-1.5 text-sm font-bold text-alibi-blue">
             start
             <input
               type="datetime-local"
               value={editor.startedAt}
               onChange={(event) => setEditor({ ...editor, startedAt: event.target.value })}
-              className="h-11 border border-[#C8B89F]/70 bg-[#F8F1E3]/80 px-3 text-sm outline-none transition focus:border-[#C8553D]"
-              style={{ borderRadius: 8 }}
+              className="alibi-input h-11"
             />
           </label>
 
-          <label className="grid gap-1.5 text-sm font-medium text-[#2A1F14]">
+          <label className="grid gap-1.5 text-sm font-bold text-alibi-blue">
             end
             <input
               type="datetime-local"
               value={editor.endedAt}
               onChange={(event) => setEditor({ ...editor, endedAt: event.target.value })}
-              className="h-11 border border-[#C8B89F]/70 bg-[#F8F1E3]/80 px-3 text-sm outline-none transition focus:border-[#C8553D]"
-              style={{ borderRadius: 8 }}
+              className="alibi-input h-11"
             />
           </label>
         </div>
 
-        <label className="grid gap-1.5 text-sm font-medium text-[#2A1F14]">
+        <label className="grid gap-1.5 text-sm font-bold text-alibi-blue">
           hashtags
           <input
             value={editor.hashtags}
             onChange={(event) => setEditor({ ...editor, hashtags: event.target.value })}
-            className="h-11 border border-[#C8B89F]/70 bg-[#F8F1E3]/80 px-3 text-sm outline-none transition focus:border-[#C8553D]"
-            style={{ borderRadius: 8 }}
+            className="alibi-input h-11"
             placeholder="client, writing, reset"
           />
         </label>
 
-        <label className="grid gap-1.5 text-sm font-medium text-[#2A1F14]">
+        <label className="grid gap-1.5 text-sm font-bold text-alibi-blue">
           notes
           <textarea
             value={editor.notes}
             onChange={(event) => setEditor({ ...editor, notes: event.target.value })}
-            className="min-h-24 resize-y border border-[#C8B89F]/70 bg-[#F8F1E3]/80 px-3 py-2 text-sm outline-none transition focus:border-[#C8553D]"
-            style={{ borderRadius: 8 }}
+            className="alibi-input min-h-24 resize-y py-2"
           />
         </label>
       </div>
@@ -594,8 +790,7 @@ function BlockEditor({
           type="button"
           onClick={onDelete}
           disabled={pending}
-          className="inline-flex h-10 items-center justify-center gap-2 px-3 text-sm font-medium text-[#8A2F20] transition hover:bg-[#C8553D]/10 disabled:opacity-55"
-          style={{ borderRadius: 8 }}
+          className="inline-flex h-10 items-center justify-center gap-2 rounded-2xl px-3 text-sm font-bold text-alibi-pink transition hover:-translate-y-0.5 hover:bg-alibi-pink/10 disabled:translate-y-0 disabled:opacity-55"
         >
           <Trash2 className="h-4 w-4" />
           delete
@@ -606,8 +801,7 @@ function BlockEditor({
             type="button"
             onClick={() => setEditor(null)}
             disabled={pending}
-            className="h-10 px-4 text-sm font-medium text-[#6B5A47] transition hover:bg-white/55 disabled:opacity-55"
-            style={{ borderRadius: 8 }}
+            className="h-10 rounded-2xl px-4 text-sm font-bold text-alibi-teal transition hover:-translate-y-0.5 hover:bg-alibi-lavender/15 disabled:translate-y-0 disabled:opacity-55"
           >
             cancel
           </button>
@@ -615,8 +809,7 @@ function BlockEditor({
             type="button"
             onClick={onSave}
             disabled={pending}
-            className="inline-flex h-10 items-center justify-center gap-2 bg-[#8B9D7F] px-4 text-sm font-semibold text-white transition hover:bg-[#718766] disabled:opacity-55"
-            style={{ borderRadius: 8 }}
+            className="inline-flex h-10 items-center justify-center gap-2 rounded-2xl bg-alibi-teal px-4 text-sm font-black text-white shadow-[0_10px_22px_rgba(67,132,157,0.28)] transition hover:-translate-y-0.5 hover:bg-alibi-blue disabled:translate-y-0 disabled:opacity-55"
           >
             {pending && <Loader2 className="h-4 w-4 animate-spin" />}
             save
@@ -644,30 +837,29 @@ function DailyBlocks({
 }) {
   return (
     <section
-      className="min-h-[520px] border border-white/60 bg-[#F8F1E3]/70 p-5 shadow-[0_22px_60px_rgba(42,31,20,0.08)]"
-      style={{ borderRadius: 8 }}
+      className="alibi-card min-h-[520px] p-5"
     >
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-[#A89680]">
+          <p className="font-mono text-xs font-black uppercase tracking-[0.12em] text-alibi-teal">
             today
           </p>
-          <h2 className="mt-1 text-xl font-semibold text-[#2A1F14]">
+          <h2 className="mt-1 text-2xl font-black text-alibi-blue">
             {formatDateHeading(date)}
           </h2>
         </div>
-        <div className="flex h-10 w-10 items-center justify-center bg-white/55 text-[#8B9D7F]" style={{ borderRadius: 8 }}>
+        <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-alibi-lavender/25 text-alibi-blue">
           <CalendarDays className="h-4 w-4" />
         </div>
       </div>
 
       <div className="mt-5">
         {loading ? (
-          <div className="flex min-h-72 items-center justify-center text-[#A89680]">
+          <div className="flex min-h-72 items-center justify-center text-alibi-teal">
             <Loader2 className="h-5 w-5 animate-spin" />
           </div>
         ) : blocks.length === 0 ? (
-          <div className="flex min-h-72 items-center justify-center border border-dashed border-[#C8B89F]/80 bg-white/25 px-6 text-center text-sm leading-6 text-[#6B5A47]" style={{ borderRadius: 8 }}>
+          <div className="flex min-h-72 items-center justify-center rounded-3xl border-2 border-dashed border-alibi-lavender/60 bg-alibi-lavender/10 px-6 text-center text-sm font-semibold leading-6 text-alibi-teal">
             no completed blocks for today yet.
           </div>
         ) : (
@@ -678,13 +870,12 @@ function DailyBlocks({
               return (
                 <li
                   key={block.id}
-                  className="grid gap-3 border border-[#C8B89F]/55 bg-white/45 p-4 sm:grid-cols-[7.5rem_minmax(0,1fr)_auto]"
-                  style={{ borderRadius: 8 }}
+                  className="grid gap-3 rounded-3xl border-2 border-alibi-lavender/25 bg-white/80 p-4 shadow-[0_10px_24px_rgba(50,83,199,0.09)] transition hover:-translate-y-0.5 hover:border-alibi-pink/35 sm:grid-cols-[7.5rem_minmax(0,1fr)_auto]"
                 >
-                  <div className="font-mono text-xs leading-6 text-[#6B5A47]">
+                  <div className="font-mono text-sm font-semibold leading-6 text-alibi-teal">
                     <div>{formatTime(block.started_at)}</div>
                     <div>{formatTime(block.ended_at)}</div>
-                    <div className="mt-1 font-sans text-[12px] font-semibold text-[#2A1F14]">
+                    <div className="mt-1 font-sans text-sm font-black text-alibi-blue">
                       {formatDuration(block.duration_seconds, block.started_at, block.ended_at)}
                     </div>
                   </div>
@@ -695,15 +886,15 @@ function DailyBlocks({
                         className="h-2.5 w-2.5 rounded-full"
                         style={{ backgroundColor: category.color }}
                       />
-                      <span className="text-xs font-semibold uppercase tracking-[0.12em] text-[#6B5A47]">
+                      <span className="text-sm font-black uppercase tracking-[0.08em] text-alibi-teal">
                         {category.label}
                       </span>
                     </div>
-                    <h3 className="mt-2 break-words text-base font-semibold text-[#2A1F14]">
+                    <h3 className="mt-2 break-words text-base font-black text-alibi-ink">
                       {block.task_name || "unnamed time block"}
                     </h3>
                     {block.notes && (
-                      <p className="mt-1 break-words text-sm leading-6 text-[#6B5A47]">
+                      <p className="mt-1 break-words text-sm font-medium leading-6 text-alibi-teal">
                         {block.notes}
                       </p>
                     )}
@@ -712,8 +903,7 @@ function DailyBlocks({
                         {block.hashtags.map((hashtag) => (
                           <span
                             key={hashtag}
-                            className="bg-[#ECE2D0]/80 px-2 py-1 font-mono text-[11px] text-[#6B5A47]"
-                            style={{ borderRadius: 8 }}
+                            className="alibi-chip"
                           >
                             #{hashtag}
                           </span>
@@ -728,8 +918,7 @@ function DailyBlocks({
                       onClick={() => onEdit(block)}
                       aria-label="edit block"
                       title="edit"
-                      className="flex h-9 w-9 items-center justify-center text-[#6B5A47] transition hover:bg-white/70 hover:text-[#2A1F14]"
-                      style={{ borderRadius: 8 }}
+                      className="flex h-9 w-9 items-center justify-center rounded-2xl text-alibi-teal transition hover:-translate-y-0.5 hover:bg-alibi-lavender/20 hover:text-alibi-blue"
                     >
                       <Pencil className="h-4 w-4" />
                     </button>
@@ -739,8 +928,7 @@ function DailyBlocks({
                       disabled={pending}
                       aria-label="delete block"
                       title="delete"
-                      className="flex h-9 w-9 items-center justify-center text-[#8A2F20] transition hover:bg-[#C8553D]/10 disabled:opacity-55"
-                      style={{ borderRadius: 8 }}
+                      className="flex h-9 w-9 items-center justify-center rounded-2xl text-alibi-pink transition hover:-translate-y-0.5 hover:bg-alibi-pink/10 disabled:translate-y-0 disabled:opacity-55"
                     >
                       <Trash2 className="h-4 w-4" />
                     </button>

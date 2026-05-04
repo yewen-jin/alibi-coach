@@ -3,7 +3,6 @@
 import { useMemo } from "react"
 import type { TimeBlock } from "@/lib/types"
 import { aggregateByCategory } from "@/lib/dashboard-data"
-import { GLASS_PANEL_STYLE } from "@/lib/ui-styles"
 
 interface ProjectDistributionProps {
   blocks: TimeBlock[]
@@ -12,14 +11,10 @@ interface ProjectDistributionProps {
 // Warm categorical palette — drawn from Alibi's accents.
 // Deliberately purple-free; sorted from most-to-least saturated.
 const PROJECT_COLORS = [
-  "#C8553D", // terracotta
-  "#8B9D7F", // sage
-  "#D4A574", // ochre
-  "#7E8C7B", // deep sage
-  "#B5A898", // warm taupe
-  "#8B95A8", // warm slate
-  "#C9B87A", // warm wheat
-  "#D49B8C", // warm pink
+  "#3253C7",
+  "#BF7DAD",
+  "#43849D",
+  "#93A5E4",
 ]
 
 export function ProjectDistribution({ blocks }: ProjectDistributionProps) {
@@ -28,11 +23,11 @@ export function ProjectDistribution({ blocks }: ProjectDistributionProps) {
 
   if (categories.length === 0) {
     return (
-      <section className="p-5" style={GLASS_PANEL_STYLE}>
-        <h2 className="mb-2 text-[16px] font-semibold tracking-tight text-[#2A1F14]">
+      <section className="alibi-card p-5">
+        <h2 className="mb-2 text-[16px] font-black tracking-tight text-alibi-blue">
           where you spent time
         </h2>
-        <p className="text-[13px] text-[#6B5A47]">
+        <p className="text-base font-semibold text-alibi-teal">
           nothing tracked yet.
         </p>
       </section>
@@ -40,12 +35,12 @@ export function ProjectDistribution({ blocks }: ProjectDistributionProps) {
   }
 
   return (
-    <section className="p-5" style={GLASS_PANEL_STYLE}>
+    <section className="alibi-card p-5">
       <div className="mb-4 flex items-baseline gap-3">
-        <h2 className="text-[16px] font-semibold tracking-tight text-[#2A1F14]">
+        <h2 className="text-[16px] font-black tracking-tight text-alibi-blue">
           where you spent time
         </h2>
-        <span className="text-[10px] font-medium uppercase tracking-[0.18em] text-[#A89680]">
+        <span className="rounded-full bg-alibi-lavender/20 px-2 py-1 text-xs font-black uppercase tracking-[0.12em] text-alibi-teal">
           by category
         </span>
       </div>
@@ -55,7 +50,7 @@ export function ProjectDistribution({ blocks }: ProjectDistributionProps) {
         className="mb-4 flex h-3 w-full overflow-hidden"
         style={{
           borderRadius: 999,
-          background: "rgba(60, 40, 20, 0.06)",
+          background: "rgba(147, 165, 228, 0.22)",
         }}
         role="img"
         aria-label="project distribution bar"
@@ -83,7 +78,7 @@ export function ProjectDistribution({ blocks }: ProjectDistributionProps) {
           return (
             <li
               key={category.category}
-              className="flex items-center gap-3 text-[13px]"
+              className="flex items-center gap-3 text-base"
             >
               <span
                 className="h-2.5 w-2.5 shrink-0 rounded-sm"
@@ -92,13 +87,13 @@ export function ProjectDistribution({ blocks }: ProjectDistributionProps) {
                 }}
                 aria-hidden="true"
               />
-              <span className="flex-1 capitalize text-[#2A1F14]">
+              <span className="flex-1 font-semibold capitalize text-alibi-ink">
                 {category.category}
               </span>
-              <span className="font-mono tabular-nums text-[#6B5A47]">
+              <span className="font-mono font-bold tabular-nums text-alibi-blue">
                 {formatMinutes(category.totalMinutes)}
               </span>
-              <span className="w-10 text-right font-mono tabular-nums text-[#A89680]">
+              <span className="w-10 text-right font-mono font-bold tabular-nums text-alibi-teal">
                 {pct.toFixed(0)}%
               </span>
             </li>

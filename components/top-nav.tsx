@@ -5,7 +5,6 @@ import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import { BookOpen, Clock3, LayoutGrid, LogOut } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
-import { GLASS_PILL_STYLE } from "@/lib/ui-styles"
 import { cn } from "@/lib/utils"
 
 const LINKS = [
@@ -39,19 +38,18 @@ export function TopNav({ userEmail }: TopNavProps) {
   return (
     <nav
       aria-label="primary"
-      className="flex items-center justify-between gap-3 px-3 py-2"
-      style={GLASS_PILL_STYLE}
+      className="alibi-pill flex items-center justify-between gap-3 px-3 py-2"
     >
       {/* Brand */}
       <Link
         href="/app"
         className="flex items-baseline gap-2 px-2 transition-opacity hover:opacity-80"
       >
-        <span className="text-[15px] font-semibold tracking-tight text-[#2A1F14]">
+        <span className="text-[15px] font-black tracking-tight text-alibi-blue">
           alibi
         </span>
-        <span className="hidden text-[10px] font-medium uppercase tracking-[0.18em] text-[#A89680] sm:inline">
-          done-list
+        <span className="hidden rounded-full bg-alibi-pink/15 px-2 py-0.5 text-xs font-black uppercase tracking-[0.12em] text-alibi-pink sm:inline">
+          tracker
         </span>
       </Link>
 
@@ -65,10 +63,10 @@ export function TopNav({ userEmail }: TopNavProps) {
                 href={href}
                 aria-current={active ? "page" : undefined}
                 className={cn(
-                  "inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[12px] font-medium transition-colors",
+                  "inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-bold transition",
                   active
-                    ? "bg-[#C8553D]/15 text-[#C8553D]"
-                    : "text-[#6B5A47] hover:bg-white/40 hover:text-[#2A1F14]"
+                    ? "bg-alibi-blue text-white shadow-[0_8px_16px_rgba(50,83,199,0.25)]"
+                    : "text-alibi-teal hover:-translate-y-0.5 hover:bg-alibi-lavender/20 hover:text-alibi-blue"
                 )}
               >
                 <Icon className="h-3.5 w-3.5" strokeWidth={2.2} />
@@ -83,7 +81,7 @@ export function TopNav({ userEmail }: TopNavProps) {
       <div className="flex items-center gap-2">
         {userEmail && (
           <span
-            className="hidden max-w-[180px] truncate font-mono text-[11px] tracking-[0.04em] text-[#A89680] md:inline"
+            className="hidden max-w-[180px] truncate font-mono text-xs font-semibold tracking-[0.04em] text-alibi-teal md:inline"
             title={userEmail}
           >
             {userEmail}
@@ -94,7 +92,7 @@ export function TopNav({ userEmail }: TopNavProps) {
           onClick={handleSignOut}
           disabled={signingOut}
           aria-label="sign out"
-          className="flex h-8 w-8 items-center justify-center rounded-full text-[#6B5A47] transition-colors hover:bg-white/40 hover:text-[#2A1F14] disabled:opacity-50"
+          className="flex h-8 w-8 items-center justify-center rounded-full text-alibi-teal transition hover:-translate-y-0.5 hover:bg-alibi-pink/15 hover:text-alibi-pink disabled:translate-y-0 disabled:opacity-50"
         >
           <LogOut className="h-3.5 w-3.5" strokeWidth={2.2} />
         </button>

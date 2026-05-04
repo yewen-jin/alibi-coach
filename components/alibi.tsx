@@ -239,7 +239,7 @@ export function Alibi({ userEmail }: AlibiProps) {
       const result = await processMessage(text)
       const replyId = `a-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
 
-      if (result.type === "drop_in") {
+      if (result.type === "logged") {
         // Filed indicator + ack bubble; if Alibi spontaneously spoke up, append that too.
         setFiled(true)
         if (filedTimer.current) clearTimeout(filedTimer.current)
@@ -249,24 +249,26 @@ export function Alibi({ userEmail }: AlibiProps) {
 
         setMessages((prev) => {
           const next = [...prev, { id: replyId, role: "assistant" as const, text: result.ack }]
-          if (result.proactive?.content) {
-            next.push({
-              id: `${replyId}-p`,
-              role: "assistant" as const,
-              text: result.proactive.content,
-            })
-          }
           return next
         })
-      } else if (result.type === "check_in") {
+      } else if (result.type === "analysis") {
         setMessages((prev) => [
           ...prev,
-          { id: replyId, role: "assistant", text: result.reflection },
+          { id: replyId, role: "assistant", text: result.message },
+        ])
+      } else if (result.type === "clarify") {
+        setMessages((prev) => [
+          ...prev,
+          { id: replyId, role: "assistant", text: result.question },
         ])
       } else {
         setMessages((prev) => [
           ...prev,
-          { id: replyId, role: "assistant", text: result.message },
+          {
+            id: replyId,
+            role: "assistant",
+            text: "ack" in result ? result.ack : result.message,
+          },
         ])
       }
     } catch (err) {

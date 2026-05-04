@@ -54,22 +54,23 @@ export function DoneListApp({ userEmail }: DoneListAppProps) {
         return
       }
 
-      if (result.type === "drop_in") {
-        await mutate(
-          "entries",
-          (current: Entry[] | undefined) => [result.entry, ...(current ?? [])],
-          { revalidate: false }
-        )
+      if (
+        result.type === "logged" ||
+        result.type === "timer_started" ||
+        result.type === "timer_already_running" ||
+        result.type === "timer_stopped"
+      ) {
+        await mutate("time_blocks")
         setAck({ text: result.ack, key: Date.now() })
-
-        // If Alibi decided to speak up, append the new proactive message.
-        if (result.proactive) {
-          setProactive((prev) => [...prev, result.proactive!])
-        }
         return
       }
 
-      setCoachMessage(result.reflection)
+      if (result.type === "clarify") {
+        setCoachMessage(result.question)
+        return
+      }
+
+      setCoachMessage(result.message)
     } catch (err) {
       console.log("[v0] processMessage error:", err)
       setErrorMessage("something went sideways. try again.")

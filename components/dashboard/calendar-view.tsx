@@ -8,7 +8,6 @@ import {
   buildCalendarGrid,
   type DayBucket,
 } from "@/lib/dashboard-data"
-import { GLASS_PANEL_STYLE, PAPER_INSET_STYLE } from "@/lib/ui-styles"
 
 interface CalendarViewProps {
   blocks: TimeBlock[]
@@ -75,13 +74,13 @@ export function CalendarView({ blocks }: CalendarViewProps) {
   }
 
   return (
-    <section className="p-5" style={GLASS_PANEL_STYLE}>
+    <section className="alibi-card p-5">
       <div className="mb-4 flex items-center justify-between">
         <div className="flex items-baseline gap-3">
-          <h2 className="text-[16px] font-semibold tracking-tight text-[#2A1F14]">
+          <h2 className="text-[16px] font-black tracking-tight text-alibi-blue">
             {MONTHS[month]} {year}
           </h2>
-          <span className="text-[10px] font-medium uppercase tracking-[0.18em] text-[#A89680]">
+          <span className="rounded-full bg-alibi-lavender/20 px-2 py-1 text-xs font-black uppercase tracking-[0.12em] text-alibi-teal">
             calendar
           </span>
         </div>
@@ -99,7 +98,7 @@ export function CalendarView({ blocks }: CalendarViewProps) {
         {WEEKDAYS.map((d) => (
           <div
             key={d}
-            className="pb-2 text-center text-[10px] font-medium uppercase tracking-[0.16em] text-[#A89680]"
+            className="pb-2 text-center text-xs font-black uppercase tracking-[0.1em] text-alibi-teal"
           >
             {d}
           </div>
@@ -111,14 +110,14 @@ export function CalendarView({ blocks }: CalendarViewProps) {
           const intensity =
             cell.bucket && maxCount > 0 ? cell.bucket.count / maxCount : 0
           const isSelected = selectedKey === cell.dateKey
-          const alpha = cell.bucket ? 0.12 + intensity * 0.48 : 0
+          const alpha = cell.bucket ? 0.14 + intensity * 0.48 : 0
           const bg = cell.bucket
-            ? `rgba(200, 85, 61, ${alpha.toFixed(3)})`
-            : "rgba(255, 250, 240, 0.4)"
+            ? `rgba(191, 125, 173, ${alpha.toFixed(3)})`
+            : "rgba(147, 165, 228, 0.12)"
 
-          let borderColor = "rgba(60, 40, 20, 0.08)"
-          if (isSelected) borderColor = "#C8553D"
-          else if (cell.isToday) borderColor = "#8B9D7F"
+          let borderColor = "rgba(50, 83, 199, 0.14)"
+          if (isSelected) borderColor = "#3253C7"
+          else if (cell.isToday) borderColor = "#43849D"
 
           return (
             <button
@@ -130,21 +129,21 @@ export function CalendarView({ blocks }: CalendarViewProps) {
                 cell.isToday ? ", today" : ""
               }`}
               aria-pressed={isSelected}
-              className="relative aspect-square rounded-lg text-[12px] transition-all hover:-translate-y-px focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C8553D]/40"
+              className="relative aspect-square rounded-2xl text-sm font-black transition-all hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-alibi-pink/25"
               style={{
                 background: bg,
                 border: `1px solid ${borderColor}`,
                 boxShadow: isSelected
-                  ? "0 0 0 3px rgba(200, 85, 61, 0.18)"
+                  ? "0 0 0 4px rgba(50, 83, 199, 0.18)"
                   : "none",
-                color: cell.bucket ? "#2A1F14" : "#A89680",
+                color: cell.bucket ? "#162044" : "#43849D",
               }}
             >
               <span className="absolute left-1.5 top-1 font-medium tabular-nums">
                 {cell.day}
               </span>
               {cell.bucket && (
-                <span className="absolute bottom-1 right-1.5 font-mono text-[9px] tabular-nums opacity-70">
+                <span className="absolute bottom-1 right-1.5 font-mono text-xs tabular-nums opacity-70">
                   {cell.bucket.count}
                 </span>
               )}
@@ -154,11 +153,11 @@ export function CalendarView({ blocks }: CalendarViewProps) {
       </div>
 
       {/* Legend */}
-      <div className="mt-4 flex items-center justify-end gap-3 text-[10px] font-medium uppercase tracking-[0.14em] text-[#A89680]">
+      <div className="mt-4 flex items-center justify-end gap-3 text-xs font-black uppercase tracking-[0.1em] text-alibi-teal">
         <span className="flex items-center gap-1.5">
           <span
             className="h-2 w-2 rounded-sm"
-            style={{ background: "rgba(200, 85, 61, 0.18)" }}
+            style={{ background: "rgba(191, 125, 173, 0.22)" }}
             aria-hidden
           />
           quiet
@@ -166,14 +165,14 @@ export function CalendarView({ blocks }: CalendarViewProps) {
         <span className="flex items-center gap-1.5">
           <span
             className="h-2 w-2 rounded-sm"
-            style={{ background: "rgba(200, 85, 61, 0.55)" }}
+            style={{ background: "rgba(191, 125, 173, 0.62)" }}
             aria-hidden
           />
           busy
         </span>
         <span className="flex items-center gap-1.5">
           <span
-            className="h-2 w-2 rounded-sm border border-[#8B9D7F]"
+            className="h-2 w-2 rounded-sm border border-alibi-teal"
             style={{ background: "transparent" }}
             aria-hidden
           />
@@ -182,16 +181,16 @@ export function CalendarView({ blocks }: CalendarViewProps) {
       </div>
 
       {selected && (
-        <div className="alibi-soft-rise mt-5 px-5 py-4" style={PAPER_INSET_STYLE}>
+        <div className="alibi-soft-rise mt-5 rounded-3xl border border-alibi-lavender/30 bg-white/80 px-5 py-4 shadow-inner">
           <div className="mb-3 flex items-baseline gap-3">
-            <span className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#2A1F14]">
+            <span className="text-xs font-black uppercase tracking-[0.12em] text-alibi-blue">
               {selected.date}
             </span>
             <hr
               className="flex-1 border-0"
-              style={{ borderTop: "1px dashed #C8B89F" }}
+              style={{ borderTop: "1px dashed rgba(147,165,228,0.7)" }}
             />
-            <span className="font-mono text-[10px] tracking-[0.12em] text-[#A89680]">
+            <span className="font-mono text-xs font-black tracking-[0.08em] text-alibi-teal">
               {String(selected.count).padStart(2, "0")} BLOCKS
               {selected.totalMinutes > 0 &&
                 ` · ${formatMinutes(selected.totalMinutes)}`}
@@ -208,9 +207,9 @@ export function CalendarView({ blocks }: CalendarViewProps) {
               .map((block) => (
                 <li
                   key={block.id}
-                  className="flex items-start gap-3 text-[13.5px] leading-[1.5] text-[#2A1F14]"
+                  className="flex items-start gap-3 text-base font-semibold leading-relaxed text-alibi-ink"
                 >
-                  <span className="mt-0.5 font-mono text-[11px] tracking-[0.04em] text-[#A89680]">
+                  <span className="mt-0.5 font-mono text-xs font-bold tracking-[0.04em] text-alibi-teal">
                     {new Date(block.started_at).toLocaleTimeString([], {
                       hour: "2-digit",
                       minute: "2-digit",
@@ -219,8 +218,7 @@ export function CalendarView({ blocks }: CalendarViewProps) {
                   <span className="flex-1">{block.task_name || "unnamed time block"}</span>
                   {block.category && (
                     <span
-                      className="rounded-full px-2 py-0.5 text-[10px] tracking-wide text-[#6B5A47]"
-                      style={{ background: "rgba(60, 40, 20, 0.06)" }}
+                      className="rounded-full bg-alibi-lavender/20 px-2 py-0.5 text-xs font-bold tracking-wide text-alibi-blue"
                     >
                       {block.category.replace("_", " ")}
                     </span>
@@ -248,7 +246,7 @@ function NavBtn({
       type="button"
       onClick={onClick}
       aria-label={ariaLabel}
-      className="flex h-7 w-7 items-center justify-center rounded-full text-[#6B5A47] transition-colors hover:bg-white/50 hover:text-[#2A1F14] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C8553D]/40"
+      className="flex h-7 w-7 items-center justify-center rounded-full text-alibi-teal transition hover:-translate-y-0.5 hover:bg-alibi-lavender/20 hover:text-alibi-blue focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-alibi-pink/20"
     >
       {children}
     </button>
