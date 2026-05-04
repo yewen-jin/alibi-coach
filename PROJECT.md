@@ -13,6 +13,25 @@ The whole product is one input box, one list, one receipt — and an AI that kno
 
 ---
 
+## SPECS.md v2 transition status
+
+`SPECS.md` is now v2 and supersedes parts of the older v1 implementation notes below. The current app still mostly runs the v1 drop-in/chat flow while v2 timer and calendar functionality is being added.
+
+Server action status from the v2 architecture:
+
+| Function | Status |
+| --- | --- |
+| `startTimer` | Implemented in `app/actions/timer.ts`; creates the current user's `active_timer` row and preserves an already-running timer. |
+| `stopTimer` | Implemented in `app/actions/timer.ts`; moves the current user's `active_timer` into `time_blocks` and clears the active timer. Stopped blocks intentionally have no metadata until the block editor exists. |
+| `saveBlock` | Implemented in `app/actions/timer.ts`; creates manual/backdated blocks and saves post-stop metadata edits for user-owned `time_blocks`. |
+| `deleteBlock` | Not implemented. |
+| `getCalendarData` | Not implemented. |
+| `analyseBlocks` | Not implemented. |
+
+Database assumption: `active_timer` and `time_blocks` exist in Supabase with the shapes defined in `SPECS.md`.
+
+---
+
 ## The four moments (mapped to the build)
 
 The spec defines four user moments. Here's where each one lives in the codebase.
