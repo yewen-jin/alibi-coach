@@ -1,6 +1,13 @@
-"use client"
+"use client";
 
-import { useCallback, useEffect, useMemo, useState, useTransition, type FormEvent } from "react"
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  useTransition,
+  type FormEvent,
+} from "react";
 import {
   CalendarDays,
   Clock,
@@ -15,8 +22,8 @@ import {
   Square,
   Trash2,
   X,
-} from "lucide-react"
-import { processCoachMessage } from "@/app/actions/process-message"
+} from "lucide-react";
+import { processCoachMessage } from "@/app/actions/process-message";
 import {
   deleteBlock,
   getActiveTimer,
@@ -25,10 +32,15 @@ import {
   saveBlock,
   startTimer,
   stopTimer,
-} from "@/app/actions/timer"
-import type { ActiveTimer, CoachMessage, TimeBlock, TimeBlockCategory } from "@/lib/types"
-import { cn } from "@/lib/utils"
-import { TopNav } from "./top-nav"
+} from "@/app/actions/timer";
+import type {
+  ActiveTimer,
+  CoachMessage,
+  TimeBlock,
+  TimeBlockCategory,
+} from "@/lib/types";
+import { cn } from "@/lib/utils";
+import { TopNav } from "./top-nav";
 
 const CATEGORIES = [
   { value: "deep_work", label: "deep work", color: "#3253C7" },
@@ -38,93 +50,97 @@ const CATEGORIES = [
   { value: "care", label: "care", color: "#BF7DAD" },
   { value: "creative", label: "creative", color: "#3253C7" },
   { value: "rest", label: "rest", color: "#43849D" },
-] satisfies Array<{ value: TimeBlockCategory; label: string; color: string }>
+] satisfies Array<{ value: TimeBlockCategory; label: string; color: string }>;
 
 type EditorState = {
-  block?: TimeBlock
-  isNewlyStopped: boolean
-  isManual: boolean
-  taskName: string
-  category: TimeBlockCategory | ""
-  hashtags: string
-  notes: string
-  startedAt: string
-  endedAt: string
-}
+  block?: TimeBlock;
+  isNewlyStopped: boolean;
+  isManual: boolean;
+  taskName: string;
+  category: TimeBlockCategory | "";
+  hashtags: string;
+  notes: string;
+  startedAt: string;
+  endedAt: string;
+};
 
 type ChatMessage = {
-  id: string
-  role: "user" | "assistant"
-  text: string
-}
+  id: string;
+  role: "user" | "assistant";
+  text: string;
+};
 
 interface TimerTrackerAppProps {
-  userEmail: string | null
-  initialChatMessages?: CoachMessage[]
-  initialHasPendingDraft?: boolean
+  userEmail: string | null;
+  initialChatMessages?: CoachMessage[];
+  initialHasPendingDraft?: boolean;
 }
 
 function formatElapsed(totalSeconds: number) {
-  const hours = Math.floor(totalSeconds / 3600)
-  const minutes = Math.floor((totalSeconds % 3600) / 60)
-  const seconds = totalSeconds % 60
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
 
   return [hours, minutes, seconds]
     .map((part) => part.toString().padStart(2, "0"))
-    .join(":")
+    .join(":");
 }
 
 function getElapsedSeconds(activeTimer: ActiveTimer | null, now: number) {
   if (!activeTimer) {
-    return 0
+    return 0;
   }
 
-  const startedAt = new Date(activeTimer.started_at).getTime()
+  const startedAt = new Date(activeTimer.started_at).getTime();
 
   if (Number.isNaN(startedAt)) {
-    return 0
+    return 0;
   }
 
-  return Math.max(0, Math.floor((now - startedAt) / 1000))
+  return Math.max(0, Math.floor((now - startedAt) / 1000));
 }
 
-function formatDuration(seconds: number | null, start: string, end: string | null) {
-  let totalSeconds = seconds
+function formatDuration(
+  seconds: number | null,
+  start: string,
+  end: string | null,
+) {
+  let totalSeconds = seconds;
 
   if (totalSeconds === null && end) {
     totalSeconds = Math.max(
       0,
       Math.floor((new Date(end).getTime() - new Date(start).getTime()) / 1000),
-    )
+    );
   }
 
   if (!totalSeconds) {
-    return "0m"
+    return "0m";
   }
 
-  const hours = Math.floor(totalSeconds / 3600)
-  const minutes = Math.round((totalSeconds % 3600) / 60)
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.round((totalSeconds % 3600) / 60);
 
   if (hours > 0 && minutes > 0) {
-    return `${hours}h ${minutes}m`
+    return `${hours}h ${minutes}m`;
   }
 
   if (hours > 0) {
-    return `${hours}h`
+    return `${hours}h`;
   }
 
-  return `${Math.max(1, minutes)}m`
+  return `${Math.max(1, minutes)}m`;
 }
 
 function formatTime(value: string | null) {
   if (!value) {
-    return "--:--"
+    return "--:--";
   }
 
   return new Intl.DateTimeFormat(undefined, {
     hour: "numeric",
     minute: "2-digit",
-  }).format(new Date(value))
+  }).format(new Date(value));
 }
 
 function formatDateHeading(date: Date) {
@@ -132,34 +148,34 @@ function formatDateHeading(date: Date) {
     weekday: "long",
     month: "long",
     day: "numeric",
-  }).format(date)
+  }).format(date);
 }
 
 function toDateTimeLocal(value: string | null) {
   if (!value) {
-    return ""
+    return "";
   }
 
-  const date = new Date(value)
+  const date = new Date(value);
 
   if (Number.isNaN(date.getTime())) {
-    return ""
+    return "";
   }
 
-  const offsetMs = date.getTimezoneOffset() * 60_000
-  return new Date(date.getTime() - offsetMs).toISOString().slice(0, 16)
+  const offsetMs = date.getTimezoneOffset() * 60_000;
+  return new Date(date.getTime() - offsetMs).toISOString().slice(0, 16);
 }
 
 function fromDateTimeLocal(value: string) {
-  return new Date(value).toISOString()
+  return new Date(value).toISOString();
 }
 
 function getTodayRange() {
-  const start = new Date()
-  start.setHours(0, 0, 0, 0)
+  const start = new Date();
+  start.setHours(0, 0, 0, 0);
 
-  const end = new Date(start)
-  end.setDate(end.getDate() + 1)
+  const end = new Date(start);
+  end.setDate(end.getDate() + 1);
 
   return {
     start,
@@ -168,17 +184,20 @@ function getTodayRange() {
       start: start.toISOString(),
       end: end.toISOString(),
     },
-  }
+  };
 }
 
 function parseHashtags(value: string) {
   return value
     .split(/[\s,]+/)
     .map((tag) => tag.trim())
-    .filter(Boolean)
+    .filter(Boolean);
 }
 
-function createEditorState(block: TimeBlock, isNewlyStopped = false): EditorState {
+function createEditorState(
+  block: TimeBlock,
+  isNewlyStopped = false,
+): EditorState {
   return {
     block,
     isNewlyStopped,
@@ -189,12 +208,12 @@ function createEditorState(block: TimeBlock, isNewlyStopped = false): EditorStat
     notes: block.notes ?? "",
     startedAt: toDateTimeLocal(block.started_at),
     endedAt: toDateTimeLocal(block.ended_at),
-  }
+  };
 }
 
 function createManualEditorState(): EditorState {
-  const endedAt = new Date()
-  const startedAt = new Date(endedAt.getTime() - 30 * 60_000)
+  const endedAt = new Date();
+  const startedAt = new Date(endedAt.getTime() - 30 * 60_000);
 
   return {
     isNewlyStopped: false,
@@ -205,15 +224,17 @@ function createManualEditorState(): EditorState {
     notes: "",
     startedAt: toDateTimeLocal(startedAt.toISOString()),
     endedAt: toDateTimeLocal(endedAt.toISOString()),
-  }
+  };
 }
 
 function getCategoryMeta(category: TimeBlockCategory | null) {
-  return CATEGORIES.find((item) => item.value === category) ?? {
-    value: "admin" as TimeBlockCategory,
-    label: "uncategorized",
-    color: "#93A5E4",
-  }
+  return (
+    CATEGORIES.find((item) => item.value === category) ?? {
+      value: "admin" as TimeBlockCategory,
+      label: "uncategorized",
+      color: "#93A5E4",
+    }
+  );
 }
 
 function coachMessageToChatMessage(message: CoachMessage): ChatMessage {
@@ -221,7 +242,7 @@ function coachMessageToChatMessage(message: CoachMessage): ChatMessage {
     id: message.id,
     role: message.role,
     text: message.content,
-  }
+  };
 }
 
 export function TimerTrackerApp({
@@ -229,146 +250,150 @@ export function TimerTrackerApp({
   initialChatMessages = [],
   initialHasPendingDraft = false,
 }: TimerTrackerAppProps) {
-  const [activeTimer, setActiveTimer] = useState<ActiveTimer | null>(null)
-  const [timeBlocks, setTimeBlocks] = useState<TimeBlock[]>([])
-  const [editor, setEditor] = useState<EditorState | null>(null)
-  const [now, setNow] = useState(() => Date.now())
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const [activeTimer, setActiveTimer] = useState<ActiveTimer | null>(null);
+  const [timeBlocks, setTimeBlocks] = useState<TimeBlock[]>([]);
+  const [editor, setEditor] = useState<EditorState | null>(null);
+  const [now, setNow] = useState(() => Date.now());
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>(() =>
-    (Array.isArray(initialChatMessages) ? initialChatMessages : []).map(coachMessageToChatMessage),
-  )
-  const [hasPendingDraft, setHasPendingDraft] = useState(initialHasPendingDraft)
-  const [isPending, startTransition] = useTransition()
-  const [isChatPending, startChatTransition] = useTransition()
+    (Array.isArray(initialChatMessages) ? initialChatMessages : []).map(
+      coachMessageToChatMessage,
+    ),
+  );
+  const [hasPendingDraft, setHasPendingDraft] = useState(
+    initialHasPendingDraft,
+  );
+  const [isPending, startTransition] = useTransition();
+  const [isChatPending, startChatTransition] = useTransition();
 
-  const today = useMemo(() => getTodayRange(), [])
-  const elapsed = getElapsedSeconds(activeTimer, now)
+  const today = useMemo(() => getTodayRange(), []);
+  const elapsed = getElapsedSeconds(activeTimer, now);
 
   const loadTracker = useCallback(async () => {
-    setError(null)
+    setError(null);
     const [timerResult, calendarResult] = await Promise.all([
       getActiveTimer(),
       getCalendarData(today.input),
-    ])
+    ]);
 
     if (timerResult.type === "loaded") {
-      setActiveTimer(timerResult.activeTimer)
+      setActiveTimer(timerResult.activeTimer);
     } else {
-      setError(timerResult.message)
+      setError(timerResult.message);
     }
 
     if (calendarResult.type === "loaded") {
-      setTimeBlocks(calendarResult.timeBlocks)
+      setTimeBlocks(calendarResult.timeBlocks);
     } else {
-      setError(calendarResult.message)
+      setError(calendarResult.message);
     }
-  }, [today.input])
+  }, [today.input]);
 
   useEffect(() => {
-    let mounted = true
+    let mounted = true;
 
     async function hydrate() {
-      setLoading(true)
-      await loadTracker()
+      setLoading(true);
+      await loadTracker();
       if (mounted) {
-        setLoading(false)
+        setLoading(false);
       }
     }
 
-    hydrate()
+    hydrate();
 
     return () => {
-      mounted = false
-    }
-  }, [loadTracker])
+      mounted = false;
+    };
+  }, [loadTracker]);
 
   useEffect(() => {
-    const interval = window.setInterval(() => setNow(Date.now()), 1000)
-    return () => window.clearInterval(interval)
-  }, [])
+    const interval = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => window.clearInterval(interval);
+  }, []);
 
   const refreshBlocks = useCallback(async () => {
-    const result = await getCalendarData(today.input)
+    const result = await getCalendarData(today.input);
 
     if (result.type === "loaded") {
-      setTimeBlocks(result.timeBlocks)
-      return
+      setTimeBlocks(result.timeBlocks);
+      return;
     }
 
-    setError(result.message)
-  }, [today.input])
+    setError(result.message);
+  }, [today.input]);
 
   const handleStart = () => {
-    setError(null)
+    setError(null);
     startTransition(async () => {
-      const result = await startTimer()
+      const result = await startTimer();
 
       if (result.type === "started" || result.type === "already_running") {
-        setActiveTimer(result.activeTimer)
-        setNow(Date.now())
-        return
+        setActiveTimer(result.activeTimer);
+        setNow(Date.now());
+        return;
       }
 
-      setError(result.message)
-    })
-  }
+      setError(result.message);
+    });
+  };
 
   const handleStop = () => {
-    setError(null)
+    setError(null);
     startTransition(async () => {
-      const result = await stopTimer()
+      const result = await stopTimer();
 
       if (result.type === "stopped") {
-        setActiveTimer(null)
-        setEditor(createEditorState(result.timeBlock, true))
-        await refreshBlocks()
-        return
+        setActiveTimer(null);
+        setEditor(createEditorState(result.timeBlock, true));
+        await refreshBlocks();
+        return;
       }
 
       if (result.type === "not_running") {
-        setActiveTimer(null)
-        setError("no timer is running.")
-        await refreshBlocks()
-        return
+        setActiveTimer(null);
+        setError("no timer is running.");
+        await refreshBlocks();
+        return;
       }
 
       if (result.timeBlock) {
-        setEditor(createEditorState(result.timeBlock, true))
-        await loadTracker()
+        setEditor(createEditorState(result.timeBlock, true));
+        await loadTracker();
       }
 
-      setError(result.message)
-    })
-  }
+      setError(result.message);
+    });
+  };
 
   const handleSave = () => {
     if (!editor) {
-      return
+      return;
     }
 
-    setError(null)
+    setError(null);
     startTransition(async () => {
       if (!editor.taskName.trim()) {
-        setError("task name is required.")
-        return
+        setError("task name is required.");
+        return;
       }
 
       if (!editor.category) {
-        setError("category is required.")
-        return
+        setError("category is required.");
+        return;
       }
 
-      const startedAt = new Date(editor.startedAt)
-      const endedAt = new Date(editor.endedAt)
+      const startedAt = new Date(editor.startedAt);
+      const endedAt = new Date(editor.endedAt);
 
       if (
         Number.isNaN(startedAt.getTime()) ||
         Number.isNaN(endedAt.getTime()) ||
         endedAt.getTime() <= startedAt.getTime()
       ) {
-        setError("end time must be after start time.")
-        return
+        setError("end time must be after start time.");
+        return;
       }
 
       const result = await saveBlock({
@@ -379,75 +404,87 @@ export function TimerTrackerApp({
         ended_at: fromDateTimeLocal(editor.endedAt),
         hashtags: parseHashtags(editor.hashtags),
         notes: editor.notes,
-      })
+      });
 
       if (result.type === "saved") {
-        setEditor(null)
-        await refreshBlocks()
-        return
+        setEditor(null);
+        await refreshBlocks();
+        return;
       }
 
-      setError(result.type === "not_found" ? "time block was not found." : result.message)
-    })
-  }
+      setError(
+        result.type === "not_found"
+          ? "time block was not found."
+          : result.message,
+      );
+    });
+  };
 
   const handleDelete = (block: TimeBlock) => {
-    setError(null)
+    setError(null);
     startTransition(async () => {
-      const result = await deleteBlock({ id: block.id })
+      const result = await deleteBlock({ id: block.id });
 
       if (result.type === "deleted") {
         if (editor?.block?.id === block.id) {
-          setEditor(null)
+          setEditor(null);
         }
 
-        await refreshBlocks()
-        return
+        await refreshBlocks();
+        return;
       }
 
-      setError(result.type === "not_found" ? "time block was not found." : result.message)
-    })
-  }
+      setError(
+        result.type === "not_found"
+          ? "time block was not found."
+          : result.message,
+      );
+    });
+  };
 
   const handleResume = (block: TimeBlock) => {
-    setError(null)
-    setEditor(null)
+    setError(null);
+    setEditor(null);
     startTransition(async () => {
-      const result = await resumeBlock({ id: block.id })
+      const result = await resumeBlock({ id: block.id });
 
       if (result.type === "resumed" || result.type === "already_running") {
-        setActiveTimer(result.activeTimer)
-        setNow(Date.now())
-        await refreshBlocks()
-        return
+        setActiveTimer(result.activeTimer);
+        setNow(Date.now());
+        await refreshBlocks();
+        return;
       }
 
-      setError(result.type === "not_found" ? "time block was not found." : result.message)
-    })
-  }
+      setError(
+        result.type === "not_found"
+          ? "time block was not found."
+          : result.message,
+      );
+    });
+  };
 
   const handleCoachMessage = useCallback(
     async (text: string) => {
-      const trimmed = text.trim()
+      const trimmed = text.trim();
       if (!trimmed || isChatPending) {
-        return
+        return;
       }
 
       const userMessage: ChatMessage = {
         id: `user-${Date.now()}`,
         role: "user",
         text: trimmed,
-      }
+      };
 
-      setChatMessages((messages) => [...messages, userMessage])
-      setError(null)
+      setChatMessages((messages) => [...messages, userMessage]);
+      setError(null);
 
       startChatTransition(async () => {
-        const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone
+        const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
         const result = await processCoachMessage({
           text: trimmed,
           timezone,
-        })
+        });
 
         const addAssistantMessage = (text: string) => {
           setChatMessages((messages) => [
@@ -457,51 +494,56 @@ export function TimerTrackerApp({
               role: "assistant",
               text,
             },
-          ])
-        }
+          ]);
+        };
         const reconcileMessages = () => {
           if (Array.isArray(result.messages) && result.messages.length > 0) {
-            setChatMessages(result.messages.map(coachMessageToChatMessage))
+            setChatMessages(result.messages.map(coachMessageToChatMessage));
           }
-          setHasPendingDraft(result.hasPendingDraft === true)
-        }
+          setHasPendingDraft(result.hasPendingDraft === true);
+        };
 
         if (result.type === "error") {
-          reconcileMessages()
+          reconcileMessages();
           if (!Array.isArray(result.messages) || result.messages.length === 0) {
-            addAssistantMessage(result.message)
+            addAssistantMessage(result.message);
           }
-          return
+          return;
         }
 
         if (result.type === "clarify") {
-          reconcileMessages()
-          return
+          reconcileMessages();
+          return;
         }
 
-        reconcileMessages()
+        reconcileMessages();
 
-        if (result.type === "timer_started" || result.type === "timer_already_running") {
-          setActiveTimer(result.activeTimer)
-          setNow(Date.now())
-          return
+        if (
+          result.type === "timer_started" ||
+          result.type === "timer_already_running"
+        ) {
+          setActiveTimer(result.activeTimer);
+          setNow(Date.now());
+          return;
         }
 
         if (result.type === "timer_stopped") {
-          setActiveTimer(null)
-          setEditor(createEditorState(result.timeBlock, !result.timeBlock.task_name))
-          await refreshBlocks()
-          return
+          setActiveTimer(null);
+          setEditor(
+            createEditorState(result.timeBlock, !result.timeBlock.task_name),
+          );
+          await refreshBlocks();
+          return;
         }
 
         if (result.type === "logged") {
-          await refreshBlocks()
-          return
+          await refreshBlocks();
+          return;
         }
-      })
+      });
     },
     [isChatPending, refreshBlocks],
-  )
+  );
 
   return (
     <main className="alibi-page px-4 py-4 sm:px-6 lg:px-8">
@@ -510,11 +552,7 @@ export function TimerTrackerApp({
 
         <section className="grid gap-5 lg:grid-cols-[minmax(0,0.95fr)_minmax(0,1.25fr)]">
           <div className="flex flex-col gap-5">
-            <section
-              className="alibi-card-pop relative overflow-hidden p-5"
-            >
-              <div className="pointer-events-none absolute -right-8 -top-10 h-28 w-28 rounded-full bg-alibi-pink/25" />
-              <div className="pointer-events-none absolute -bottom-10 left-12 h-24 w-24 rounded-full bg-alibi-lavender/35" />
+            <section className="alibi-card-pop relative overflow-hidden p-5">
               <div className="flex items-center justify-between gap-3">
                 <div>
                   <p className="font-mono text-xs font-black uppercase tracking-[0.12em] text-alibi-teal">
@@ -544,7 +582,11 @@ export function TimerTrackerApp({
                     disabled={isPending}
                     className="inline-flex h-11 min-w-32 items-center justify-center gap-2 rounded-2xl bg-alibi-pink px-4 text-sm font-black text-white shadow-[0_10px_22px_rgba(191,125,173,0.34)] transition hover:-translate-y-0.5 hover:bg-alibi-blue disabled:translate-y-0 disabled:opacity-55"
                   >
-                    {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Square className="h-4 w-4" />}
+                    {isPending ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Square className="h-4 w-4" />
+                    )}
                     stop
                   </button>
                 ) : (
@@ -554,7 +596,11 @@ export function TimerTrackerApp({
                     disabled={isPending || loading}
                     className="alibi-button-primary inline-flex h-11 min-w-32 items-center justify-center gap-2 text-sm"
                   >
-                    {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
+                    {isPending ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Play className="h-4 w-4" />
+                    )}
                     start
                   </button>
                 )}
@@ -562,15 +608,19 @@ export function TimerTrackerApp({
                 <button
                   type="button"
                   onClick={() => {
-                    setLoading(true)
-                    loadTracker().finally(() => setLoading(false))
+                    setLoading(true);
+                    loadTracker().finally(() => setLoading(false));
                   }}
                   disabled={isPending || loading}
                   aria-label="refresh timer and blocks"
                   title="refresh"
                   className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border-2 border-alibi-lavender/40 bg-white/75 text-alibi-teal transition hover:-translate-y-0.5 hover:border-alibi-pink hover:text-alibi-pink disabled:translate-y-0 disabled:opacity-55"
                 >
-                  {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+                  {loading ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <RefreshCw className="h-4 w-4" />
+                  )}
                 </button>
               </div>
 
@@ -595,7 +645,9 @@ export function TimerTrackerApp({
                 editor={editor}
                 setEditor={setEditor}
                 onSave={handleSave}
-                onDelete={editor.block ? () => handleDelete(editor.block!) : undefined}
+                onDelete={
+                  editor.block ? () => handleDelete(editor.block!) : undefined
+                }
                 pending={isPending}
               />
             )}
@@ -622,7 +674,7 @@ export function TimerTrackerApp({
         </section>
       </div>
     </main>
-  )
+  );
 }
 
 function CoachChatPanel({
@@ -631,24 +683,24 @@ function CoachChatPanel({
   hasDraft,
   onSubmit,
 }: {
-  messages: ChatMessage[]
-  pending: boolean
-  hasDraft: boolean
-  onSubmit: (text: string) => Promise<void>
+  messages: ChatMessage[];
+  pending: boolean;
+  hasDraft: boolean;
+  onSubmit: (text: string) => Promise<void>;
 }) {
-  const [value, setValue] = useState("")
+  const [value, setValue] = useState("");
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault()
+    event.preventDefault();
 
-    const trimmed = value.trim()
+    const trimmed = value.trim();
     if (!trimmed || pending) {
-      return
+      return;
     }
 
-    setValue("")
-    void onSubmit(trimmed)
-  }
+    setValue("");
+    void onSubmit(trimmed);
+  };
 
   return (
     <section className="alibi-card p-5">
@@ -657,9 +709,7 @@ function CoachChatPanel({
           <p className="font-mono text-xs font-black uppercase tracking-[0.12em] text-alibi-teal">
             alibi
           </p>
-          <h2 className="mt-1 text-xl font-black text-alibi-blue">
-            chat log
-          </h2>
+          <h2 className="mt-1 text-xl font-black text-alibi-blue">chat log</h2>
         </div>
         <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-alibi-pink/15 text-alibi-pink">
           <MessageCircle className="h-4 w-4" />
@@ -710,8 +760,8 @@ function CoachChatPanel({
           onChange={(event) => setValue(event.target.value)}
           onKeyDown={(event) => {
             if (event.key === "Enter" && !event.shiftKey) {
-              event.preventDefault()
-              event.currentTarget.form?.requestSubmit()
+              event.preventDefault();
+              event.currentTarget.form?.requestSubmit();
             }
           }}
           rows={2}
@@ -726,11 +776,15 @@ function CoachChatPanel({
           title="send"
           className="inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-alibi-teal text-white shadow-[0_10px_22px_rgba(67,132,157,0.28)] transition hover:-translate-y-0.5 hover:bg-alibi-pink disabled:translate-y-0 disabled:opacity-55"
         >
-          {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+          {pending ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <Send className="h-4 w-4" />
+          )}
         </button>
       </form>
     </section>
-  )
+  );
 }
 
 function BlockEditor({
@@ -740,23 +794,25 @@ function BlockEditor({
   onDelete,
   pending,
 }: {
-  editor: EditorState
-  setEditor: (editor: EditorState | null) => void
-  onSave: () => void
-  onDelete?: () => void
-  pending: boolean
+  editor: EditorState;
+  setEditor: (editor: EditorState | null) => void;
+  onSave: () => void;
+  onDelete?: () => void;
+  pending: boolean;
 }) {
   return (
-    <section
-      className="alibi-card p-5"
-    >
+    <section className="alibi-card p-5">
       <div className="flex items-center justify-between gap-3">
         <div>
           <p className="font-mono text-xs font-black uppercase tracking-[0.12em] text-alibi-teal">
             block editor
           </p>
           <h2 className="mt-1 text-xl font-black text-alibi-blue">
-            {editor.isNewlyStopped ? "name this block" : editor.isManual ? "add block" : "edit block"}
+            {editor.isNewlyStopped
+              ? "name this block"
+              : editor.isManual
+                ? "add block"
+                : "edit block"}
           </h2>
         </div>
         <button
@@ -775,7 +831,9 @@ function BlockEditor({
           task name
           <input
             value={editor.taskName}
-            onChange={(event) => setEditor({ ...editor, taskName: event.target.value })}
+            onChange={(event) =>
+              setEditor({ ...editor, taskName: event.target.value })
+            }
             className="alibi-input h-11"
             placeholder="what happened?"
           />
@@ -786,7 +844,10 @@ function BlockEditor({
           <select
             value={editor.category}
             onChange={(event) =>
-              setEditor({ ...editor, category: event.target.value as TimeBlockCategory | "" })
+              setEditor({
+                ...editor,
+                category: event.target.value as TimeBlockCategory | "",
+              })
             }
             className="alibi-input h-11"
           >
@@ -805,7 +866,9 @@ function BlockEditor({
             <input
               type="datetime-local"
               value={editor.startedAt}
-              onChange={(event) => setEditor({ ...editor, startedAt: event.target.value })}
+              onChange={(event) =>
+                setEditor({ ...editor, startedAt: event.target.value })
+              }
               className="alibi-input h-11"
             />
           </label>
@@ -815,7 +878,9 @@ function BlockEditor({
             <input
               type="datetime-local"
               value={editor.endedAt}
-              onChange={(event) => setEditor({ ...editor, endedAt: event.target.value })}
+              onChange={(event) =>
+                setEditor({ ...editor, endedAt: event.target.value })
+              }
               className="alibi-input h-11"
             />
           </label>
@@ -825,7 +890,9 @@ function BlockEditor({
           hashtags
           <input
             value={editor.hashtags}
-            onChange={(event) => setEditor({ ...editor, hashtags: event.target.value })}
+            onChange={(event) =>
+              setEditor({ ...editor, hashtags: event.target.value })
+            }
             className="alibi-input h-11"
             placeholder="client, writing, reset"
           />
@@ -835,7 +902,9 @@ function BlockEditor({
           notes
           <textarea
             value={editor.notes}
-            onChange={(event) => setEditor({ ...editor, notes: event.target.value })}
+            onChange={(event) =>
+              setEditor({ ...editor, notes: event.target.value })
+            }
             className="alibi-input min-h-24 resize-y py-2"
           />
         </label>
@@ -877,7 +946,7 @@ function BlockEditor({
         </div>
       </div>
     </section>
-  )
+  );
 }
 
 function DailyBlocks({
@@ -891,20 +960,18 @@ function DailyBlocks({
   onResume,
   pending,
 }: {
-  date: Date
-  loading: boolean
-  blocks: TimeBlock[]
-  canResume: boolean
-  onAdd: () => void
-  onEdit: (block: TimeBlock) => void
-  onDelete: (block: TimeBlock) => void
-  onResume: (block: TimeBlock) => void
-  pending: boolean
+  date: Date;
+  loading: boolean;
+  blocks: TimeBlock[];
+  canResume: boolean;
+  onAdd: () => void;
+  onEdit: (block: TimeBlock) => void;
+  onDelete: (block: TimeBlock) => void;
+  onResume: (block: TimeBlock) => void;
+  pending: boolean;
 }) {
   return (
-    <section
-      className="alibi-card min-h-[520px] p-5"
-    >
+    <section className="alibi-card min-h-[520px] p-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <p className="font-mono text-xs font-black uppercase tracking-[0.12em] text-alibi-teal">
@@ -943,8 +1010,8 @@ function DailyBlocks({
         ) : (
           <ol className="grid gap-3">
             {blocks.map((block, index) => {
-              const category = getCategoryMeta(block.category)
-              const isLatestBlock = index === blocks.length - 1
+              const category = getCategoryMeta(block.category);
+              const isLatestBlock = index === blocks.length - 1;
 
               return (
                 <li
@@ -955,7 +1022,11 @@ function DailyBlocks({
                     <div>{formatTime(block.started_at)}</div>
                     <div>{formatTime(block.ended_at)}</div>
                     <div className="mt-1 font-sans text-sm font-black text-alibi-blue">
-                      {formatDuration(block.duration_seconds, block.started_at, block.ended_at)}
+                      {formatDuration(
+                        block.duration_seconds,
+                        block.started_at,
+                        block.ended_at,
+                      )}
                     </div>
                   </div>
 
@@ -980,10 +1051,7 @@ function DailyBlocks({
                     {block.hashtags && block.hashtags.length > 0 && (
                       <div className="mt-3 flex flex-wrap gap-2">
                         {block.hashtags.map((hashtag) => (
-                          <span
-                            key={hashtag}
-                            className="alibi-chip"
-                          >
+                          <span key={hashtag} className="alibi-chip">
                             #{hashtag}
                           </span>
                         ))}
@@ -1026,11 +1094,11 @@ function DailyBlocks({
                     </button>
                   </div>
                 </li>
-              )
+              );
             })}
           </ol>
         )}
       </div>
     </section>
-  )
+  );
 }
