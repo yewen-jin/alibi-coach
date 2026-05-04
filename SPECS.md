@@ -272,6 +272,7 @@ Current implementation status:
 | Block save/edit/delete | Implemented for user-owned `time_blocks`, including manual completed-block creation from `/app`. |
 | Chat start/stop timer | Implemented through `processCoachMessage`. |
 | Chat completed-block logging | Implemented; writes to `time_blocks` only and never creates new legacy `entries`. |
+| Conversational coach chat | Implemented as a separate `coach_chat` path; ordinary conversation does not force block parsing. |
 | Chat clarification gate | Implemented for missing timing/task/category details before completed-block writes; category may be inferred only from confident keyword matches. |
 | Chat analysis | First pass implemented over saved `time_blocks`; richer period summaries remain future work. |
 | Legacy `entries` writes | Removed from the new chat logging path; table remains legacy-only. |
@@ -294,6 +295,8 @@ Manual block creation behavior:
 
 Chat completed-block behavior:
 
+- Chat is coach-first, not parser-first. Ordinary conversation, emotional check-ins, uncertainty, and general updates should get a conversational response.
+- Chat enters completed-block logging only when the user clearly asks to log/save/record work, gives completed-work phrasing, answers a pending draft, or provides timing/category details that make a block intent clear.
 - Chat writes completed work to `time_blocks` only.
 - Before saving, chat requires a usable time window or enough data to derive one from start/end/duration.
 - A duration-only completed log is treated as a block ending now.
