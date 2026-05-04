@@ -1,111 +1,125 @@
-# Alibi — Product Spec
+# Alibi — Product Spec v2
 
 ## The core promise
 
 > *Alibi is the friend who remembers your day, so you don't have to defend it to yourself.*
 
-Not a planner. Not a tracker. **A witness with a warm voice.**
+Not a planner. Not a productivity tool. **A witness — with precision.**
 
 ---
 
-## The user (you)
+## What changed in v2
 
-You have ADHD. You hyperfocus. You lose hours to deep work and forget you did it. You miss other things. By 7pm you feel like you accomplished nothing — even when you accomplished plenty. The guilt spiral starts. You shut down. Tomorrow is harder.
+The original spec used a freeform chat as the primary input mechanism. That created two problems:
+
+1. **The AI gave generic responses** — without structured input, the model had nothing specific to work with.
+2. **Users lost control** — drop-in logging is frictionless but opaque. You couldn't see, edit, or browse your time meaningfully.
+
+**The new direction:**
+
+- **Primary input: time blocks** — you start a timer, stop it, and a block is recorded. You control what gets logged.
+- **Primary interface: calendar** — the calendar is the main view, not the chat.
+- **Chat is read-only analysis** — the AI reads your blocks and tells you things. It does not accept input.
+
+---
+
+## The user (unchanged)
+
+You have ADHD. You hyperfocus. You lose hours to deep work and forget you did it. You miss other things. By 7pm you feel like you accomplished nothing — even when you accomplished plenty.
 
 The problem isn't *what you did*. It's that you have **no record of it** and your brain refuses to remember.
 
 ---
 
-## What Alibi does — the four moments
+## The four interfaces
 
-### 1. The drop-in (any time, any format)
+### 1. The timer (primary input)
 
-You message Alibi however your brain wants to. Voice, one word, full paragraph — doesn't matter. Alibi parses it silently, files it, and replies with one warm thing: *"on the record."* / *"got it."* / *"noted."*
+A persistent timer control — always visible. One tap to start, one tap to stop. When you stop, a block is saved with:
 
-### 2. The check-in (when you spiral)
+- Start time (exact)
+- End time (exact)
+- Duration (calculated)
+- Task name (prompted after stopping — short, required)
+- Category (one of: `deep_work | admin | social | errands | care | creative | rest`)
+- Hashtags (optional, free text, e.g. `#cinecircle #coding`)
+- Notes (optional, multi-line, for context or reflection)
 
-You message: *"I feel like I did nothing today."* Alibi switches modes. Reads your day back to you with warmth, citing actual entries.
+The block is saved immediately. You can edit any field after the fact.
 
-### 3. The receipt (end of day)
-
-A screenshot-friendly card of your day. Project pills, timestamps, a quiet summary. Live in the dashboard.
-
-### 4. The mirror (longer term)
-
-Alibi notices patterns over time and reflects them back gently — most productive hours, project distribution, mood trends. Lives in the dashboard.
-
----
-
-## NEW: The chorus — Alibi talks back
-
-Alibi is no longer a chatbot that only responds. It is a **companion that initiates**.
-
-### How it works
-
-Three internal agents run quietly in the background:
-
-| Agent | Role |
-|---|---|
-| **Fetcher** | Pulls the user's entries from the database when asked. |
-| **Parser** | Looks at the entries and extracts patterns: most active project, time-of-day rhythms, streaks, mood shifts, project drift, returning-to-something signals. |
-| **Insight generator** | Takes the parser's output and writes one short message in Alibi's voice — an observation, a celebration, a gentle nudge. Stores it in `proactive_messages`. |
-
-When the user opens the chat, any unread proactive messages appear above their input — visually distinct from check-in coach reflections — with a soft animation. The user can dismiss them. They are never demanding.
-
-### Cadence — frequency scales with data
-
-Alibi is quiet when there's nothing to say.
-
-| Entries logged (lifetime) | Max proactive messages per day |
-|---|---|
-| < 5 | 0 — too little data, stay silent |
-| 5–19 | 1 — one observation per day, max |
-| 20–49 | 2 — morning observation + evening reflection on busy days |
-| 50+ | 3 — fuller chorus; can also celebrate streaks and patterns |
-
-A new proactive message is only generated when:
-- Enough entries have accumulated since the last message (≥ 3 entries OR ≥ 4 hours), AND
-- The daily limit hasn't been hit, AND
-- The parser found something worth saying.
-
-If the parser finds nothing meaningful, **no message is generated**. Silence is a feature.
+**Design principle:** Start and stop are zero-friction. The metadata is filled in *after* — ADHD-safe because the activation energy is already spent.
 
 ---
 
-## NEW: The dashboard
+### 2. The calendar (primary dashboard)
 
-A separate route at `/dashboard`. Linked from the chat header. Shows the user themselves, gently.
+The main view. Three levels of detail, switchable:
 
-### Components
+#### Monthly view
+- Grid of days, current month.
+- Each day cell shows: total hours logged, up to 3 category colour chips.
+- Click a day to expand to daily view.
+- Empty days are visible — not styled as failure, just neutral.
 
-1. **Calendar heatmap** (current month + previous month)
-   - Each cell = one day. Cell color intensity = number of entries that day.
-   - Hovering / tapping a day reveals the rough list of what was logged: timestamps, content, project pill.
-   - Empty days are visible — not styled as failure, just neutral.
+#### Weekly view
+- 7-day horizontal strip.
+- Each day column broken into time blocks, rendered as coloured bars at their actual position in the day (like Google Calendar).
+- Block height proportional to duration.
+- Click a block to see/edit details.
 
-2. **Project distribution** (horizontal bar chart)
-   - Time spent per project this week / this month (toggle).
-   - Sorted by total minutes. Shows breadth, not just depth.
+#### Daily view
+- Full day timeline, hour-by-hour.
+- Blocks rendered at their exact time position.
+- Gap periods visible — untracked time is shown, not hidden.
+- Click empty space to create a manual block (backdated).
+- Click a block to edit task name, category, hashtags, notes.
 
-3. **Time-of-day rhythm** (small column chart)
-   - Aggregates entries by hour-of-day. Shows when the user actually does things.
-   - Useful for ADHD self-knowledge: "I'm most active 11am–1pm."
+**Colour system:**
 
-4. **Mood timeline** (sparkline)
-   - Daily mood (from logged entries' mood field), plotted across the last 14 days.
-   - No labels of "good" or "bad". Just shape.
+| Category | Colour |
+|---|---|
+| deep_work | terracotta |
+| admin | warm grey |
+| social | sage green |
+| errands | amber |
+| care | soft blue |
+| creative | lavender |
+| rest | sand |
 
-5. **Streak counter** (text)
-   - "You've logged something on 6 of the last 7 days."
-   - Phrased as evidence, not gamification.
+---
 
-6. **The mirror panel** (text block)
-   - The most recent proactive message from Alibi, displayed prominently.
-   - Plus the last 5 historical proactive messages, scrollable.
+### 3. The block editor
 
-### Aesthetic
+A slide-in panel or modal. Fields:
 
-Same warm cream palette as the chat. Visualisations in terracotta + sage green + charcoal. Receipt-paper card backgrounds. No corporate dashboard chrome.
+- **Task name** — required, short
+- **Category** — dropdown, one of the seven above
+- **Hashtags** — free text, space or comma separated, stored as array
+- **Notes** — multi-line, optional
+- **Start / end time** — editable (for manual correction)
+- **Delete block** — with confirmation
+
+Blocks can be created manually (not just from the timer) for backdating things you forgot to track.
+
+---
+
+### 4. The analysis chat (read-only)
+
+The AI coach lives in a side panel or separate route. It has **read access to your blocks** but **cannot be used to log new ones**.
+
+It answers questions like:
+- *"What did I do today?"*
+- *"How much time did I spend on deep work this week?"*
+- *"When do I tend to hyperfocus?"*
+- *"I feel like I did nothing — is that true?"*
+
+The coach still uses the ADHD-informed reframing logic from RESEARCH.md:
+- Retrieves actual blocks for the period in question.
+- Reflects them back with warmth and specificity.
+- Notes effort markers, avoidance patterns, hyperfocus sessions.
+- Never says "you should". Never gives generic feedback.
+
+**Why this is better:** The AI now always has structured, queryable data to work from. No more vague responses because vague input.
 
 ---
 
@@ -114,80 +128,115 @@ Same warm cream palette as the chat. Visualisations in terracotta + sage green +
 | Not | Because |
 |---|---|
 | A planner | Planning is the friction. We removed it. |
-| A tracker with timers | Timers require deciding to track *before* the work — exact ADHD failure mode. |
-| A goal-setter | Goals create expectation. We trade in evidence. |
+| A to-do list | Tasks create expectation. We trade in evidence. |
+| A goal-setter | Goals create comparison. We collect moments. |
 | A coach who pushes | Push energy makes you avoid the app. |
-| A wellness app with breathing exercises | You don't need techniques. You need a witness. |
-| A productivity dashboard | Numbers create comparison. We collect moments. |
-
-The new dashboard is **not** a productivity dashboard. It is a self-portrait, drawn in your own data, that you can choose to look at or ignore.
+| A productivity dashboard | Numbers create judgment. We surface self-knowledge. |
+| A freeform chatbot | Chat is for reading your data, not inputting it. |
 
 ---
 
-## The wellbeing thesis
+## Database schema (v2)
 
-ADHD shame isn't caused by underachievement. It's caused by **the gap between what you actually did and what you remember doing**. Alibi closes the gap.
+### `time_blocks` (new primary table)
 
-> ***Most apps make you do more. Alibi helps you see what you already did.***
-
----
-
-## Database schema
-
-### `entries`
-Already exists. Captures each drop-in.
+Replaces `entries` as the main data store.
 
 ```sql
-entries (
-  id UUID PRIMARY KEY,
-  user_id UUID REFERENCES auth.users(id),
-  content TEXT NOT NULL,
-  project TEXT,
-  mood TEXT,
-  duration_minutes INTEGER,
-  created_at TIMESTAMPTZ DEFAULT NOW()
+time_blocks (
+  id                UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id           UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+
+  -- Core time data
+  started_at        TIMESTAMPTZ NOT NULL,
+  ended_at          TIMESTAMPTZ,                      -- NULL while timer is running
+  duration_seconds  INTEGER GENERATED ALWAYS AS (
+                      EXTRACT(EPOCH FROM (ended_at - started_at))
+                    ) STORED,
+
+  -- Block metadata
+  task_name         TEXT,                             -- filled in after stopping
+  category          TEXT CHECK (category IN (
+                      'deep_work', 'admin', 'social',
+                      'errands', 'care', 'creative', 'rest'
+                    )),
+  hashtags          TEXT[],                           -- e.g. {'cinecircle','coding'}
+  notes             TEXT,
+
+  -- ADHD affect layer (v1 parity — can be filled manually or by AI)
+  mood              TEXT CHECK (mood IN (
+                      'joyful','neutral','flat','anxious','guilty','proud'
+                    )),
+  effort_level      TEXT CHECK (effort_level IN ('easy','medium','hard','grind')),
+  satisfaction      TEXT CHECK (satisfaction IN (
+                      'satisfied','mixed','frustrated','unclear'
+                    )),
+
+  -- ADHD marker flags (set by analysis agent, not by user)
+  avoidance_marker  BOOLEAN DEFAULT FALSE,
+  hyperfocus_marker BOOLEAN DEFAULT FALSE,
+  guilt_marker      BOOLEAN DEFAULT FALSE,
+  novelty_marker    BOOLEAN DEFAULT FALSE,
+
+  created_at        TIMESTAMPTZ DEFAULT NOW(),
+  updated_at        TIMESTAMPTZ DEFAULT NOW()
 )
 ```
 
-### `proactive_messages` (new)
-Unsolicited Alibi messages, generated by the insight agent.
+### `active_timer` (ephemeral state)
+
+One row per user, replaces client-side timer state.
+
+```sql
+active_timer (
+  user_id           UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+  started_at        TIMESTAMPTZ NOT NULL,
+  created_at        TIMESTAMPTZ DEFAULT NOW()
+)
+```
+
+### `proactive_messages` (unchanged)
 
 ```sql
 proactive_messages (
-  id UUID PRIMARY KEY,
-  user_id UUID REFERENCES auth.users(id),
-  content TEXT NOT NULL,
-  kind TEXT NOT NULL,  -- insight | nudge | celebration | pattern
-  entries_count_at_creation INTEGER,
-  created_at TIMESTAMPTZ DEFAULT NOW(),
-  read_at TIMESTAMPTZ
+  id                UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id           UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+  content           TEXT NOT NULL,
+  kind              TEXT NOT NULL,  -- insight | nudge | celebration | pattern
+  created_at        TIMESTAMPTZ DEFAULT NOW(),
+  read_at           TIMESTAMPTZ
 )
 ```
 
-Both tables protected by Row Level Security.
+### `entries` (legacy — kept for now)
+
+The old freeform drop-in table. Retained during transition. May be migrated into `time_blocks` later or kept as a separate "quick note" feature.
 
 ---
 
-## Architecture
+## Architecture (v2)
 
 ```
-┌─────────────────────────────────────────────────────┐
-│  Browser                                            │
-│  /                /dashboard                        │
-│  ├ Chat panel    ├ Calendar heatmap                 │
-│  ├ Coach reply   ├ Project distribution             │
-│  └ Proactive msg ├ Time-of-day rhythm               │
-│                  ├ Mood timeline                    │
-│                  └ Mirror panel (latest insights)   │
-└──────────┬──────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────┐
+│  Browser                                                │
+│                                                         │
+│  / (landing)          /app (main interface)             │
+│                       ├ Timer control (persistent)      │
+│                       ├ Calendar (month/week/day)       │
+│                       ├ Block editor (slide-in)         │
+│                       └ Analysis chat (side panel)      │
+└──────────┬──────────────────────────────────────────────┘
            │
            ▼
-┌─────────────────────────────────────────────────────┐
-│  Server actions                                     │
-│  ├ processMessage  (drop-in / check-in)             │
-│  ├ generateInsight (called after entry, on visit)   │
-│  └ fetchDashboardData                               │
-└──────────┬──────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────┐
+│  Server actions                                         │
+│  ├ startTimer        — create active_timer row          │
+│  ├ stopTimer         — move to time_blocks              │
+│  ├ saveBlock         — create/update time_blocks        │
+│  ├ deleteBlock       — delete time_blocks row           │
+│  ├ getCalendarData   — blocks for a date range          │
+│  └ analyseBlocks     — LLM call with block context      │
+└──────────┬──────────────────────────────────────────────┘
            │
      ┌─────┴──────┐
      ▼            ▼
@@ -197,13 +246,34 @@ Both tables protected by Row Level Security.
 └─────────┘  └──────────────┘
 ```
 
-The "agents" are function modules that compose:
-- `lib/agents/fetcher.ts` — DB queries
-- `lib/agents/parser.ts` — pure pattern detection (no LLM)
-- `lib/agents/insight.ts` — LLM call to phrase findings as Alibi
+---
 
-Triggered:
-- After each successful drop-in (in `processMessage`)
-- On page load of `/` and `/dashboard` (server-side, fire-and-forget if cadence allows)
+## Build priority
 
-No cron required. The user opening the app is the heartbeat.
+### Phase 1 — Core tracker
+1. Timer control (start / stop)
+2. Block editor (task name, category, hashtags, notes)
+3. Daily calendar view (timeline of blocks)
+
+### Phase 2 — Calendar breadth
+4. Weekly calendar view
+5. Monthly calendar view
+
+### Phase 3 — Analysis
+6. Analysis chat (reads blocks, ADHD-informed responses)
+7. Pattern markers (avoidance, hyperfocus) flagged by AI post-hoc
+
+### Phase 4 — Polish
+8. Proactive messages (AI initiates observations)
+9. Manual block creation (backdating)
+
+---
+
+## What carries over from v1
+
+- Warm cream + terracotta + sage aesthetic — unchanged.
+- ADHD-informed affect schema (mood, effort, satisfaction, markers) — carried into `time_blocks`.
+- RESEARCH.md theoretical framework — still the foundation.
+- Supabase + OpenRouter stack — unchanged.
+- Landing page — unchanged.
+- Auth flow — unchanged.
