@@ -28,7 +28,7 @@ Server action status from the v2 architecture:
 | `saveBlock` | Implemented in `app/actions/timer.ts`; creates manual/backdated blocks when `id` is absent and saves post-stop metadata edits for user-owned `time_blocks`. |
 | `deleteBlock` | Implemented in `app/actions/timer.ts`; deletes user-owned `time_blocks` rows and returns `not_found` for missing or non-owned blocks. |
 | `getCalendarData` | Implemented in `app/actions/timer.ts`; loads completed user-owned `time_blocks` that overlap the requested date range. |
-| `processCoachMessage` | Implemented in `app/actions/process-message.ts`; routes chat into timer start/stop, completed-block logging, clarification, and analysis over `time_blocks`. Completed-block chat writes require time, task, and explicit or confidently inferred category. |
+| `processCoachMessage` | Implemented in `app/actions/process-message.ts`; routes chat into conversational coaching, timer start/stop, completed-block logging, clarification, and analysis over `time_blocks`. Completed-block chat writes require clear log intent plus time, task, and explicit or confidently inferred category. |
 
 Database setup: v2 tables are installed in Supabase and verified through REST schema access. `active_timer`, `time_blocks`, `entries`, and `proactive_messages` all return `200` from the project REST API. The existing `entries`/v1 schema remains intact.
 
@@ -37,7 +37,8 @@ Where we are now:
 - **Database foundation:** complete for Phase 1 readiness. `active_timer` and `time_blocks` exist in Supabase with the v2 shape; app-data wipe/fresh-start status has not been independently verified from the repo because RLS hides user-owned rows from the anon key.
 - **Server foundation:** complete for Phase 1 plus first chat-agent pass. Active timer hydration, timer start/stop/resume, manual block save/update/delete, chat-controlled writes, clarification gating, and calendar range reads exist for `time_blocks`.
 - **UI foundation:** partially complete for v2. `/app` now renders a persistent timer control, post-stop/manual block editor, daily add-block button, latest-block resume button, chat panel, and simple daily time-block list backed by the same server actions.
-- **Chat progress:** implemented as a secondary input surface. It can start a timer, stop a timer into `time_blocks`, log completed blocks with extracted metadata, ask for missing timing/task/category before writes, and answer from saved blocks. New chat writes no longer go to `entries`.
+- **Chat progress:** implemented as a secondary input surface. It can respond conversationally without forcing a log, start a timer, stop a timer into `time_blocks`, log completed blocks with extracted metadata, ask for missing timing/task/category before writes, and answer from saved blocks. New chat writes no longer go to `entries`.
+- **Public/docs copy:** `/` and `/app/docs` now describe the v2 product shape: timer-first blocks, manual add-block flow, latest-block resume, structured chat logging, and shared `time_blocks` storage.
 - **Verification:** `npm run build` passes after the chat reintroduction. Live Supabase/OpenRouter flows still need browser QA with an authenticated user.
 - **Next implementation step:** run live chat/manual-block smoke tests, then broaden the calendar experience beyond today's list.
 - **Later server gap:** broader period analysis is still basic; the first chat analysis path supports extracted ranges but needs richer week/month handling and deterministic summaries.
@@ -50,10 +51,10 @@ The spec defines four user moments. Here's where each one lives in the codebase.
 
 ### 1. The chat log — log anything with structure
 
-User types anything they did. Alibi parses it into v2 time-block fields, asks for missing timing before writing, saves one `time_blocks` row, and replies with one warm phrase ("on the record.", "got it.", "noted.").
+User can talk normally. Alibi responds as a conversational coach unless the message clearly intends to save completed work. When the user does log something, Alibi parses it into v2 time-block fields, asks for missing timing/task/category before writing, saves one `time_blocks` row, and replies with one warm phrase ("on the record.", "got it.", "noted.").
 
 - **UI:** [`components/timer-tracker-app.tsx`](./components/timer-tracker-app.tsx) — chat panel beside the timer/list experience.
-- **AI:** [`app/actions/process-message.ts`](./app/actions/process-message.ts) — routes intent, extracts time-block metadata, clarifies missing timing/task/category, executes v2 writes, and generates a warm one-liner ack.
+- **AI:** [`app/actions/process-message.ts`](./app/actions/process-message.ts) — routes intent, handles `coach_chat`, extracts time-block metadata for clear log attempts, clarifies missing timing/task/category, executes v2 writes, and generates a warm one-liner ack.
 - **Display:** [`components/ack-toast.tsx`](./components/ack-toast.tsx) — a soft fade-in/fade-out italic line, no celebratory tone.
 - **Storage:** `time_blocks` table, RLS scoped to `auth.uid()`.
 

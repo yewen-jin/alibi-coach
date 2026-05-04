@@ -11,9 +11,9 @@ import {
   LayoutGrid,
   Lock,
   MessageCircle,
-  Receipt,
+  Plus,
   Sparkles,
-  Tags,
+  Timer,
   type LucideIcon,
 } from "lucide-react"
 import {
@@ -36,44 +36,44 @@ interface Feature {
 
 const FEATURES: Feature[] = [
   {
+    icon: Timer,
+    title: "timer-first blocks",
+    body: "start when you begin, stop when the work is real. alibi saves one editable time block with exact start, end, and duration.",
+  },
+  {
+    icon: Plus,
+    title: "manual add block",
+    body: "forgot to run the timer? add a completed block by hand, backdate it, and keep the same structure as tracked work.",
+  },
+  {
     icon: MessageCircle,
-    title: "drop-in chat",
-    body: "tell alibi what you've done in plain language. no schema, no fields. one message becomes one entry.",
+    title: "chat can log too",
+    body: "tell alibi what happened in plain language. it writes to the same time_blocks table, and asks follow-up questions when details are missing.",
   },
   {
     icon: Sparkles,
-    title: "AI parsing",
-    body: "alibi extracts project, mood, and duration from each message — so you don't have to format anything.",
+    title: "structured AI parsing",
+    body: "alibi extracts task, category, timing, tags, notes, and ADHD markers without making a separate shadow record.",
   },
   {
-    icon: Receipt,
-    title: "the receipt",
-    body: "today's entries appear on a thermal-paper receipt, time-stamped and grouped. proof you moved.",
+    icon: CalendarRange,
+    title: "daily block list",
+    body: "today's blocks appear in one place with times, duration, category, notes, hashtags, edit controls, and resume for the latest block.",
+  },
+  {
+    icon: LayoutGrid,
+    title: "calendar dashboard",
+    body: "the dashboard reads the same blocks for daily, weekly, and monthly time patterns as the calendar grows.",
   },
   {
     icon: Heart,
     title: "check-in mode",
-    body: "ask 'what have i done?' and alibi reads it back with warmth — never a guilt list.",
-  },
-  {
-    icon: CalendarRange,
-    title: "calendar dashboard",
-    body: "a heatmap of every day you've shown up. light days look as quiet as they were.",
-  },
-  {
-    icon: LayoutGrid,
-    title: "rhythm + projects",
-    body: "see the days and hours you log most, plus where your time goes by project.",
-  },
-  {
-    icon: Tags,
-    title: "proactive messages",
-    body: "as your record grows, alibi starts noticing things — quiet patterns, nudges, celebrations.",
+    body: "ask what you did today and alibi reads back saved time blocks with warmth, not a guilt list.",
   },
   {
     icon: Lock,
     title: "private by default",
-    body: "row-level security on every entry. only you can read your own record.",
+    body: "row-level security protects your time blocks, timer state, and coach messages. only you can read your own record.",
   },
   {
     icon: CheckCircle2,
@@ -96,6 +96,7 @@ interface DemoEntry {
   id: string
   content: string
   time: string
+  duration: string
   created_at: number
 }
 
@@ -118,10 +119,11 @@ function saveDemoEntry(content: string): DemoEntry {
     id: `demo-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
     content,
     time: now.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit", hour12: false }),
+    duration: "30m",
     created_at: now.getTime(),
   }
   entries.unshift(entry)
-  // Keep only last 20 entries
+  // Keep only last 20 demo blocks.
   const trimmed = entries.slice(0, 20)
   localStorage.setItem(DEMO_STORAGE_KEY, JSON.stringify(trimmed))
   return entry
@@ -138,9 +140,9 @@ function generateDemoAck(content: string): string {
   const lower = content.toLowerCase()
   if (lower.includes("what") && (lower.includes("done") || lower.includes("did"))) {
     const entries = getDemoEntries()
-    if (entries.length === 0) return "nothing logged yet. drop in what you've done."
+    if (entries.length === 0) return "nothing logged yet. start the timer or add a block."
     const summary = entries.slice(0, 5).map((e) => e.content).join(", ")
-    return `you've logged: ${summary}. ${entries.length > 5 ? `and ${entries.length - 5} more.` : ""} you were there.`
+    return `on the record: ${summary}. ${entries.length > 5 ? `and ${entries.length - 5} more.` : ""} you were there.`
   }
   const acks = [
     "on the record.",
@@ -152,7 +154,7 @@ function generateDemoAck(content: string): string {
   ]
   // Add contextual flavor
   if (lower.includes("finally") || lower.includes("avoided")) return "the avoided one. noted."
-  if (lower.includes("hour") || lower.includes("min")) return "filed. solid block."
+  if (lower.includes("hour") || lower.includes("min")) return "filed as a block."
   if (lower.includes("coffee") || lower.includes("tea")) return "caffeine logged."
   if (lower.includes("walk") || lower.includes("outside")) return "got it. fresh air counts."
   if (lower.includes("email") || lower.includes("replied")) return "inbox work. noted."
@@ -171,7 +173,7 @@ export default function LandingPage() {
   const chatRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
 
-  // Load demo entries from localStorage on mount
+  // Load demo blocks from localStorage on mount.
   useEffect(() => {
     setDemoEntries(getDemoEntries())
   }, [])
@@ -201,7 +203,7 @@ export default function LandingPage() {
     const isCheckIn = text.toLowerCase().includes("what") && 
       (text.toLowerCase().includes("done") || text.toLowerCase().includes("did"))
 
-    // Save to localStorage if it's a drop-in (not a check-in)
+    // Save to localStorage if it's a completed-block log, not a check-in.
     if (!isCheckIn) {
       const newEntry = saveDemoEntry(text)
       setDemoEntries((prev) => [newEntry, ...prev].slice(0, 20))
@@ -263,12 +265,12 @@ export default function LandingPage() {
             <span style={{ color: ALIBI.terracotta }}>your day</span>
           </h1>
           <p className="mx-auto mt-4 max-w-xl text-pretty text-[15px] leading-relaxed text-[#6B5A47]">
-            alibi is a witness, not a coach. tell it what you did, it remembers,
-            and on the days when your brain forgets, it tells you back.
+            alibi is a witness, not a coach. track time with a timer, add blocks
+            by hand, or let chat turn plain language into the same structured record.
           </p>
         </div>
 
-        {/* Demo panels: Chat + Receipt */}
+        {/* Demo panels: Chat + Record */}
         <div className="flex w-full max-w-3xl flex-col gap-4 md:flex-row">
           {/* Demo chat panel */}
           <div
@@ -284,7 +286,7 @@ export default function LandingPage() {
                 >
                   <MessageCircle className="h-3 w-3" />
                 </span>
-                <span className="text-[13px] font-medium text-[#2A1F14]">try it out</span>
+                <span className="text-[13px] font-medium text-[#2A1F14]">try chat logging</span>
               </div>
               <span className="text-[10px] uppercase tracking-widest text-[#A89680]">demo</span>
             </div>
@@ -297,7 +299,7 @@ export default function LandingPage() {
             >
               {demoMessages.length === 0 && !isTyping && (
                 <p className="text-center text-[13px] text-[#A89680]">
-                  type what you did today...
+                  try “worked on invoice for 20 minutes”
                 </p>
               )}
               {demoMessages.map((m) => (
@@ -336,7 +338,7 @@ export default function LandingPage() {
                 value={demoInput}
                 onChange={(e) => setDemoInput(e.target.value)}
                 onKeyDown={handleKeyDown}
-                placeholder="made coffee, sent that email..."
+                placeholder="worked on invoice for 20 minutes..."
                 rows={1}
                 className="flex-1 resize-none bg-transparent text-[14px] text-[#2A1F14] placeholder:text-[#A89680] focus:outline-none"
                 style={{ maxHeight: 80 }}
@@ -352,21 +354,21 @@ export default function LandingPage() {
             </div>
           </div>
 
-          {/* Mini receipt panel */}
+          {/* Mini blocks panel */}
           <div
             className="w-full overflow-hidden md:w-64"
             style={GLASS_PANEL_STYLE}
           >
-            {/* Receipt header */}
+            {/* Blocks header */}
             <div className="flex items-center justify-between border-b border-[#C8B89F]/30 px-4 py-3">
               <div className="flex items-center gap-2">
                 <span
                   className="flex h-6 w-6 items-center justify-center rounded-full text-xs"
                   style={{ background: "rgba(122, 154, 138, 0.15)", color: ALIBI.sage }}
                 >
-                  <Receipt className="h-3 w-3" />
+                  <CalendarRange className="h-3 w-3" />
                 </span>
-                <span className="text-[13px] font-medium text-[#2A1F14]">your record</span>
+                <span className="text-[13px] font-medium text-[#2A1F14]">time blocks</span>
               </div>
               {demoEntries.length > 0 && (
                 <button
@@ -378,14 +380,14 @@ export default function LandingPage() {
               )}
             </div>
 
-            {/* Entries list */}
+            {/* Blocks list */}
             <div
               className="h-56 overflow-y-auto px-4 py-3 md:h-[calc(100%-52px)]"
               style={PAPER_INSET_STYLE}
             >
               {demoEntries.length === 0 ? (
                 <p className="text-center text-[12px] text-[#A89680]">
-                  entries appear here
+                  blocks appear here
                 </p>
               ) : (
                 <ul className="space-y-2">
@@ -395,7 +397,8 @@ export default function LandingPage() {
                       className="flex items-start gap-2 text-[12px]"
                     >
                       <span className="shrink-0 font-mono text-[#A89680]">{entry.time}</span>
-                      <span className="text-[#2A1F14]">{entry.content}</span>
+                      <span className="min-w-0 flex-1 text-[#2A1F14]">{entry.content}</span>
+                      <span className="shrink-0 font-mono text-[#A89680]">{entry.duration}</span>
                     </li>
                   ))}
                 </ul>
@@ -405,7 +408,7 @@ export default function LandingPage() {
             {/* Footer note */}
             <div className="border-t border-[#C8B89F]/30 px-4 py-2">
               <p className="text-center text-[10px] text-[#A89680]">
-                saved in your browser
+                demo only · real app saves time_blocks
               </p>
             </div>
           </div>
@@ -418,7 +421,7 @@ export default function LandingPage() {
             className="flex items-center gap-2 rounded-full px-6 py-3 text-[14px] font-medium text-white transition-all hover:scale-105 active:scale-95"
             style={PRIMARY_BUTTON_STYLE}
           >
-            start your record
+            start tracking
             <ArrowRight className="h-4 w-4" strokeWidth={2.4} />
           </Link>
           <Link

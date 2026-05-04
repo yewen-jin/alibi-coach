@@ -53,7 +53,7 @@ const coachDraftSchema = z.object({
 })
 
 const routerSchema = coachDraftSchema.extend({
-  intent: z.enum(["log_block", "start_timer", "stop_timer", "analyse_blocks", "clarify"]),
+  intent: z.enum(["coach_chat", "log_block", "start_timer", "stop_timer", "analyse_blocks", "clarify"]),
 })
 
 export interface CoachDraft {
@@ -110,6 +110,10 @@ export type ProcessCoachMessageResult =
         message: string
       }
     | {
+        type: "conversation"
+        message: string
+      }
+    | {
         type: "clarify"
         question: string
         draft: CoachDraft
@@ -123,7 +127,7 @@ export type ProcessCoachMessageResult =
     hasPendingDraft: boolean
   }
 
-type RouterIntent = "log_block" | "start_timer" | "stop_timer" | "analyse_blocks" | "clarify"
+type RouterIntent = "coach_chat" | "log_block" | "start_timer" | "stop_timer" | "analyse_blocks" | "clarify"
 
 interface RouterOutput extends CoachDraft {
   intent: RouterIntent
@@ -224,13 +228,14 @@ function normalizeRouterOutput(
 ): RouterOutput & { draft: CoachDraft } {
   const intent = parsed?.intent
   const normalizedIntent: RouterIntent =
+    intent === "coach_chat" ||
     intent === "start_timer" ||
     intent === "stop_timer" ||
     intent === "analyse_blocks" ||
     intent === "clarify" ||
     intent === "log_block"
       ? intent
-      : "log_block"
+      : "coach_chat"
 
   const output: RouterOutput = {
     intent: normalizedIntent,
@@ -404,6 +409,18 @@ function formatMessageForPrompt(message: CoachMessage) {
   return `${message.role}: ${message.content}`
 }
 
+function looksLikeLogAttempt(text: string, draft: CoachDraft | null | undefined, routed: RouterOutput) {
+  if (draft) {
+    return true
+  }
+
+  if (routed.started_at || routed.ended_at || routed.duration_minutes || routed.category) {
+    return true
+  }
+
+  return /\b(log|logged|record|add|save|spent|worked on|finished|completed|did|from \d{1,2}|for \d+)\b/i.test(text)
+}
+
 async function fetchCoachMessagesForUser(supabase: Supabase, userId: string) {
   const { data, error } = await supabase
     .from("coach_messages")
@@ -553,15 +570,16 @@ async function routeMessage(
       prompt: [
         "Classify this Alibi chat message and extract structured time-block data.",
         "",
-        "Valid intents: log_block, start_timer, stop_timer, analyse_blocks, clarify.",
-        "Use log_block when the user is recording completed work.",
+        "Valid intents: coach_chat, log_block, start_timer, stop_timer, analyse_blocks, clarify.",
+        "Use coach_chat for ordinary conversation, emotional check-ins, uncertainty, venting, or anything that is not clearly a request to save completed work.",
+        "Use log_block only when the user is recording completed work or gives a clear completed-work statement with timing/category details.",
         "Use start_timer or stop_timer for explicit timer control.",
         "Use analyse_blocks when they ask what they did, how long they spent, patterns, or reassurance from saved records.",
         "Use clarify only when the new message answers a prior clarification but is still incomplete.",
         "",
         "Schema:",
         "{",
-        '  "intent": "log_block" | "start_timer" | "stop_timer" | "analyse_blocks" | "clarify",',
+        '  "intent": "coach_chat" | "log_block" | "start_timer" | "stop_timer" | "analyse_blocks" | "clarify",',
         '  "task_name": "string | null",',
         '  "category": "deep_work | admin | social | errands | care | creative | rest | null",',
         '  "hashtags": ["strings without #"],',
@@ -584,6 +602,8 @@ async function routeMessage(
         "- If they give a duration only, return duration_minutes.",
         "- Do not invent a time window.",
         "- Prefer concise task names without filler words like 'worked on'.",
+        "- Do not turn feelings, questions, or general updates into log_block.",
+        "- When unsure whether the user wants to log a block, choose coach_chat.",
         "",
         `Current timestamp: ${new Date().toISOString()}`,
         `User timezone: ${timezone || "unknown"}`,
@@ -667,6 +687,41 @@ async function analyseBlocks(
     return `today has ${blocks.length} saved block${blocks.length === 1 ? "" : "s"}: ${blocks
       .map((block) => block.task_name ?? "unnamed block")
       .join(", ")}.`
+  }
+}
+
+async function coachChat(message: string, recentMessages: CoachMessage[]) {
+  const result = await getCalendarData(getDayRange())
+  const context =
+    result.type === "loaded" && result.timeBlocks.length
+      ? result.timeBlocks.map(formatBlockForPrompt).join("\n")
+      : "(no saved time blocks today)"
+
+  try {
+    const { text } = await generateText({
+      model: aiModel,
+      system: [
+        "You are Alibi: a conversational coach and witness for the user's day.",
+        "Do not behave like a form or parser.",
+        "Do not ask for exact time or duration unless the user is clearly trying to log completed work.",
+        "If the user is vague, respond conversationally first; you may ask one gentle open question.",
+        "Use saved time_blocks only as context, not as a script.",
+        "Be warm, grounded, lowercase, and under 70 words.",
+        "No productivity lectures, no toxic positivity, no exclamation marks.",
+      ].join("\n"),
+      prompt: [
+        `User message: ${message}`,
+        "Recent visible messages:",
+        recentMessages.length ? recentMessages.map(formatMessageForPrompt).join("\n") : "(none)",
+        "",
+        "Saved time_blocks today:",
+        context,
+      ].join("\n"),
+    })
+
+    return text.trim() || "i'm here. tell me the shape of it."
+  } catch {
+    return "i'm here. tell me the shape of it."
   }
 }
 
@@ -822,6 +877,18 @@ export async function processCoachMessage(
       },
       message,
       "analysis",
+    )
+  }
+
+  if (routed.intent === "coach_chat" || !looksLikeLogAttempt(trimmed, pendingDraft, routed)) {
+    const message = await coachChat(trimmed, recentMessages)
+    return finishWithAssistant(
+      {
+        type: "conversation",
+        message,
+      },
+      message,
+      "chat",
     )
   }
 
