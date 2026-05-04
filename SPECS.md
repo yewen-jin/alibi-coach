@@ -230,6 +230,7 @@ The old freeform drop-in table. Retained during transition. May be migrated into
            ▼
 ┌─────────────────────────────────────────────────────────┐
 │  Server actions                                         │
+│  ├ getActiveTimer    — hydrate active_timer row         │
 │  ├ startTimer        — create active_timer row          │
 │  ├ stopTimer         — move to time_blocks              │
 │  ├ saveBlock         — create/update time_blocks        │
@@ -249,6 +250,8 @@ The old freeform drop-in table. Retained during transition. May be migrated into
 ---
 
 ## Build priority
+
+Backend readiness for Phase 1 is in place in `app/actions/timer.ts`: `getActiveTimer`, `startTimer`, `stopTimer`, `saveBlock`, `deleteBlock`, and `getCalendarData`. The required v2 Supabase tables are installed and REST-visible: `active_timer`, `time_blocks`, `entries`, and `proactive_messages` all return `200` from the project REST API. `analyseBlocks` remains Phase 3.
 
 ### Phase 1 — Core tracker
 1. Timer control (start / stop)
