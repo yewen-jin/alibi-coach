@@ -29,10 +29,11 @@ Server action status from the v2 architecture:
 | `getCalendarData` | Implemented in `app/actions/timer.ts`; loads completed user-owned `time_blocks` that overlap the requested date range. |
 | `analyseBlocks` | Not implemented; Phase 3. |
 
-Database setup: run [`supabase-v2.sql`](./supabase-v2.sql) in Supabase to add `active_timer` and `time_blocks` with generated duration, RLS policies, and the `time_blocks.updated_at` trigger. The existing `entries`/v1 schema remains intact.
+Database setup: v2 tables are installed in Supabase and verified through REST schema access. `active_timer`, `time_blocks`, `entries`, and `proactive_messages` all return `200` from the project REST API. The existing `entries`/v1 schema remains intact.
 
 Where we are now:
 
+- **Database foundation:** complete for Phase 1 readiness. `active_timer` and `time_blocks` exist in Supabase with the v2 shape; app-data wipe/fresh-start status has not been independently verified from the repo because RLS hides user-owned rows from the anon key.
 - **Server foundation:** complete for Phase 1 readiness. Active timer hydration, timer start/stop, block save/update/delete, and calendar range reads exist for `time_blocks`.
 - **UI foundation:** not started for v2. The authenticated app still presents the v1 drop-in/chat interface, not the persistent timer, block editor, or time-block calendar.
 - **Next implementation step:** wire the Phase 1 UI around the implemented server actions, starting with the persistent timer control and post-stop block editor.
