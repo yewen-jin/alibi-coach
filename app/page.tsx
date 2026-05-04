@@ -16,13 +16,6 @@ import {
   Timer,
   type LucideIcon,
 } from "lucide-react"
-import {
-  GLASS_PANEL_STYLE,
-  GLASS_PILL_STYLE,
-  PAPER_INSET_STYLE,
-  PRIMARY_BUTTON_STYLE,
-  ALIBI,
-} from "@/lib/ui-styles"
 
 /* ------------------------------------------------------------------ */
 /*  Feature data (from docs)                                           */
@@ -123,7 +116,6 @@ function saveDemoEntry(content: string): DemoEntry {
     created_at: now.getTime(),
   }
   entries.unshift(entry)
-  // Keep only last 20 demo blocks.
   const trimmed = entries.slice(0, 20)
   localStorage.setItem(DEMO_STORAGE_KEY, JSON.stringify(trimmed))
   return entry
@@ -135,7 +127,6 @@ function clearDemoEntries(): void {
   }
 }
 
-// Generate contextual ack responses
 function generateDemoAck(content: string): string {
   const lower = content.toLowerCase()
   if (lower.includes("what") && (lower.includes("done") || lower.includes("did"))) {
@@ -144,15 +135,7 @@ function generateDemoAck(content: string): string {
     const summary = entries.slice(0, 5).map((e) => e.content).join(", ")
     return `on the record: ${summary}. ${entries.length > 5 ? `and ${entries.length - 5} more.` : ""} you were there.`
   }
-  const acks = [
-    "on the record.",
-    "filed.",
-    "got it.",
-    "noted.",
-    "logged.",
-    "heard.",
-  ]
-  // Add contextual flavor
+  const acks = ["on the record.", "filed.", "got it.", "noted.", "logged.", "heard."]
   if (lower.includes("finally") || lower.includes("avoided")) return "the avoided one. noted."
   if (lower.includes("hour") || lower.includes("min")) return "filed as a block."
   if (lower.includes("coffee") || lower.includes("tea")) return "caffeine logged."
@@ -173,12 +156,10 @@ export default function LandingPage() {
   const chatRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
 
-  // Load demo blocks from localStorage on mount.
   useEffect(() => {
     setDemoEntries(getDemoEntries())
   }, [])
 
-  // Auto-scroll demo chat
   useEffect(() => {
     if (chatRef.current) {
       chatRef.current.scrollTop = chatRef.current.scrollHeight
@@ -189,27 +170,20 @@ export default function LandingPage() {
     const text = demoInput.trim()
     if (!text || isTyping) return
 
-    const userMsg: DemoMessage = {
-      id: `u-${Date.now()}`,
-      role: "user",
-      text,
-    }
-
+    const userMsg: DemoMessage = { id: `u-${Date.now()}`, role: "user", text }
     setDemoMessages((prev) => [...prev, userMsg])
     setDemoInput("")
     setIsTyping(true)
 
-    // Check if it's a check-in query
-    const isCheckIn = text.toLowerCase().includes("what") && 
+    const isCheckIn =
+      text.toLowerCase().includes("what") &&
       (text.toLowerCase().includes("done") || text.toLowerCase().includes("did"))
 
-    // Save to localStorage if it's a completed-block log, not a check-in.
     if (!isCheckIn) {
       const newEntry = saveDemoEntry(text)
       setDemoEntries((prev) => [newEntry, ...prev].slice(0, 20))
     }
 
-    // Generate contextual response
     setTimeout(() => {
       const assistantMsg: DemoMessage = {
         id: `a-${Date.now()}`,
@@ -234,21 +208,15 @@ export default function LandingPage() {
     }
   }
 
-
-
   return (
-    <main className="relative min-h-screen w-full text-[#2A1F14]">
+    <main className="alibi-page relative w-full">
       {/* ─────────────────── TOP NAV ─────────────────── */}
-      <nav
-        className="fixed left-1/2 top-6 z-50 flex -translate-x-1/2 items-center gap-6 px-6 py-3"
-        style={GLASS_PILL_STYLE}
-      >
-        <span className="font-serif text-lg font-medium tracking-tight">alibi</span>
-        <div className="h-4 w-px bg-[#C8B89F]" />
+      <nav className="alibi-pill fixed left-1/2 top-6 z-50 flex -translate-x-1/2 items-center gap-6 px-6 py-3">
+        <span className="text-[15px] font-black tracking-tight text-alibi-blue">alibi</span>
+        <div className="h-4 w-px bg-alibi-lavender/40" />
         <Link
           href="/auth/login"
-          className="flex items-center gap-2 rounded-full px-4 py-1.5 text-[13px] font-medium text-white transition-all hover:scale-105 active:scale-95"
-          style={PRIMARY_BUTTON_STYLE}
+          className="alibi-button-primary flex items-center gap-2 rounded-full px-4 py-1.5 text-[13px]"
         >
           sign in
           <ArrowRight className="h-3.5 w-3.5" strokeWidth={2.4} />
@@ -259,47 +227,38 @@ export default function LandingPage() {
       <section className="mx-auto flex min-h-screen max-w-6xl flex-col items-center justify-center gap-10 px-6 pb-16 pt-28">
         {/* Headline */}
         <div className="text-center">
-          <h1 className="text-balance font-serif text-4xl font-semibold tracking-tight sm:text-5xl md:text-6xl">
+          <h1 className="text-balance text-4xl font-black tracking-tight text-alibi-ink sm:text-5xl md:text-6xl">
             the friend who remembers
             <br />
-            <span style={{ color: ALIBI.terracotta }}>your day</span>
+            <span className="text-alibi-pink">your day</span>
           </h1>
-          <p className="mx-auto mt-4 max-w-xl text-pretty text-[15px] leading-relaxed text-[#6B5A47]">
-            alibi is a witness, not a coach. track time with a timer, add blocks
-            by hand, or let chat turn plain language into the same structured record.
+          <p className="mx-auto mt-4 max-w-xl text-pretty text-[15px] leading-relaxed text-alibi-teal">
+            alibi is a witness, not a coach. track time with a timer, add blocks by hand, or let
+            chat turn plain language into the same structured record.
           </p>
         </div>
 
         {/* Demo panels: Chat + Record */}
         <div className="flex w-full max-w-3xl flex-col gap-4 md:flex-row">
           {/* Demo chat panel */}
-          <div
-            className="flex-1 overflow-hidden"
-            style={GLASS_PANEL_STYLE}
-          >
-            {/* Demo header */}
-            <div className="flex items-center justify-between border-b border-[#C8B89F]/30 px-5 py-3">
+          <div className="alibi-card flex-1 overflow-hidden">
+            <div className="flex items-center justify-between border-b border-alibi-blue/10 px-5 py-3">
               <div className="flex items-center gap-2">
-                <span
-                  className="flex h-6 w-6 items-center justify-center rounded-full text-xs"
-                  style={{ background: "rgba(200, 85, 61, 0.15)", color: ALIBI.terracotta }}
-                >
+                <span className="flex h-6 w-6 items-center justify-center rounded-full bg-alibi-pink/15 text-alibi-pink text-xs">
                   <MessageCircle className="h-3 w-3" />
                 </span>
-                <span className="text-[13px] font-medium text-[#2A1F14]">try chat logging</span>
+                <span className="text-[13px] font-medium text-alibi-ink">try chat logging</span>
               </div>
-              <span className="text-[10px] uppercase tracking-widest text-[#A89680]">demo</span>
+              <span className="alibi-label">demo</span>
             </div>
 
-            {/* Messages area */}
             <div
               ref={chatRef}
-              className="flex h-56 flex-col gap-3 overflow-y-auto px-5 py-4"
-              style={PAPER_INSET_STYLE}
+              className="alibi-inset m-3 flex h-52 flex-col gap-3 overflow-y-auto px-4 py-3"
             >
               {demoMessages.length === 0 && !isTyping && (
-                <p className="text-center text-[13px] text-[#A89680]">
-                  try “worked on invoice for 20 minutes”
+                <p className="text-center text-[13px] text-alibi-teal/60">
+                  try &ldquo;worked on invoice for 20 minutes&rdquo;
                 </p>
               )}
               {demoMessages.map((m) => (
@@ -307,32 +266,32 @@ export default function LandingPage() {
                   key={m.id}
                   className={`max-w-[85%] rounded-2xl px-4 py-2.5 text-[13px] leading-relaxed ${
                     m.role === "user"
-                      ? "ml-auto bg-[#2A1F14] text-white"
-                      : "mr-auto bg-white/70 text-[#2A1F14]"
+                      ? "ml-auto bg-alibi-blue text-white"
+                      : "mr-auto bg-white/70 text-alibi-ink shadow-sm"
                   }`}
-                  style={
-                    m.role === "assistant"
-                      ? { boxShadow: "0 1px 3px rgba(60, 40, 20, 0.08)" }
-                      : {}
-                  }
                 >
                   {m.text}
                 </div>
               ))}
               {isTyping && (
-                <div
-                  className="mr-auto flex items-center gap-1.5 rounded-2xl bg-white/70 px-4 py-2.5"
-                  style={{ boxShadow: "0 1px 3px rgba(60, 40, 20, 0.08)" }}
-                >
-                  <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-[#A89680]" style={{ animationDelay: "0ms" }} />
-                  <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-[#A89680]" style={{ animationDelay: "150ms" }} />
-                  <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-[#A89680]" style={{ animationDelay: "300ms" }} />
+                <div className="mr-auto flex items-center gap-1.5 rounded-2xl bg-white/70 px-4 py-2.5 shadow-sm">
+                  <span
+                    className="h-1.5 w-1.5 animate-bounce rounded-full bg-alibi-lavender"
+                    style={{ animationDelay: "0ms" }}
+                  />
+                  <span
+                    className="h-1.5 w-1.5 animate-bounce rounded-full bg-alibi-lavender"
+                    style={{ animationDelay: "150ms" }}
+                  />
+                  <span
+                    className="h-1.5 w-1.5 animate-bounce rounded-full bg-alibi-lavender"
+                    style={{ animationDelay: "300ms" }}
+                  />
                 </div>
               )}
             </div>
 
-            {/* Input */}
-            <div className="flex items-end gap-2 border-t border-[#C8B89F]/30 px-4 py-3">
+            <div className="flex items-end gap-2 border-t border-alibi-blue/10 px-4 py-3">
               <textarea
                 ref={inputRef}
                 value={demoInput}
@@ -340,14 +299,13 @@ export default function LandingPage() {
                 onKeyDown={handleKeyDown}
                 placeholder="worked on invoice for 20 minutes..."
                 rows={1}
-                className="flex-1 resize-none bg-transparent text-[14px] text-[#2A1F14] placeholder:text-[#A89680] focus:outline-none"
+                className="flex-1 resize-none bg-transparent text-[14px] text-alibi-ink placeholder:text-alibi-teal/50 focus:outline-none"
                 style={{ maxHeight: 80 }}
               />
               <button
                 onClick={handleDemoSend}
                 disabled={!demoInput.trim() || isTyping}
-                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-white transition-all hover:scale-105 active:scale-95 disabled:opacity-40"
-                style={PRIMARY_BUTTON_STYLE}
+                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-alibi-blue text-white shadow-[0_10px_22px_rgba(50,83,199,0.28)] transition hover:scale-105 active:scale-95 disabled:opacity-40"
               >
                 <ArrowUp className="h-4 w-4" strokeWidth={2.4} />
               </button>
@@ -355,59 +313,42 @@ export default function LandingPage() {
           </div>
 
           {/* Mini blocks panel */}
-          <div
-            className="w-full overflow-hidden md:w-64"
-            style={GLASS_PANEL_STYLE}
-          >
-            {/* Blocks header */}
-            <div className="flex items-center justify-between border-b border-[#C8B89F]/30 px-4 py-3">
+          <div className="alibi-card w-full overflow-hidden md:w-64">
+            <div className="flex items-center justify-between border-b border-alibi-blue/10 px-4 py-3">
               <div className="flex items-center gap-2">
-                <span
-                  className="flex h-6 w-6 items-center justify-center rounded-full text-xs"
-                  style={{ background: "rgba(122, 154, 138, 0.15)", color: ALIBI.sage }}
-                >
+                <span className="flex h-6 w-6 items-center justify-center rounded-full bg-alibi-teal/15 text-alibi-teal text-xs">
                   <CalendarRange className="h-3 w-3" />
                 </span>
-                <span className="text-[13px] font-medium text-[#2A1F14]">time blocks</span>
+                <span className="text-[13px] font-medium text-alibi-ink">time blocks</span>
               </div>
               {demoEntries.length > 0 && (
                 <button
                   onClick={handleClearDemo}
-                  className="text-[10px] text-[#A89680] transition-colors hover:text-[#C8553D]"
+                  className="text-[10px] text-alibi-teal/60 transition-colors hover:text-alibi-pink"
                 >
                   clear
                 </button>
               )}
             </div>
 
-            {/* Blocks list */}
-            <div
-              className="h-56 overflow-y-auto px-4 py-3 md:h-[calc(100%-52px)]"
-              style={PAPER_INSET_STYLE}
-            >
+            <div className="alibi-inset m-3 h-52 overflow-y-auto px-3 py-3">
               {demoEntries.length === 0 ? (
-                <p className="text-center text-[12px] text-[#A89680]">
-                  blocks appear here
-                </p>
+                <p className="text-center text-[12px] text-alibi-teal/60">blocks appear here</p>
               ) : (
                 <ul className="space-y-2">
                   {demoEntries.map((entry) => (
-                    <li
-                      key={entry.id}
-                      className="flex items-start gap-2 text-[12px]"
-                    >
-                      <span className="shrink-0 font-mono text-[#A89680]">{entry.time}</span>
-                      <span className="min-w-0 flex-1 text-[#2A1F14]">{entry.content}</span>
-                      <span className="shrink-0 font-mono text-[#A89680]">{entry.duration}</span>
+                    <li key={entry.id} className="flex items-start gap-2 text-[12px]">
+                      <span className="shrink-0 font-mono text-alibi-teal/70">{entry.time}</span>
+                      <span className="min-w-0 flex-1 text-alibi-ink">{entry.content}</span>
+                      <span className="shrink-0 font-mono text-alibi-teal/70">{entry.duration}</span>
                     </li>
                   ))}
                 </ul>
               )}
             </div>
 
-            {/* Footer note */}
-            <div className="border-t border-[#C8B89F]/30 px-4 py-2">
-              <p className="text-center text-[10px] text-[#A89680]">
+            <div className="border-t border-alibi-blue/10 px-4 py-2">
+              <p className="text-center text-[10px] text-alibi-teal/60">
                 demo only · real app saves time_blocks
               </p>
             </div>
@@ -418,33 +359,33 @@ export default function LandingPage() {
         <div className="flex flex-wrap items-center justify-center gap-3">
           <Link
             href="/auth/sign-up"
-            className="flex items-center gap-2 rounded-full px-6 py-3 text-[14px] font-medium text-white transition-all hover:scale-105 active:scale-95"
-            style={PRIMARY_BUTTON_STYLE}
+            className="alibi-button-primary flex items-center gap-2 rounded-full px-6 py-3 text-[14px]"
           >
             start tracking
             <ArrowRight className="h-4 w-4" strokeWidth={2.4} />
           </Link>
           <Link
             href="/auth/login"
-            className="flex items-center gap-2 rounded-full border border-[#C8B89F] px-6 py-3 text-[14px] font-medium text-[#2A1F14] transition-colors hover:bg-white/50"
+            className="alibi-button-secondary flex items-center gap-2 rounded-full px-6 py-3 text-[14px]"
           >
             sign in
           </Link>
         </div>
 
         {/* Subline */}
-        <p className="text-center text-[12px] text-[#A89680]">
-          built for ADHD minds, executive-dysfunction days, and anyone whose brain runs ahead of itself.
+        <p className="text-center text-[12px] text-alibi-teal/70">
+          built for ADHD minds, executive-dysfunction days, and anyone whose brain runs ahead of
+          itself.
         </p>
       </section>
 
       {/* ─────────────────── FEATURES GRID ─────────────────── */}
       <section className="mx-auto max-w-5xl px-6 pb-20">
         <header className="mb-8 text-center">
-          <h2 className="font-serif text-2xl font-semibold tracking-tight sm:text-3xl">
+          <h2 className="text-2xl font-black tracking-tight text-alibi-ink sm:text-3xl">
             what alibi does
           </h2>
-          <p className="mt-2 text-[14px] text-[#6B5A47]">
+          <p className="mt-2 text-[14px] text-alibi-teal">
             the goal isn&apos;t productivity. the goal is remembering you were there.
           </p>
         </header>
@@ -457,8 +398,8 @@ export default function LandingPage() {
       </section>
 
       {/* ─────────────────── FOOTER ─────────────────── */}
-      <footer className="border-t border-[#C8B89F]/30 py-8 text-center">
-        <p className="text-[12px] tracking-wide text-[#A89680]">
+      <footer className="border-t border-alibi-blue/15 py-8 text-center">
+        <p className="text-sm font-semibold tracking-[0.04em] text-alibi-teal">
           alibi — for the days you can&apos;t see clearly
         </p>
       </footer>
@@ -469,19 +410,14 @@ export default function LandingPage() {
 function FeatureCard({ feature }: { feature: Feature }) {
   const Icon = feature.icon
   return (
-    <article className="flex flex-col gap-3 p-5" style={GLASS_PANEL_STYLE}>
+    <article className="alibi-card flex flex-col gap-3 p-5">
       <div className="flex items-center gap-2">
-        <span
-          className="flex h-7 w-7 items-center justify-center rounded-full"
-          style={{ background: "rgba(200, 85, 61, 0.12)", color: ALIBI.terracotta }}
-        >
+        <span className="flex h-7 w-7 items-center justify-center rounded-full bg-alibi-pink/15 text-alibi-pink">
           <Icon className="h-3.5 w-3.5" strokeWidth={2.2} />
         </span>
-        <h3 className="text-[14px] font-semibold tracking-tight text-[#2A1F14]">
-          {feature.title}
-        </h3>
+        <h3 className="text-[14px] font-semibold tracking-tight text-alibi-ink">{feature.title}</h3>
       </div>
-      <p className="text-[13px] leading-relaxed text-[#6B5A47]">{feature.body}</p>
+      <p className="text-[13px] leading-relaxed text-alibi-teal">{feature.body}</p>
     </article>
   )
 }
