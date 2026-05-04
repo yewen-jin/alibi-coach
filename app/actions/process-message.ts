@@ -39,7 +39,7 @@ const SATISFACTION_LEVELS = [
 
 const coachDraftSchema = z.object({
   task_name: z.string().nullable(),
-  category: z.enum(CATEGORIES).nullable(),
+  category: z.string().nullable(),
   hashtags: z.array(z.string()),
   notes: z.string().nullable(),
   started_at: z.string().nullable(),
@@ -142,10 +142,6 @@ type CategoryInference = {
 
 type Supabase = Awaited<ReturnType<typeof createClient>>
 
-function isCategory(value: unknown): value is TimeBlockCategory {
-  return typeof value === "string" && (CATEGORIES as readonly string[]).includes(value)
-}
-
 function isMood(value: unknown): value is Mood {
   return typeof value === "string" && (MOODS as readonly string[]).includes(value)
 }
@@ -165,6 +161,26 @@ function cleanString(value: unknown): string | null {
 
   const trimmed = value.trim()
   return trimmed || null
+}
+
+function slugifyCategoryName(name: string) {
+  return name
+    .trim()
+    .toLowerCase()
+    .replace(/['"]/g, "")
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "")
+    .slice(0, 64)
+}
+
+function cleanCategory(value: unknown): TimeBlockCategory | null {
+  const cleaned = cleanString(value)
+  if (!cleaned) {
+    return null
+  }
+
+  const slug = slugifyCategoryName(cleaned)
+  return /^[a-z0-9][a-z0-9_-]{0,63}$/.test(slug) ? slug : null
 }
 
 function cleanTags(value: unknown): string[] {
@@ -242,7 +258,7 @@ function normalizeRouterOutput(
   const output: RouterOutput = {
     intent: normalizedIntent,
     task_name: cleanString(parsed?.task_name) ?? (parsed ? null : fallbackText),
-    category: isCategory(parsed?.category) ? parsed.category : null,
+    category: cleanCategory(parsed?.category),
     hashtags: cleanTags(parsed?.hashtags),
     notes: cleanString(parsed?.notes),
     started_at: cleanIso(parsed?.started_at),
@@ -616,7 +632,7 @@ async function routeMessage(
         "{",
         '  "intent": "coach_chat" | "log_block" | "start_timer" | "stop_timer" | "analyse_blocks" | "clarify",',
         '  "task_name": "string | null",',
-        '  "category": "deep_work | admin | social | errands | care | creative | rest | null",',
+        '  "category": "category name or slug | null",',
         '  "hashtags": ["strings without #"],',
         '  "notes": "string | null",',
         '  "started_at": "ISO datetime | null",',
@@ -637,6 +653,8 @@ async function routeMessage(
         "- If they give a duration only, return duration_minutes.",
         "- Do not invent a time window.",
         "- Prefer concise task names without filler words like 'worked on'.",
+        "- Use an existing/default category when obvious: deep_work, admin, social, errands, care, creative, rest.",
+        "- If the user gives a custom category name, return that name.",
         "- Do not turn feelings, questions, or general updates into log_block.",
         "- When unsure whether the user wants to log a block, choose coach_chat.",
         "",

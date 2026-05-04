@@ -1,14 +1,7 @@
 export type Mood = "joyful" | "neutral" | "flat" | "anxious" | "guilty" | "proud"
 export type EffortLevel = "easy" | "medium" | "hard" | "grind"
 export type Satisfaction = "satisfied" | "mixed" | "frustrated" | "unclear"
-export type TimeBlockCategory =
-  | "deep_work"
-  | "admin"
-  | "social"
-  | "errands"
-  | "care"
-  | "creative"
-  | "rest"
+export type TimeBlockCategory = string
 
 export interface Entry {
   id: string
@@ -51,6 +44,7 @@ export interface TimeBlock {
   started_at: string
   ended_at: string | null
   duration_seconds: number | null
+  category_id: string | null
   task_name: string | null
   category: TimeBlockCategory | null
   hashtags: string[] | null
@@ -82,8 +76,10 @@ export interface TimeBlockNoteVersion {
 export interface TimeBlockInsight {
   id: string
   time_block_id: string
+  note_version_id: string | null
   user_id: string
   source: "notes"
+  source_notes: string | null
   actions: string[]
   emotional_tone: string | null
   friction_points: string[]
@@ -97,6 +93,17 @@ export interface TimeBlockInsight {
   evidence_excerpt: string | null
   model_version: string
   created_at: string
+}
+
+export interface TimeBlockCategoryRecord {
+  id: string
+  user_id: string | null
+  slug: string
+  name: string
+  color: string
+  is_default: boolean
+  created_at: string
+  updated_at: string
 }
 
 export type CoachMessageRole = "user" | "assistant"
@@ -117,6 +124,7 @@ export interface SaveBlockInput {
   id?: string
   task_name: string
   category: TimeBlockCategory
+  category_id?: string | null
   started_at: string
   ended_at: string
   hashtags?: string[]
@@ -134,6 +142,7 @@ export interface SaveBlockInput {
 export interface StopTimerInput {
   task_name?: string | null
   category?: TimeBlockCategory | null
+  category_id?: string | null
   hashtags?: string[]
   notes?: string | null
   mood?: Mood | null
@@ -159,10 +168,39 @@ export interface GetCalendarDataInput {
   end: string
 }
 
+export interface CreateCategoryInput {
+  name: string
+  color?: string | null
+}
+
 export type GetActiveTimerResult =
   | {
       type: "loaded"
       activeTimer: ActiveTimer | null
+    }
+  | {
+      type: "error"
+      message: string
+    }
+
+export type GetCategoriesResult =
+  | {
+      type: "loaded"
+      categories: TimeBlockCategoryRecord[]
+    }
+  | {
+      type: "error"
+      message: string
+    }
+
+export type CreateCategoryResult =
+  | {
+      type: "created"
+      category: TimeBlockCategoryRecord
+    }
+  | {
+      type: "exists"
+      category: TimeBlockCategoryRecord
     }
   | {
       type: "error"

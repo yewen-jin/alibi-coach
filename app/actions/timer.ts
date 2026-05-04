@@ -5,9 +5,12 @@ import { deriveInsightFromNotes } from "@/lib/note-insights"
 import { createClient } from "@/lib/supabase/server"
 import type {
   ActiveTimer,
+  CreateCategoryInput,
+  CreateCategoryResult,
   DeleteBlockInput,
   DeleteBlockResult,
   GetActiveTimerResult,
+  GetCategoriesResult,
   GetCalendarDataInput,
   GetCalendarDataResult,
   ResumeBlockInput,
@@ -19,6 +22,7 @@ import type {
   StopTimerResult,
   TimeBlock,
   TimeBlockCategory,
+  TimeBlockCategoryRecord,
   EffortLevel,
   Mood,
   NoteVersionSource,
@@ -27,15 +31,15 @@ import type {
 
 type Supabase = Awaited<ReturnType<typeof createClient>>
 
-const TIME_BLOCK_CATEGORIES = [
-  "deep_work",
-  "admin",
-  "social",
-  "errands",
-  "care",
-  "creative",
-  "rest",
-] satisfies TimeBlockCategory[]
+const DEFAULT_TIME_BLOCK_CATEGORIES = [
+  { slug: "deep_work", name: "deep work", color: "#3253C7" },
+  { slug: "admin", name: "admin", color: "#93A5E4" },
+  { slug: "social", name: "social", color: "#BF7DAD" },
+  { slug: "errands", name: "errands", color: "#43849D" },
+  { slug: "care", name: "care", color: "#BF7DAD" },
+  { slug: "creative", name: "creative", color: "#3253C7" },
+  { slug: "rest", name: "rest", color: "#43849D" },
+] satisfies Array<{ slug: TimeBlockCategory; name: string; color: string }>
 
 const MOODS = ["joyful", "neutral", "flat", "anxious", "guilty", "proud"] satisfies Mood[]
 const EFFORT_LEVELS = ["easy", "medium", "hard", "grind"] satisfies EffortLevel[]
@@ -46,12 +50,38 @@ const SATISFACTION_LEVELS = [
   "unclear",
 ] satisfies Satisfaction[]
 
-function isTimeBlockCategory(category: unknown): category is TimeBlockCategory {
+function isValidCategorySlug(category: unknown): category is TimeBlockCategory {
   if (typeof category !== "string") {
     return false
   }
 
-  return TIME_BLOCK_CATEGORIES.includes(category as TimeBlockCategory)
+  return /^[a-z0-9][a-z0-9_-]{0,63}$/.test(category)
+}
+
+function isValidUuid(value: unknown): value is string {
+  return (
+    typeof value === "string" &&
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value)
+  )
+}
+
+function slugifyCategoryName(name: string) {
+  return name
+    .trim()
+    .toLowerCase()
+    .replace(/['"]/g, "")
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "")
+    .slice(0, 64)
+}
+
+function defaultCategoryColor(name: string) {
+  const colors = ["#3253C7", "#93A5E4", "#BF7DAD", "#43849D", "#7A6AAE", "#C8553D"]
+  let hash = 0
+  for (const char of name) {
+    hash = (hash * 31 + char.charCodeAt(0)) >>> 0
+  }
+  return colors[hash % colors.length]
 }
 
 function isMood(value: unknown): value is Mood {
@@ -93,6 +123,7 @@ function validateSaveBlockInput(input: unknown):
       id: string | undefined
       taskName: string
       category: TimeBlockCategory
+      categoryId: string | null
       startedAt: string
       endedAt: string
       hashtags: string[]
@@ -141,7 +172,11 @@ function validateSaveBlockInput(input: unknown):
     return { type: "error", message: "task name is required." }
   }
 
-  if (!isTimeBlockCategory(details.category)) {
+  if (!isValidCategorySlug(details.category)) {
+    return { type: "error", message: "category is invalid." }
+  }
+
+  if (details.category_id !== undefined && details.category_id !== null && !isValidUuid(details.category_id)) {
     return { type: "error", message: "category is invalid." }
   }
 
@@ -164,6 +199,7 @@ function validateSaveBlockInput(input: unknown):
     id,
     taskName,
     category: details.category,
+    categoryId: details.category_id ?? null,
     startedAt: startedAt.toISOString(),
     endedAt: endedAt.toISOString(),
     hashtags: normalizeHashtags(details.hashtags),
@@ -196,6 +232,7 @@ function validateStopTimerInput(input: StopTimerInput | undefined):
       type: "valid"
       taskName: string | null
       category: TimeBlockCategory | null
+      categoryId: string | null
       hashtags: string[]
       notes: string | null
       mood: Mood | null
@@ -215,6 +252,7 @@ function validateStopTimerInput(input: StopTimerInput | undefined):
       type: "valid",
       taskName: null,
       category: null,
+      categoryId: null,
       hashtags: [],
       notes: null,
       mood: null,
@@ -238,7 +276,11 @@ function validateStopTimerInput(input: StopTimerInput | undefined):
   const taskName = typeof input.task_name === "string" ? input.task_name.trim() : null
   const notes = input.notes?.trim() || null
 
-  if (input.category !== null && input.category !== undefined && !isTimeBlockCategory(input.category)) {
+  if (input.category !== null && input.category !== undefined && !isValidCategorySlug(input.category)) {
+    return { type: "error", message: "category is invalid." }
+  }
+
+  if (input.category_id !== null && input.category_id !== undefined && !isValidUuid(input.category_id)) {
     return { type: "error", message: "category is invalid." }
   }
 
@@ -246,6 +288,7 @@ function validateStopTimerInput(input: StopTimerInput | undefined):
     type: "valid",
     taskName: taskName || null,
     category: input.category ?? null,
+    categoryId: input.category_id ?? null,
     hashtags: normalizeHashtags(input.hashtags),
     notes,
     mood: isMood(input.mood) ? input.mood : null,
@@ -380,22 +423,29 @@ async function preserveNoteVersion(
   const next = normalizeNotes(newNotes)
 
   if (previous === next || (!previous && !next)) {
-    return
+    return null
   }
 
-  await supabase.from("time_block_note_versions").insert({
-    time_block_id: timeBlockId,
-    user_id: userId,
-    previous_notes: previous,
-    new_notes: next,
-    source,
-  })
+  const { data } = await supabase
+    .from("time_block_note_versions")
+    .insert({
+      time_block_id: timeBlockId,
+      user_id: userId,
+      previous_notes: previous,
+      new_notes: next,
+      source,
+    })
+    .select("id")
+    .single()
+
+  return (data as { id: string } | null)?.id ?? null
 }
 
 async function storeNoteInsight(
   supabase: Supabase,
   userId: string,
   timeBlock: TimeBlock,
+  noteVersionId: string | null,
 ) {
   const insight = deriveInsightFromNotes(timeBlock.notes)
 
@@ -413,7 +463,9 @@ async function storeNoteInsight(
     .upsert(
       {
         time_block_id: timeBlock.id,
+        note_version_id: noteVersionId,
         user_id: userId,
+        source_notes: normalizeNotes(timeBlock.notes),
         ...insight,
       },
       { onConflict: "time_block_id" },
@@ -427,10 +479,166 @@ async function preserveNotesAndInsights(
   previousNotes: string | null | undefined,
   source: NoteVersionSource,
 ) {
-  await Promise.all([
-    preserveNoteVersion(supabase, userId, timeBlock.id, previousNotes, timeBlock.notes, source),
-    storeNoteInsight(supabase, userId, timeBlock),
-  ])
+  if (!notesChanged(previousNotes, timeBlock.notes)) {
+    return
+  }
+
+  const noteVersionId = await preserveNoteVersion(
+    supabase,
+    userId,
+    timeBlock.id,
+    previousNotes,
+    timeBlock.notes,
+    source,
+  )
+  await storeNoteInsight(supabase, userId, timeBlock, noteVersionId)
+}
+
+function sortCategories(categories: TimeBlockCategoryRecord[]) {
+  return [...categories].sort((a, b) => {
+    if (a.is_default !== b.is_default) return a.is_default ? -1 : 1
+    return a.name.localeCompare(b.name)
+  })
+}
+
+async function ensureCategoryForUser(
+  supabase: Supabase,
+  userId: string,
+  category: TimeBlockCategory,
+  categoryId: string | null,
+) {
+  if (categoryId) {
+    const { data } = await supabase
+      .from("time_block_categories")
+      .select("*")
+      .or(`user_id.is.null,user_id.eq.${userId}`)
+      .eq("id", categoryId)
+      .maybeSingle()
+
+    if (data) {
+      const record = data as TimeBlockCategoryRecord
+      return { category: record.slug, categoryId: record.id }
+    }
+  }
+
+  const { data } = await supabase
+    .from("time_block_categories")
+    .select("*")
+    .or(`user_id.is.null,user_id.eq.${userId}`)
+    .eq("slug", category)
+    .maybeSingle()
+
+  if (data) {
+    const record = data as TimeBlockCategoryRecord
+    return { category: record.slug, categoryId: record.id }
+  }
+
+  const name = category.replace(/_/g, " ")
+  const { data: created } = await supabase
+    .from("time_block_categories")
+    .insert({
+      user_id: userId,
+      slug: category,
+      name,
+      color: defaultCategoryColor(name),
+      is_default: false,
+    })
+    .select("*")
+    .single()
+
+  if (created) {
+    const record = created as TimeBlockCategoryRecord
+    return { category: record.slug, categoryId: record.id }
+  }
+
+  return { category, categoryId: null }
+}
+
+/**
+ * Load default and user-created categories.
+ */
+export async function getCategories(): Promise<GetCategoriesResult> {
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  if (!user) {
+    return { type: "error", message: "not signed in." }
+  }
+
+  const { data, error } = await supabase
+    .from("time_block_categories")
+    .select("*")
+    .or(`user_id.is.null,user_id.eq.${user.id}`)
+
+  if (error) {
+    return { type: "error", message: "couldn't load categories. try again." }
+  }
+
+  return {
+    type: "loaded",
+    categories: sortCategories((data ?? []) as TimeBlockCategoryRecord[]),
+  }
+}
+
+/**
+ * Create a user-owned category, or return the existing category with that slug.
+ */
+export async function createCategory(input: CreateCategoryInput): Promise<CreateCategoryResult> {
+  const name = typeof input.name === "string" ? input.name.trim() : ""
+
+  if (!name) {
+    return { type: "error", message: "category name is required." }
+  }
+
+  const slug = slugifyCategoryName(name)
+  if (!isValidCategorySlug(slug)) {
+    return { type: "error", message: "category name is invalid." }
+  }
+
+  const color =
+    typeof input.color === "string" && /^#[0-9a-f]{6}$/i.test(input.color)
+      ? input.color
+      : defaultCategoryColor(name)
+
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  if (!user) {
+    return { type: "error", message: "not signed in." }
+  }
+
+  const { data: existing } = await supabase
+    .from("time_block_categories")
+    .select("*")
+    .or(`user_id.is.null,user_id.eq.${user.id}`)
+    .eq("slug", slug)
+    .maybeSingle()
+
+  if (existing) {
+    return { type: "exists", category: existing as TimeBlockCategoryRecord }
+  }
+
+  const { data: category, error } = await supabase
+    .from("time_block_categories")
+    .insert({
+      user_id: user.id,
+      slug,
+      name,
+      color,
+      is_default: false,
+    })
+    .select("*")
+    .single()
+
+  if (error || !category) {
+    return { type: "error", message: "couldn't create category. try again." }
+  }
+
+  return { type: "created", category: category as TimeBlockCategoryRecord }
 }
 
 /**
@@ -707,6 +915,14 @@ export async function stopTimer(input?: StopTimerInput): Promise<StopTimerResult
 
   let timeBlock: TimeBlock
   const derivedMarkers = deriveMarkersFromNotes(validatedInput.notes)
+  const resolvedCategory = validatedInput.category
+    ? await ensureCategoryForUser(
+        supabase,
+        user.id,
+        validatedInput.category,
+        validatedInput.categoryId,
+      )
+    : { category: null, categoryId: null }
 
   if (openBlock) {
     const previousNotes = (openBlock as TimeBlock).notes
@@ -717,7 +933,8 @@ export async function stopTimer(input?: StopTimerInput): Promise<StopTimerResult
 
     if (input !== undefined) {
       updateValues.task_name = validatedInput.taskName
-      updateValues.category = validatedInput.category
+      updateValues.category = resolvedCategory.category
+      updateValues.category_id = resolvedCategory.categoryId
       updateValues.hashtags = validatedInput.hashtags
       updateValues.notes = validatedInput.notes
       updateValues.mood = validatedInput.mood
@@ -757,7 +974,8 @@ export async function stopTimer(input?: StopTimerInput): Promise<StopTimerResult
         started_at: activeTimer.started_at,
         ended_at: endedAt.toISOString(),
         task_name: validatedInput.taskName,
-        category: validatedInput.category,
+        category: resolvedCategory.category,
+        category_id: resolvedCategory.categoryId,
         hashtags: validatedInput.hashtags,
         notes: validatedInput.notes,
         mood: validatedInput.mood,
@@ -827,9 +1045,17 @@ export async function saveBlock(input: SaveBlockInput): Promise<SaveBlockResult>
     return { type: "error", message: "not signed in." }
   }
 
+  const resolvedCategory = await ensureCategoryForUser(
+    supabase,
+    user.id,
+    validated.category,
+    validated.categoryId,
+  )
+
   const values: Record<string, unknown> = {
     task_name: validated.taskName,
-    category: validated.category,
+    category: resolvedCategory.category,
+    category_id: resolvedCategory.categoryId,
     hashtags: validated.hashtags,
     notes: validated.notes,
     started_at: validated.startedAt,

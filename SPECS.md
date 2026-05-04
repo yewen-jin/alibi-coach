@@ -166,10 +166,8 @@ time_blocks (
 
   -- Block metadata
   task_name         TEXT,                             -- filled in after stopping
-  category          TEXT CHECK (category IN (
-                      'deep_work', 'admin', 'social',
-                      'errands', 'care', 'creative', 'rest'
-                    )),
+  category          TEXT,                             -- category slug; default or user-created
+  category_id       UUID REFERENCES time_block_categories(id) ON DELETE SET NULL,
   hashtags          TEXT[],                           -- e.g. {'cinecircle','coding'}
   notes             TEXT,                             -- human-authored source of truth: what happened, what got in the way, how it felt
 
@@ -189,6 +187,23 @@ time_blocks (
   novelty_marker    BOOLEAN DEFAULT FALSE,
   agent_metadata    JSONB DEFAULT '{}',               -- derived context only, never a replacement for notes
 
+  created_at        TIMESTAMPTZ DEFAULT NOW(),
+  updated_at        TIMESTAMPTZ DEFAULT NOW()
+)
+```
+
+### `time_block_categories` (v3)
+
+Default categories remain available, but users can create their own categories while editing or chatting.
+
+```sql
+time_block_categories (
+  id                UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id           UUID REFERENCES auth.users(id) ON DELETE CASCADE, -- NULL for defaults
+  slug              TEXT NOT NULL,
+  name              TEXT NOT NULL,
+  color             TEXT NOT NULL,
+  is_default        BOOLEAN DEFAULT FALSE,
   created_at        TIMESTAMPTZ DEFAULT NOW(),
   updated_at        TIMESTAMPTZ DEFAULT NOW()
 )
@@ -269,7 +284,7 @@ The old freeform drop-in table. Retained during transition. May be migrated into
 
 ---
 
-## Architecture (v2)
+## Architecture (v2 + notes-first V3)
 
 ```
 ┌─────────────────────────────────────────────────────────┐
@@ -291,7 +306,8 @@ The old freeform drop-in table. Retained during transition. May be migrated into
 │  ├ saveBlock         — create/update time_blocks        │
 │  ├ deleteBlock       — delete time_blocks row           │
 │  ├ getCalendarData   — blocks for a date range          │
-│  └ processCoachMessage — chat router/executor           │
+│  ├ processCoachMessage — chat router/executor           │
+│  └ note insight pass — preserve notes + derive signals  │
 └──────────┬──────────────────────────────────────────────┘
            │
      ┌─────┴──────┐
@@ -306,7 +322,7 @@ The old freeform drop-in table. Retained during transition. May be migrated into
 
 ## Build priority
 
-Backend readiness for Phase 1 is in place in `app/actions/timer.ts`: `getActiveTimer`, `startTimer`, `stopTimer`, `saveBlock`, `deleteBlock`, and `getCalendarData`. `/app` now implements the Phase 1 UI slice with the persistent timer, post-stop/manual block editor, today's block list, and a v2 chat panel. The required v2 Supabase tables are installed and REST-visible: `active_timer`, `time_blocks`, `entries`, and `proactive_messages` all return `200` from the project REST API. `processCoachMessage` routes natural-language chat into `active_timer` and `time_blocks`; `entries` is legacy-only.
+Backend readiness for the timer/chat foundation is in place in `app/actions/timer.ts`: `getActiveTimer`, `startTimer`, `stopTimer`, `resumeBlock`, `saveBlock`, `deleteBlock`, and `getCalendarData`. `/app` implements the timer UI, post-stop/manual block editor, today's block list, latest-block resume, and chat panel. The required v2 Supabase tables are installed and REST-visible: `active_timer`, `time_blocks`, `entries`, and `proactive_messages` all return `200` from the project REST API. The V3 schema additions are written in `supabase-v2.sql` and need to be applied to hosted databases where missing. `processCoachMessage` routes natural-language chat into `active_timer` and `time_blocks`; `entries` is legacy-only.
 
 Current implementation status:
 
@@ -315,13 +331,18 @@ Current implementation status:
 | Timer persistence | Implemented through `active_timer`. |
 | Stop-to-block flow | Implemented; stopped timers create `time_blocks`. |
 | Block save/edit/delete | Implemented for user-owned `time_blocks`, including manual completed-block creation from `/app`. |
+| Custom categories | Implemented through `time_block_categories`; the editor and chat can create/use user-owned categories while keeping default categories. |
+| Note version preservation | Implemented in `saveBlock`/`stopTimer`; meaningful note edits write to `time_block_note_versions`. |
+| Note-derived insights | Implemented as a lightweight extraction pass into `time_block_insights`; changing notes regenerates the current insight from the latest note version while raw notes remain untouched. |
 | Chat start/stop timer | Implemented through `processCoachMessage`. |
 | Chat completed-block logging | Implemented; writes to `time_blocks` only and never creates new legacy `entries`. |
 | Conversational coach chat | Implemented as a separate `coach_chat` path; ordinary conversation does not force block parsing. |
 | Chat clarification gate | Implemented for missing timing/task/category details before completed-block writes; category may be inferred only from confident keyword matches. |
-| Chat analysis | First pass implemented over saved `time_blocks`; richer period summaries remain future work. |
+| Chat analysis | Implemented over saved `time_blocks` with notes-first retrieval: notes, metadata, derived insights, linked chat, then general chat. Richer period summaries remain future work. |
+| Notes mirror dashboard | Implemented in `/app/dashboard`; surfaces note-grounded friction, hyperfocus/flow, satisfaction, and emotional-tone observations with evidence excerpts. |
+| ADHD marker dashboard | Implemented; counts explicit block marker booleans plus matching note-derived insight signals. |
 | Legacy `entries` writes | Removed from the new chat logging path; table remains legacy-only. |
-| Verification | `npm run build` passes; authenticated browser QA for live Supabase/OpenRouter flows remains. |
+| Verification | `npm run build` passes; authenticated browser QA for live Supabase/OpenRouter flows remains after applying the hosted V3 migration. |
 
 ### Phase 1 — Core tracker
 1. Timer control (start / stop) — implemented
@@ -335,8 +356,11 @@ Manual block creation behavior:
 - The existing block editor is reused for unsaved manual drafts.
 - New manual drafts default to start = 30 minutes before now, end = now.
 - Task, category, hashtags, and notes start blank.
+- Notes are optional, but the editor frames them as “what really happened” and invites actions, friction, feeling, changes, and noticed context.
+- Category is required, but users can type a new category name to create a user-owned category.
 - Save calls `saveBlock` without an `id`, creating one completed `time_blocks` row.
 - Task name, category, and valid start/end ordering use the same validation as regular block edits.
+- Saving notes also refreshes derived insight rows and preserves meaningful note changes.
 
 Chat completed-block behavior:
 
@@ -346,7 +370,8 @@ Chat completed-block behavior:
 - Before saving, chat requires a usable time window or enough data to derive one from start/end/duration.
 - A duration-only completed log is treated as a block ending now.
 - Chat requires a task name before saving.
-- Chat uses an extracted category first, then a deterministic keyword inference when exactly one category matches.
+- Chat uses an extracted category first, then a deterministic keyword inference when exactly one default category matches.
+- If the user gives a new category name, chat creates that category for the user and saves the block with it.
 - If category is ambiguous or missing, chat stores the draft in `coach_drafts` and asks: "what category should i file it under?"
 
 ### Phase 2 — Calendar breadth
@@ -354,11 +379,11 @@ Chat completed-block behavior:
 6. Monthly calendar view — pending
 
 ### Phase 3 — Chat + analysis
-7. Chat agent (starts/stops timer, logs completed blocks, reads blocks for ADHD-informed responses) — first pass implemented
-8. Pattern markers (avoidance, hyperfocus) flagged by AI post-hoc — partially captured during chat extraction; post-hoc pass pending
+7. Chat agent (starts/stops timer, logs completed blocks, reads blocks for ADHD-informed responses) — notes-first pass implemented
+8. Pattern markers (avoidance, hyperfocus, guilt) flagged from chat/block metadata and note-derived insights — implemented for current save paths and dashboard reads
 
 ### Phase 4 — Polish
-9. Proactive messages (AI initiates observations) — legacy v1 path exists; v2 time-block version pending
+9. Proactive messages (AI initiates observations) — legacy v1 path exists; notes/time-block version pending
 
 ---
 
