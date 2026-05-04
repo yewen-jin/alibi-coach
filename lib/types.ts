@@ -76,6 +76,25 @@ export interface SaveBlockInput {
   notes?: string | null
 }
 
+export interface DeleteBlockInput {
+  id: string
+}
+
+export interface GetCalendarDataInput {
+  start: string
+  end: string
+}
+
+export type GetActiveTimerResult =
+  | {
+      type: "loaded"
+      activeTimer: ActiveTimer | null
+    }
+  | {
+      type: "error"
+      message: string
+    }
+
 export type StartTimerResult =
   | {
       type: "started"
@@ -111,6 +130,29 @@ export type SaveBlockResult =
     }
   | {
       type: "not_found"
+    }
+  | {
+      type: "error"
+      message: string
+    }
+
+export type DeleteBlockResult =
+  | {
+      type: "deleted"
+      id: string
+    }
+  | {
+      type: "not_found"
+    }
+  | {
+      type: "error"
+      message: string
+    }
+
+export type GetCalendarDataResult =
+  | {
+      type: "loaded"
+      timeBlocks: TimeBlock[]
     }
   | {
       type: "error"
