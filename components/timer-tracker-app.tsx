@@ -726,7 +726,7 @@ function CoachChatPanel({
             <div
               key={message.id}
               className={cn(
-                "max-w-[88%] break-words rounded-2xl px-3 py-2 text-sm font-semibold leading-6 shadow-sm",
+                "max-w-[88%] wrap-break-words rounded-2xl px-3 py-2 text-sm font-semibold leading-6 shadow-sm",
                 message.role === "user"
                   ? "ml-auto bg-alibi-blue text-white"
                   : "mr-auto bg-white/85 text-alibi-ink",
@@ -971,7 +971,7 @@ function DailyBlocks({
   pending: boolean;
 }) {
   return (
-    <section className="alibi-card min-h-[520px] p-5">
+    <section className="alibi-card min-h-130 p-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <p className="font-mono text-xs font-black uppercase tracking-[0.12em] text-alibi-teal">
@@ -1040,11 +1040,11 @@ function DailyBlocks({
                         {category.label}
                       </span>
                     </div>
-                    <h3 className="mt-2 break-words text-base font-black text-alibi-ink">
+                    <h3 className="mt-2 wrap-break-words text-base font-black text-alibi-ink">
                       {block.task_name || "unnamed time block"}
                     </h3>
                     {block.notes && (
-                      <p className="mt-1 break-words text-sm font-medium leading-6 text-alibi-teal">
+                      <p className="mt-1 wrap-break-words text-sm font-medium leading-6 text-alibi-teal">
                         {block.notes}
                       </p>
                     )}
