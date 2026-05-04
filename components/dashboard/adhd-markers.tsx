@@ -1,6 +1,6 @@
 "use client"
 
-import type { TimeBlock } from "@/lib/types"
+import type { TimeBlock, TimeBlockInsight } from "@/lib/types"
 import {
   aggregateMarkers,
   aggregateEffort,
@@ -9,6 +9,7 @@ import {
 
 interface AdhdMarkersProps {
   blocks: TimeBlock[]
+  insights?: TimeBlockInsight[]
 }
 
 const MARKER_COLORS: Record<string, string> = {
@@ -32,12 +33,40 @@ const SATISFACTION_COLORS: Record<string, string> = {
   unclear: "#3253C7",
 }
 
-export function AdhdMarkers({ blocks }: AdhdMarkersProps) {
+export function AdhdMarkers({ blocks, insights = [] }: AdhdMarkersProps) {
   const markers = aggregateMarkers(blocks)
+  const blockIdsByMarker = {
+    avoidance: new Set(blocks.filter((block) => block.avoidance_marker).map((block) => block.id)),
+    hyperfocus: new Set(blocks.filter((block) => block.hyperfocus_marker).map((block) => block.id)),
+    guilt: new Set(blocks.filter((block) => block.guilt_marker).map((block) => block.id)),
+    novelty: new Set(blocks.filter((block) => block.novelty_marker).map((block) => block.id)),
+  }
+
+  for (const insight of insights) {
+    if (insight.avoidance_signals.length > 0) {
+      blockIdsByMarker.avoidance.add(insight.time_block_id)
+    }
+    if (insight.hyperfocus_signals.length > 0) {
+      blockIdsByMarker.hyperfocus.add(insight.time_block_id)
+    }
+    if (insight.emotional_tone === "self-critical" || insight.uncertainty_signals.length > 0) {
+      blockIdsByMarker.guilt.add(insight.time_block_id)
+    }
+  }
+
+  const totalBlocks = blocks.length
+  const mergedMarkers = markers.map((marker) => {
+    const count = blockIdsByMarker[marker.key].size
+    return {
+      ...marker,
+      count,
+      pct: totalBlocks > 0 ? Math.round((count / totalBlocks) * 100) : 0,
+    }
+  })
   const effort = aggregateEffort(blocks)
   const satisfaction = aggregateSatisfaction(blocks)
 
-  const hasAnyMarkers = markers.some((m) => m.count > 0)
+  const hasAnyMarkers = mergedMarkers.some((m) => m.count > 0)
   const hasEffortData = effort.some((e) => e.count > 0)
   const hasSatisfactionData = satisfaction.some((s) => s.count > 0)
 
@@ -54,7 +83,7 @@ export function AdhdMarkers({ blocks }: AdhdMarkersProps) {
 
       {/* Markers Grid */}
       <div className="grid grid-cols-2 gap-3 px-5">
-        {markers.map((m) => (
+        {mergedMarkers.map((m) => (
           <div
             key={m.key}
             className="rounded-2xl p-3"

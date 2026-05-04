@@ -2,13 +2,14 @@ import Link from "next/link"
 import { redirect } from "next/navigation"
 import { ArrowRight } from "lucide-react"
 import { createClient } from "@/lib/supabase/server"
-import type { TimeBlock } from "@/lib/types"
+import type { TimeBlock, TimeBlockInsight } from "@/lib/types"
 import { TopNav } from "@/components/top-nav"
 import { CalendarView } from "@/components/dashboard/calendar-view"
 import { RhythmChart } from "@/components/dashboard/rhythm-chart"
 import { ProjectDistribution } from "@/components/dashboard/project-distribution"
 import { StatsOverview } from "@/components/dashboard/stats-overview"
 import { AdhdMarkers } from "@/components/dashboard/adhd-markers"
+import { NotesMirror } from "@/components/dashboard/notes-mirror"
 
 export default async function DashboardPage() {
   const supabase = await createClient()
@@ -27,6 +28,15 @@ export default async function DashboardPage() {
     .order("started_at", { ascending: false })
 
   const safeBlocks = (timeBlocks ?? []) as TimeBlock[]
+  const blockIds = safeBlocks.map((block) => block.id)
+  const { data: insights } = blockIds.length
+    ? await supabase
+        .from("time_block_insights")
+        .select("*")
+        .eq("user_id", user.id)
+        .in("time_block_id", blockIds)
+    : { data: [] }
+  const safeInsights = (insights ?? []) as TimeBlockInsight[]
 
   return (
     <main className="alibi-page relative w-full">
@@ -68,7 +78,8 @@ export default async function DashboardPage() {
         ) : (
           <div className="space-y-5">
             <StatsOverview blocks={safeBlocks} />
-            <AdhdMarkers blocks={safeBlocks} />
+            <NotesMirror blocks={safeBlocks} insights={safeInsights} />
+            <AdhdMarkers blocks={safeBlocks} insights={safeInsights} />
             <CalendarView blocks={safeBlocks} />
             <div className="grid gap-5 md:grid-cols-2">
               <RhythmChart blocks={safeBlocks} />

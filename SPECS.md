@@ -171,7 +171,7 @@ time_blocks (
                       'errands', 'care', 'creative', 'rest'
                     )),
   hashtags          TEXT[],                           -- e.g. {'cinecircle','coding'}
-  notes             TEXT,
+  notes             TEXT,                             -- human-authored source of truth: what happened, what got in the way, how it felt
 
   -- ADHD affect layer (v1 parity — can be filled manually or by AI)
   mood              TEXT CHECK (mood IN (
@@ -187,9 +187,54 @@ time_blocks (
   hyperfocus_marker BOOLEAN DEFAULT FALSE,
   guilt_marker      BOOLEAN DEFAULT FALSE,
   novelty_marker    BOOLEAN DEFAULT FALSE,
+  agent_metadata    JSONB DEFAULT '{}',               -- derived context only, never a replacement for notes
 
   created_at        TIMESTAMPTZ DEFAULT NOW(),
   updated_at        TIMESTAMPTZ DEFAULT NOW()
+)
+```
+
+Notes are optional, but they are structurally important in v3. They are the first evidence source for insight work because they carry what really happened inside a dated block: actions, friction, feeling, context, changes, and what the user noticed. Category, hashtags, mood, effort, satisfaction, and markers are secondary metadata around that human-written note.
+
+### `time_block_note_versions`
+
+Preserves meaningful note edits so a user's changing interpretation of a block is not lost.
+
+```sql
+time_block_note_versions (
+  id                UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  time_block_id     UUID REFERENCES time_blocks(id) ON DELETE CASCADE,
+  user_id           UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+  previous_notes    TEXT,
+  new_notes         TEXT,
+  source            TEXT CHECK (source IN ('manual','chat','agent')),
+  created_at        TIMESTAMPTZ DEFAULT NOW()
+)
+```
+
+### `time_block_insights`
+
+Stores derived interpretations from notes. Raw notes remain the source of truth.
+
+```sql
+time_block_insights (
+  id                    UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  time_block_id          UUID UNIQUE REFERENCES time_blocks(id) ON DELETE CASCADE,
+  user_id                UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+  source                 TEXT DEFAULT 'notes',
+  actions                TEXT[],
+  emotional_tone         TEXT,
+  friction_points        TEXT[],
+  avoidance_signals      TEXT[],
+  hyperfocus_signals     TEXT[],
+  satisfaction_signals   TEXT[],
+  uncertainty_signals    TEXT[],
+  people                 TEXT[],
+  projects               TEXT[],
+  themes                 TEXT[],
+  evidence_excerpt       TEXT,
+  model_version          TEXT,
+  created_at             TIMESTAMPTZ DEFAULT NOW()
 )
 ```
 

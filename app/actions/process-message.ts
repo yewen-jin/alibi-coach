@@ -3,6 +3,7 @@
 import { generateText, Output } from "ai"
 import { z } from "zod"
 import { aiModel } from "@/lib/ai"
+import { formatInsightForPrompt } from "@/lib/note-insights"
 import { createClient } from "@/lib/supabase/server"
 import { getCalendarData, saveBlock, startTimer, stopTimer } from "./timer"
 import type {
@@ -15,6 +16,7 @@ import type {
   SaveBlockInput,
   TimeBlock,
   TimeBlockCategory,
+  TimeBlockInsight,
 } from "@/lib/types"
 
 const CATEGORIES = [
@@ -401,8 +403,19 @@ function formatBlockForPrompt(block: TimeBlock) {
   const task = block.task_name ?? "unnamed block"
   const category = block.category ? block.category.replace("_", " ") : "uncategorized"
   const tags = block.hashtags?.length ? ` #${block.hashtags.join(" #")}` : ""
+  const notes = block.notes ? `\n  note: ${block.notes}` : ""
+  const metadata = [
+    block.mood ? `mood=${block.mood}` : "",
+    block.effort_level ? `effort=${block.effort_level}` : "",
+    block.satisfaction ? `satisfaction=${block.satisfaction}` : "",
+    block.avoidance_marker ? "avoidance_marker=true" : "",
+    block.hyperfocus_marker ? "hyperfocus_marker=true" : "",
+    block.guilt_marker ? "guilt_marker=true" : "",
+    block.novelty_marker ? "novelty_marker=true" : "",
+  ].filter(Boolean)
+  const meta = metadata.length ? `\n  metadata: ${metadata.join(", ")}` : ""
 
-  return `- ${startedAt}: ${task} (${category}, ${duration})${tags}`
+  return `- ${startedAt}: ${task} (${category}, ${duration})${tags}${notes}${meta}`
 }
 
 function formatMessageForPrompt(message: CoachMessage) {
@@ -433,6 +446,28 @@ async function fetchCoachMessagesForUser(supabase: Supabase, userId: string) {
   }
 
   return { type: "loaded" as const, messages: (data ?? []) as CoachMessage[] }
+}
+
+async function fetchNoteInsightsForBlocks(
+  supabase: Supabase,
+  userId: string,
+  blockIds: string[],
+) {
+  if (blockIds.length === 0) {
+    return [] as TimeBlockInsight[]
+  }
+
+  const { data, error } = await supabase
+    .from("time_block_insights")
+    .select("*")
+    .eq("user_id", userId)
+    .in("time_block_id", blockIds)
+
+  if (error) {
+    return [] as TimeBlockInsight[]
+  }
+
+  return (data ?? []) as TimeBlockInsight[]
 }
 
 async function insertCoachMessage(
@@ -654,8 +689,32 @@ async function analyseBlocks(
   }
 
   const blocks = result.timeBlocks
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  const blockIds = blocks.map((block) => block.id)
+  const [noteInsights, linkedMessagesResult] = user
+    ? await Promise.all([
+        fetchNoteInsightsForBlocks(supabase, user.id, blockIds),
+        fetchCoachMessagesForUser(supabase, user.id),
+      ])
+    : [[], { type: "loaded" as const, messages: [] }]
+  const insightsByBlock = new Map(noteInsights.map((insight) => [insight.time_block_id, insight]))
+  const linkedMessages =
+    linkedMessagesResult.type === "loaded"
+      ? linkedMessagesResult.messages.filter(
+          (chat) => chat.related_time_block_id && blockIds.includes(chat.related_time_block_id),
+        )
+      : []
   const context = blocks.length
-    ? blocks.map(formatBlockForPrompt).join("\n")
+    ? blocks
+        .map((block) => {
+          const insight = insightsByBlock.get(block.id)
+          const derived = insight ? `\n  note-derived insight: ${formatInsightForPrompt(insight)}` : ""
+          return `${formatBlockForPrompt(block)}${derived}`
+        })
+        .join("\n")
     : "(no time blocks saved today)"
 
   try {
@@ -663,7 +722,10 @@ async function analyseBlocks(
       model: aiModel,
       system: [
         "You are Alibi: the friend who remembers the user's day so they don't have to defend it to themselves.",
-        "Answer using ONLY the provided time_blocks context.",
+        "Answer using ONLY the provided context.",
+        "Use evidence in this order: time block notes, time block metadata, note-derived insights, linked chat, then recent general chat.",
+        "When describing a pattern, cite the note/time evidence that supports it.",
+        "General chat can add tone or continuity, but it must not override a time block note unless the user explicitly says the block record is wrong.",
         "Be warm, specific, lowercase, and under 90 words.",
         "Do not mention entries. Do not invent unsaved work. Do not give productivity advice.",
       ].join("\n"),
@@ -675,6 +737,9 @@ async function analyseBlocks(
         "",
         "Saved time_blocks in range:",
         context,
+        "",
+        "Linked chat messages for those blocks:",
+        linkedMessages.length ? linkedMessages.map(formatMessageForPrompt).join("\n") : "(none)",
       ].join("\n"),
     })
 
@@ -706,6 +771,7 @@ async function coachChat(message: string, recentMessages: CoachMessage[]) {
         "Do not ask for exact time or duration unless the user is clearly trying to log completed work.",
         "If the user is vague, respond conversationally first; you may ask one gentle open question.",
         "Use saved time_blocks only as context, not as a script.",
+        "If you refer to saved evidence, treat block notes as the strongest source and chat history as secondary context.",
         "Be warm, grounded, lowercase, and under 70 words.",
         "No productivity lectures, no toxic positivity, no exclamation marks.",
       ].join("\n"),
@@ -840,6 +906,7 @@ export async function processCoachMessage(
       hyperfocus_marker: mergedDraft.hyperfocus_marker,
       guilt_marker: mergedDraft.guilt_marker,
       novelty_marker: mergedDraft.novelty_marker,
+      note_source: "chat",
     })
 
     if (result.type === "stopped") {
@@ -936,7 +1003,10 @@ export async function processCoachMessage(
     )
   }
 
-  const result = await saveBlock(draftToSaveInput(mergedDraft, window, category))
+  const result = await saveBlock({
+    ...draftToSaveInput(mergedDraft, window, category),
+    note_source: "chat",
+  })
 
   if (result.type === "saved") {
     await resolvePendingDraft(supabase, user.id)

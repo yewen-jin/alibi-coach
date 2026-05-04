@@ -2,134 +2,139 @@
 
   ## Summary
 
-  V3 should make Alibi more than a timer/chat logger: it should become an ADHD-informed evidence system that captures provenance, preserves user language, interprets affect patterns,
-  and reflects those patterns back gently. The end goal is: every block has enough context to support self-monitoring, reward scaffolding, CBT-style reframing, and long-term
-  narrative continuity.
+  V3 should treat time_blocks.notes as the primary insight source, because notes are where the user records what really happened: actions, friction, feelings, context, and self-
+  perception. Chat history should be the secondary source: useful for emotional state, clarification, and conversational continuity, but less directly tied to a specific time window
+  unless linked to a block.
 
-  V3 should be built through audited migrations and app changes, not direct unsupervised database mutation.
+  The end goal: Alibi learns from dated, timed notes first; then uses chat history to understand tone, recurring concerns, and unresolved narratives.
 
-  ## Phase 0 — Stabilize V2 Baseline
+  ## Core Principle
 
-  - Confirm current V2 flows still work: timer start/stop/resume, manual add block, chat logging, clarification drafts, dashboard read paths.
-  - Update SPECS.md from “v2” to a new “v3 planning” section while preserving the current v2 contract.
-  - Clean stale docs that still reference v1 entries, project, or receipt-first behavior.
-  - Acceptance: npm run build passes and PROJECT/SPECS clearly say what v2 does today.
+  Insights should be extracted from sources in this order:
 
-  ## Phase 1 — Add Provenance To Blocks
+  1. Time block notes
+      - Highest value because they are tied to start time, end time, duration, category, date, hour, and context.
+  2. Time block metadata
+      - Category, hashtags, mood, effort, satisfaction, markers.
+  3. Chat history linked to blocks
+      - Clarifications, acknowledgments, user explanations around a saved block.
+  4. General chat history
+      - Useful for recurring emotional themes, but weaker as behavioral evidence.
 
-  - Add a migration that extends time_blocks with:
-      - source: timer | manual | chat | voice | migration
-      - raw_input: nullable text, preserving the exact user language when a chat/voice block creates the row
-      - input_mode: button | form | text | voice
-      - agent_metadata: jsonb default '{}'
-  - Update TypeScript TimeBlock and save/stop/chat inputs to pass provenance.
-  - Timer blocks use source = timer, manual blocks use manual, chat-created blocks use chat.
-  - Acceptance: all newly created blocks show correct source internally, existing rows remain valid.
+  ## Phase 1 — Make Notes Structurally Important
 
-  ## Phase 2 — Make Hidden Research Fields Visible
+  - Update product specs so notes are no longer described as optional afterthoughts.
+  - Reframe notes as “what really happened”:
+      - what I did
+      - what got in the way
+      - how it felt
+      - what changed
+      - what I noticed
+  - Update block editor copy/placeholder to invite richer notes without forcing them.
+  - Keep notes optional, but make the UI clearly support reflection.
 
-  - Add dashboard panels for:
-      - mood distribution
-      - effort vs satisfaction
-      - high-effort / low-satisfaction blocks
-      - satisfying low-friction wins
-  - Add small block-level badges for mood, effort, satisfaction, and ADHD markers where present.
-  - Keep language non-judgmental: no scores, no grading, no “productive/unproductive.”
-  - Acceptance: mood, effort, satisfaction, and markers are visible and understandable without feeling like performance metrics.
+  ## Phase 2 — Preserve Note History
 
-  ## Phase 3 — Improve Chat Reframing With Evidence
+  - Add a new table: time_block_note_versions.
+  - Store every meaningful note edit with:
+      - time_block_id
+      - user_id
+      - previous_notes
+      - new_notes
+      - created_at
+      - source: manual | chat | agent
+  - This matters because changing notes over time is itself useful: the user’s interpretation of the block may evolve.
+  - Acceptance: editing a note preserves the prior version instead of losing it.
 
-  - Update analyseBlocks / processCoachMessage so check-ins use:
-      - task names
-      - raw input when available
-      - effort markers
-      - avoidance markers
-      - hyperfocus markers
-      - guilt markers
-  - Add response rules:
-      - quote or paraphrase the user’s own words when useful
-      - explicitly counter “I did nothing” using saved blocks
-      - call out effort and avoidance without praise theater
-  - Acceptance: “i feel like i did nothing” produces a specific, evidence-led reflection using actual blocks and markers.
+  ## Phase 3 — Add Note-Derived Insight Extraction
 
-  ## Phase 4 — Theme And Narrative Layer
+  - Add an agent action that parses notes after save/update.
+  - Store extracted insight data in time_block_insights or time_blocks.agent_metadata.
+  - Extract:
+      - actions actually performed
+      - emotional tone
+      - friction points
+      - avoidance signals
+      - hyperfocus signals
+      - satisfaction/reward signals
+      - uncertainty or self-criticism
+      - people/projects/themes mentioned
+  - Keep original notes untouched; extracted data is derived, not replacement truth.
 
-  - Treat hashtags as lightweight themes/projects.
-  - Add aggregation for recurring hashtags and repeated task language.
-  - Surface gentle narrative observations:
-      - “you keep returning to cinecircle.”
-      - “admin shows up in short, hard blocks.”
-      - “your proud blocks often happen after avoided tasks.”
-  - Store generated observations in a new table:
-      - pattern_observations
-      - fields: user_id, kind, period_start, period_end, evidence jsonb, content, created_at, dismissed_at
-  - Acceptance: pattern observations cite the blocks or aggregates they came from.
+  ## Phase 4 — Connect Notes To Time Patterns
 
-  ## Phase 5 — V2 Proactive Messages Rewrite
+  - Build queries that combine note-derived insights with:
+      - hour of day
+      - weekday
+      - duration
+      - category
+      - hashtags
+      - mood/effort/satisfaction
+  - Examples:
+      - “notes after evening blocks mention exhaustion more often.”
+      - “deep work after 10am has more satisfaction language.”
+      - “admin blocks with avoidance language are usually short but high effort.”
+  - Acceptance: insights always cite the note/time evidence they came from.
 
-  - Replace legacy proactive_messages.entries_count_at_creation logic with time-block-aware cadence.
-  - New proactive triggers:
-      - enough new blocks since last observation
-      - meaningful marker pattern
-      - notable effort/satisfaction contrast
-      - recurring theme/hashtag
-  - Keep proactive messages quiet and rare.
-  - Acceptance: proactive messages are based only on time_blocks, not legacy entries.
+  ## Phase 5 — Chat As Secondary Context
 
-  ## Phase 6 — Agentic Schema Workflow
+  - Keep coach_messages as a separate insight source.
+  - Use chat history for:
+      - recurring emotional phrases
+      - questions the user keeps asking
+      - clarifications that created blocks
+      - narrative themes not captured in notes
+  - Link chat messages to blocks whenever possible through related_time_block_id.
+  - Do not let general chat override time-block evidence unless the user explicitly says the block record is wrong.
 
-  - Add a formal schema-change workflow for future agent-driven DB changes:
-      - agent reads schema/spec/types/actions
-      - agent proposes migration
-      - agent writes SQL migration file
-      - human reviews
-      - migration is applied manually or through CI
-      - app/types/docs are updated in the same change
-  - Add schema_decisions.md or a section in PROJECT.md recording why schema fields exist.
-  - Acceptance: no future schema change happens without a migration, rationale, rollback note, and verification step.
+  ## Phase 6 — Insight Retrieval For Coach Responses
 
-  ## Phase 7 — Optional V3.5 Voice Layer
+  - Update analysis/check-in prompts to retrieve:
+      - time blocks in range
+      - notes and note-derived insights
+      - relevant linked chat messages
+      - recent general chat only as background
+  - Coach responses should use the strongest evidence first:
+      - “in your note, you wrote…”
+      - “that block was 90 minutes, and you marked it as grind.”
+      - “you’ve mentioned this same friction in three notes this week.”
+  - Acceptance: “what patterns do you see?” produces note-grounded observations, not generic summaries.
 
-  - Add voice input as another input mode, not a separate data model.
-  - Voice-created blocks use:
-      - source = voice
-      - input_mode = voice
-      - raw_input = transcript
-  - Chat clarification behavior remains the same.
-  - Acceptance: voice and text logs produce identical time_blocks shape.
+  ## Phase 7 — V3 Dashboard / Mirror
 
-  ## Database Migration Targets
+  - Add a “mirror” or “insights” panel based primarily on notes.
+  - Surface gentle observations:
+      - recurring friction
+      - recurring energy windows
+      - themes that feel satisfying
+      - tasks that carry guilt language
+      - times of day where notes skew proud/flat/anxious
+  - Every observation includes a small evidence trail: date, block, note excerpt, or linked chat.
+  - No scores, no rankings, no productivity judgment.
 
-  - Keep existing v2 tables:
-      - time_blocks
-      - active_timer
-      - coach_messages
-      - coach_drafts
-  - Extend time_blocks; do not replace it.
-  - Add only one new table in core v3: pattern_observations.
-  - Leave legacy entries read-only/legacy unless a separate migration plan explicitly migrates or removes it.
+  ## Schema Additions
+
+  - time_block_note_versions
+      - preserves note history.
+  - time_block_insights
+      - stores extracted structured interpretations from notes.
+  - Optional pattern_observations
+      - stores higher-level longitudinal observations generated from many blocks.
+
+  Keep time_blocks.notes as the human-authored source of truth.
 
   ## Test Plan
 
-  - Build: npm run build.
-  - Migration dry check: SQL file applies cleanly to a Supabase-compatible database.
-  - Existing flow regression:
-      - timer start/stop/resume
-      - manual add block
-      - chat log with clarification
-      - chat check-in
-      - dashboard load
-  - New behavior checks:
-      - block provenance is set correctly
-      - raw chat input is preserved
-      - mood/effort/satisfaction render in dashboard
-      - check-in responses use markers and raw input
-      - pattern observations include evidence
-      - proactive messages no longer depend on legacy entries.
+  - Save a block with notes; insight extraction runs or queues.
+  - Edit notes; prior note version is preserved.
+  - Ask “what patterns do you see?”; response cites note-derived evidence.
+  - Ask “why do I keep avoiding admin?”; response combines notes, categories, time, and markers.
+  - Dashboard shows note-derived themes without overwriting raw notes.
+  - Chat history contributes only when relevant or linked to blocks.
 
   ## Assumptions
 
-  - V3 should evolve the current time_blocks model, not replace it.
-  - Agent-driven database changes must produce reviewed migration files, not run arbitrary SQL directly.
-  - The product should remain a witness/evidence tool, not a productivity coach.
-  - The highest-value next move is provenance plus interpretation of existing affect/marker fields.
+  - Notes should remain optional, but v3 should encourage richer use.
+  - Human-written notes are more trustworthy than AI-derived labels.
+  - Chat is important context, but time-bound notes are the primary insight source.
+  - Agent extraction should be auditable and reversible; raw notes must never be overwritten.
