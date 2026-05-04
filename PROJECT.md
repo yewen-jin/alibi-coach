@@ -23,6 +23,7 @@ Server action status from the v2 architecture:
 | --- | --- |
 | `getActiveTimer` | Implemented in `app/actions/timer.ts`; loads the current user's `active_timer` row so the Phase 1 timer UI can hydrate after refresh/navigation. |
 | `startTimer` | Implemented in `app/actions/timer.ts`; creates the current user's `active_timer` row and preserves an already-running timer. |
+| `resumeBlock` | Implemented in `app/actions/timer.ts`; reopens the latest completed block into `active_timer` from its original start time while preserving block metadata. |
 | `stopTimer` | Implemented in `app/actions/timer.ts`; moves the current user's `active_timer` into `time_blocks` and clears the active timer. Stopped blocks intentionally have no metadata until the block editor exists. |
 | `saveBlock` | Implemented in `app/actions/timer.ts`; creates manual/backdated blocks and saves post-stop metadata edits for user-owned `time_blocks`. |
 | `deleteBlock` | Implemented in `app/actions/timer.ts`; deletes user-owned `time_blocks` rows and returns `not_found` for missing or non-owned blocks. |
@@ -34,8 +35,8 @@ Database setup: v2 tables are installed in Supabase and verified through REST sc
 Where we are now:
 
 - **Database foundation:** complete for Phase 1 readiness. `active_timer` and `time_blocks` exist in Supabase with the v2 shape; app-data wipe/fresh-start status has not been independently verified from the repo because RLS hides user-owned rows from the anon key.
-- **Server foundation:** complete for Phase 1 plus first chat-agent pass. Active timer hydration, timer start/stop, block save/update/delete, chat-controlled writes, clarification gating, and calendar range reads exist for `time_blocks`.
-- **UI foundation:** partially complete for v2. `/app` now renders a persistent timer control, post-stop block editor, chat panel, and simple daily time-block list backed by the same server actions.
+- **Server foundation:** complete for Phase 1 plus first chat-agent pass. Active timer hydration, timer start/stop/resume, block save/update/delete, chat-controlled writes, clarification gating, and calendar range reads exist for `time_blocks`.
+- **UI foundation:** partially complete for v2. `/app` now renders a persistent timer control, post-stop block editor, latest-block resume button, chat panel, and simple daily time-block list backed by the same server actions.
 - **Chat progress:** implemented as a secondary input surface. It can start a timer, stop a timer into `time_blocks`, log completed blocks with extracted metadata, ask for missing timing before writes, and answer from saved blocks. New chat writes no longer go to `entries`.
 - **Verification:** `npm run build` passes after the chat reintroduction. Live Supabase/OpenRouter flows still need browser QA with an authenticated user.
 - **Next implementation step:** run live chat smoke tests, then broaden the calendar experience beyond today's list and add manual block creation/backdating polish.
@@ -154,8 +155,10 @@ middleware.ts                  # session refresh + protected routes
 1. **Open `/app`.** Calm timer-first interface, today's blocks visible.
 2. **Tap start.** One `active_timer` row is created.
 3. **Type:** *"stop timer, socket bug, coding"* → one `time_blocks` row is created and appears in today's list.
-4. **Type:** *"worked on gallery meeting from 2 to 2:45, social"* → another completed `time_blocks` row appears.
-5. **Type:** *"i feel like i did nothing today"* → chat reflects the saved `time_blocks` back with specifics.
+4. **Tap resume on the latest block.** That block reopens from its original start time, keeps its metadata, and disappears from the completed list while running.
+5. **Tap stop.** The same `time_blocks` row is completed again with the extended end time.
+6. **Type:** *"worked on gallery meeting from 2 to 2:45, social"* → another completed `time_blocks` row appears.
+7. **Type:** *"i feel like i did nothing today"* → chat reflects the saved `time_blocks` back with specifics.
 
 That's the core demo. No accounts step, no settings, no scores.
 

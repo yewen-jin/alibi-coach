@@ -9,6 +9,8 @@ import type {
   GetActiveTimerResult,
   GetCalendarDataInput,
   GetCalendarDataResult,
+  ResumeBlockInput,
+  ResumeBlockResult,
   SaveBlockInput,
   SaveBlockResult,
   StopTimerInput,
@@ -277,6 +279,31 @@ function validateDeleteBlockInput(input: unknown):
   }
 }
 
+function validateResumeBlockInput(input: unknown):
+  | {
+      type: "valid"
+      id: string
+    }
+  | {
+      type: "error"
+      message: string
+    } {
+  if (!input || typeof input !== "object") {
+    return { type: "error", message: "time block id is required." }
+  }
+
+  const details = input as Partial<ResumeBlockInput>
+
+  if (typeof details.id !== "string" || !details.id.trim()) {
+    return { type: "error", message: "time block id is required." }
+  }
+
+  return {
+    type: "valid",
+    id: details.id.trim(),
+  }
+}
+
 function validateGetCalendarDataInput(input: unknown):
   | {
       type: "valid"
@@ -409,6 +436,133 @@ export async function startTimer(): Promise<StartTimerResult> {
 }
 
 /**
+ * Reopen a completed block as the active timer, preserving its original start
+ * time and metadata.
+ */
+export async function resumeBlock(input: ResumeBlockInput): Promise<ResumeBlockResult> {
+  const validated = validateResumeBlockInput(input)
+
+  if (validated.type === "error") {
+    return validated
+  }
+
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  if (!user) {
+    return { type: "error", message: "not signed in." }
+  }
+
+  const { data: existingTimer, error: existingError } = await supabase
+    .from("active_timer")
+    .select("*")
+    .eq("user_id", user.id)
+    .maybeSingle()
+
+  if (existingError) {
+    return { type: "error", message: "couldn't check the timer. try again." }
+  }
+
+  if (existingTimer) {
+    return {
+      type: "already_running",
+      activeTimer: existingTimer as ActiveTimer,
+    }
+  }
+
+  const { data: block, error: blockError } = await supabase
+    .from("time_blocks")
+    .select("*")
+    .eq("id", validated.id)
+    .eq("user_id", user.id)
+    .maybeSingle()
+
+  if (blockError) {
+    return { type: "error", message: "couldn't load the time block. try again." }
+  }
+
+  if (!block) {
+    return { type: "not_found" }
+  }
+
+  const timeBlock = block as TimeBlock
+
+  if (!timeBlock.ended_at) {
+    return { type: "error", message: "that block is already running." }
+  }
+
+  const startedAt = new Date(timeBlock.started_at)
+
+  if (Number.isNaN(startedAt.getTime()) || startedAt.getTime() >= Date.now()) {
+    return { type: "error", message: "time block has an invalid start time." }
+  }
+
+  const { data: activeTimer, error: insertError } = await supabase
+    .from("active_timer")
+    .insert({
+      user_id: user.id,
+      started_at: timeBlock.started_at,
+    })
+    .select("*")
+    .single()
+
+  if (insertError || !activeTimer) {
+    if (insertError?.code === "23505") {
+      const { data: timerAfterRace } = await supabase
+        .from("active_timer")
+        .select("*")
+        .eq("user_id", user.id)
+        .single()
+
+      if (timerAfterRace) {
+        return {
+          type: "already_running",
+          activeTimer: timerAfterRace as ActiveTimer,
+        }
+      }
+    }
+
+    return { type: "error", message: "couldn't resume the time block. try again." }
+  }
+
+  const { data: reopenedBlock, error: updateError } = await supabase
+    .from("time_blocks")
+    .update({
+      ended_at: null,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", timeBlock.id)
+    .eq("user_id", user.id)
+    .not("ended_at", "is", null)
+    .select("id")
+    .maybeSingle()
+
+  if (updateError || !reopenedBlock) {
+    await supabase
+      .from("active_timer")
+      .delete()
+      .eq("user_id", user.id)
+      .eq("started_at", timeBlock.started_at)
+
+    if (!reopenedBlock) {
+      return { type: "not_found" }
+    }
+
+    return { type: "error", message: "couldn't reopen the time block. try again." }
+  }
+
+  revalidatePath("/app")
+  revalidatePath("/app/dashboard")
+
+  return {
+    type: "resumed",
+    activeTimer: activeTimer as ActiveTimer,
+  }
+}
+
+/**
  * Stop the current user's timer and save the elapsed time as a time block.
  */
 export async function stopTimer(input?: StopTimerInput): Promise<StopTimerResult> {
@@ -448,29 +602,80 @@ export async function stopTimer(input?: StopTimerInput): Promise<StopTimerResult
     return { type: "error", message: "timer has an invalid start time." }
   }
 
-  const { data: timeBlock, error: insertError } = await supabase
+  const { data: openBlock, error: openBlockError } = await supabase
     .from("time_blocks")
-    .insert({
-      user_id: user.id,
-      started_at: activeTimer.started_at,
-      ended_at: endedAt.toISOString(),
-      task_name: validatedInput.taskName,
-      category: validatedInput.category,
-      hashtags: validatedInput.hashtags,
-      notes: validatedInput.notes,
-      mood: validatedInput.mood,
-      effort_level: validatedInput.effortLevel,
-      satisfaction: validatedInput.satisfaction,
-      avoidance_marker: validatedInput.avoidanceMarker,
-      hyperfocus_marker: validatedInput.hyperfocusMarker,
-      guilt_marker: validatedInput.guiltMarker,
-      novelty_marker: validatedInput.noveltyMarker,
-    })
     .select("*")
-    .single()
+    .eq("user_id", user.id)
+    .eq("started_at", activeTimer.started_at)
+    .is("ended_at", null)
+    .maybeSingle()
 
-  if (insertError || !timeBlock) {
-    return { type: "error", message: "couldn't save the time block. try again." }
+  if (openBlockError) {
+    return { type: "error", message: "couldn't check the running block. try again." }
+  }
+
+  let timeBlock: TimeBlock
+
+  if (openBlock) {
+    const updateValues: Record<string, unknown> = {
+      ended_at: endedAt.toISOString(),
+      updated_at: new Date().toISOString(),
+    }
+
+    if (input !== undefined) {
+      updateValues.task_name = validatedInput.taskName
+      updateValues.category = validatedInput.category
+      updateValues.hashtags = validatedInput.hashtags
+      updateValues.notes = validatedInput.notes
+      updateValues.mood = validatedInput.mood
+      updateValues.effort_level = validatedInput.effortLevel
+      updateValues.satisfaction = validatedInput.satisfaction
+      updateValues.avoidance_marker = validatedInput.avoidanceMarker
+      updateValues.hyperfocus_marker = validatedInput.hyperfocusMarker
+      updateValues.guilt_marker = validatedInput.guiltMarker
+      updateValues.novelty_marker = validatedInput.noveltyMarker
+    }
+
+    const { data: updatedBlock, error: updateError } = await supabase
+      .from("time_blocks")
+      .update(updateValues)
+      .eq("id", (openBlock as TimeBlock).id)
+      .eq("user_id", user.id)
+      .select("*")
+      .single()
+
+    if (updateError || !updatedBlock) {
+      return { type: "error", message: "couldn't save the time block. try again." }
+    }
+
+    timeBlock = updatedBlock as TimeBlock
+  } else {
+    const { data: insertedBlock, error: insertError } = await supabase
+      .from("time_blocks")
+      .insert({
+        user_id: user.id,
+        started_at: activeTimer.started_at,
+        ended_at: endedAt.toISOString(),
+        task_name: validatedInput.taskName,
+        category: validatedInput.category,
+        hashtags: validatedInput.hashtags,
+        notes: validatedInput.notes,
+        mood: validatedInput.mood,
+        effort_level: validatedInput.effortLevel,
+        satisfaction: validatedInput.satisfaction,
+        avoidance_marker: validatedInput.avoidanceMarker,
+        hyperfocus_marker: validatedInput.hyperfocusMarker,
+        guilt_marker: validatedInput.guiltMarker,
+        novelty_marker: validatedInput.noveltyMarker,
+      })
+      .select("*")
+      .single()
+
+    if (insertError || !insertedBlock) {
+      return { type: "error", message: "couldn't save the time block. try again." }
+    }
+
+    timeBlock = insertedBlock as TimeBlock
   }
 
   const { error: deleteError } = await supabase
@@ -483,7 +688,7 @@ export async function stopTimer(input?: StopTimerInput): Promise<StopTimerResult
     return {
       type: "error",
       message: "time block saved, but couldn't clear the active timer.",
-      timeBlock: timeBlock as TimeBlock,
+      timeBlock,
     }
   }
 
@@ -492,7 +697,7 @@ export async function stopTimer(input?: StopTimerInput): Promise<StopTimerResult
 
   return {
     type: "stopped",
-    timeBlock: timeBlock as TimeBlock,
+    timeBlock,
   }
 }
 

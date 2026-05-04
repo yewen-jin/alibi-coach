@@ -9,6 +9,7 @@ import {
   Pencil,
   Play,
   RefreshCw,
+  RotateCcw,
   Send,
   Square,
   Trash2,
@@ -19,6 +20,7 @@ import {
   deleteBlock,
   getActiveTimer,
   getCalendarData,
+  resumeBlock,
   saveBlock,
   startTimer,
   stopTimer,
@@ -372,6 +374,23 @@ export function TimerTrackerApp({ userEmail }: TimerTrackerAppProps) {
     })
   }
 
+  const handleResume = (block: TimeBlock) => {
+    setError(null)
+    setEditor(null)
+    startTransition(async () => {
+      const result = await resumeBlock({ id: block.id })
+
+      if (result.type === "resumed" || result.type === "already_running") {
+        setActiveTimer(result.activeTimer)
+        setNow(Date.now())
+        await refreshBlocks()
+        return
+      }
+
+      setError(result.type === "not_found" ? "time block was not found." : result.message)
+    })
+  }
+
   const handleCoachMessage = useCallback(
     async (text: string) => {
       const trimmed = text.trim()
@@ -559,8 +578,10 @@ export function TimerTrackerApp({ userEmail }: TimerTrackerAppProps) {
             date={today.start}
             loading={loading}
             blocks={timeBlocks}
+            canResume={activeTimer === null}
             onEdit={(block) => setEditor(createEditorState(block))}
             onDelete={handleDelete}
+            onResume={handleResume}
             pending={isPending}
           />
         </section>
@@ -824,15 +845,19 @@ function DailyBlocks({
   date,
   loading,
   blocks,
+  canResume,
   onEdit,
   onDelete,
+  onResume,
   pending,
 }: {
   date: Date
   loading: boolean
   blocks: TimeBlock[]
+  canResume: boolean
   onEdit: (block: TimeBlock) => void
   onDelete: (block: TimeBlock) => void
+  onResume: (block: TimeBlock) => void
   pending: boolean
 }) {
   return (
@@ -864,8 +889,9 @@ function DailyBlocks({
           </div>
         ) : (
           <ol className="grid gap-3">
-            {blocks.map((block) => {
+            {blocks.map((block, index) => {
               const category = getCategoryMeta(block.category)
+              const isLatestBlock = index === blocks.length - 1
 
               return (
                 <li
@@ -913,6 +939,19 @@ function DailyBlocks({
                   </div>
 
                   <div className="flex items-start gap-1">
+                    {isLatestBlock && (
+                      <button
+                        type="button"
+                        onClick={() => onResume(block)}
+                        disabled={pending || !canResume}
+                        aria-label="resume latest block"
+                        title="resume"
+                        className="inline-flex h-9 items-center justify-center gap-1.5 rounded-2xl bg-alibi-teal px-3 text-xs font-black text-white shadow-[0_8px_18px_rgba(67,132,157,0.22)] transition hover:-translate-y-0.5 hover:bg-alibi-blue disabled:translate-y-0 disabled:opacity-55"
+                      >
+                        <RotateCcw className="h-3.5 w-3.5" />
+                        resume
+                      </button>
+                    )}
                     <button
                       type="button"
                       onClick={() => onEdit(block)}

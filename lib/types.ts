@@ -101,6 +101,10 @@ export interface DeleteBlockInput {
   id: string
 }
 
+export interface ResumeBlockInput {
+  id: string
+}
+
 export interface GetCalendarDataInput {
   start: string
   end: string
@@ -161,6 +165,23 @@ export type DeleteBlockResult =
   | {
       type: "deleted"
       id: string
+    }
+  | {
+      type: "not_found"
+    }
+  | {
+      type: "error"
+      message: string
+    }
+
+export type ResumeBlockResult =
+  | {
+      type: "resumed"
+      activeTimer: ActiveTimer
+    }
+  | {
+      type: "already_running"
+      activeTimer: ActiveTimer
     }
   | {
       type: "not_found"
