@@ -45,6 +45,7 @@
       - source: manual | chat | agent
   - This matters because changing notes over time is itself useful: the user’s interpretation of the block may evolve.
   - Acceptance: editing a note preserves the prior version instead of losing it.
+  - Current insight rows should point to the latest note version that produced them.
 
   ## Phase 3 — Add Note-Derived Insight Extraction
 
@@ -60,6 +61,8 @@
       - uncertainty or self-criticism
       - people/projects/themes mentioned
   - Keep original notes untouched; extracted data is derived, not replacement truth.
+  - If notes are edited, regenerate the current insight from the new note version.
+  - If a note is cleared, remove the current note-derived insight for that block.
 
   ## Phase 4 — Connect Notes To Time Patterns
 
@@ -112,6 +115,15 @@
   - Every observation includes a small evidence trail: date, block, note excerpt, or linked chat.
   - No scores, no rankings, no productivity judgment.
 
+  ## Phase 8 — Custom Categories
+
+  - Replace hardcoded-only categories with time_block_categories.
+  - Keep the original seven categories as defaults.
+  - Let users create categories while editing blocks or answering chat clarification.
+  - Store custom categories per user.
+  - Keep time_blocks.category as a readable slug during migration and add category_id for the new category record.
+  - Acceptance: a user can type a new category name, save the block, and see that category reused later.
+
   ## Schema Additions
 
   - time_block_note_versions
@@ -120,6 +132,8 @@
       - stores extracted structured interpretations from notes.
   - Optional pattern_observations
       - stores higher-level longitudinal observations generated from many blocks.
+  - time_block_categories
+      - stores default and user-owned categories.
 
   Keep time_blocks.notes as the human-authored source of truth.
 
@@ -131,6 +145,8 @@
   - Ask “why do I keep avoiding admin?”; response combines notes, categories, time, and markers.
   - Dashboard shows note-derived themes without overwriting raw notes.
   - Chat history contributes only when relevant or linked to blocks.
+  - Create a custom category in the editor and save a block with it.
+  - Give a new category name to chat during clarification and confirm the saved block uses it.
 
   ## Assumptions
 

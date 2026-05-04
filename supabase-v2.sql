@@ -15,10 +15,8 @@ create table if not exists public.time_blocks (
     end
   ) stored,
   task_name text,
-  category text check (
-    category is null
-    or category in ('deep_work', 'admin', 'social', 'errands', 'care', 'creative', 'rest')
-  ),
+  category text,
+  category_id uuid,
   hashtags text[] not null default '{}',
   notes text,
   mood text check (
@@ -46,7 +44,46 @@ create table if not exists public.time_blocks (
 );
 
 alter table public.time_blocks
-  add column if not exists agent_metadata jsonb not null default '{}';
+  add column if not exists agent_metadata jsonb not null default '{}',
+  add column if not exists category_id uuid;
+
+alter table public.time_blocks
+  drop constraint if exists time_blocks_category_check;
+
+create table if not exists public.time_block_categories (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid references auth.users(id) on delete cascade,
+  slug text not null check (slug ~ '^[a-z0-9][a-z0-9_-]{0,63}$'),
+  name text not null,
+  color text not null default '#43849D' check (color ~ '^#[0-9A-Fa-f]{6}$'),
+  is_default boolean not null default false,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create unique index if not exists time_block_categories_default_slug_idx
+  on public.time_block_categories (slug)
+  where user_id is null;
+
+create unique index if not exists time_block_categories_user_slug_idx
+  on public.time_block_categories (user_id, slug)
+  where user_id is not null;
+
+alter table public.time_blocks
+  drop constraint if exists time_blocks_category_id_fkey,
+  add constraint time_blocks_category_id_fkey
+    foreign key (category_id) references public.time_block_categories(id) on delete set null;
+
+insert into public.time_block_categories (slug, name, color, is_default)
+values
+  ('deep_work', 'deep work', '#3253C7', true),
+  ('admin', 'admin', '#93A5E4', true),
+  ('social', 'social', '#BF7DAD', true),
+  ('errands', 'errands', '#43849D', true),
+  ('care', 'care', '#BF7DAD', true),
+  ('creative', 'creative', '#3253C7', true),
+  ('rest', 'rest', '#43849D', true)
+on conflict do nothing;
 
 create table if not exists public.time_block_note_versions (
   id uuid primary key default gen_random_uuid(),
@@ -64,8 +101,10 @@ create table if not exists public.time_block_note_versions (
 create table if not exists public.time_block_insights (
   id uuid primary key default gen_random_uuid(),
   time_block_id uuid not null references public.time_blocks(id) on delete cascade,
+  note_version_id uuid references public.time_block_note_versions(id) on delete set null,
   user_id uuid not null references auth.users(id) on delete cascade,
   source text not null default 'notes' check (source in ('notes')),
+  source_notes text,
   actions text[] not null default '{}',
   emotional_tone text,
   friction_points text[] not null default '{}',
@@ -81,6 +120,10 @@ create table if not exists public.time_block_insights (
   created_at timestamptz not null default now(),
   unique (time_block_id)
 );
+
+alter table public.time_block_insights
+  add column if not exists note_version_id uuid references public.time_block_note_versions(id) on delete set null,
+  add column if not exists source_notes text;
 
 create table if not exists public.active_timer (
   user_id uuid primary key references auth.users(id) on delete cascade,
@@ -116,6 +159,9 @@ create index if not exists time_blocks_user_ended_at_idx
   on public.time_blocks (user_id, ended_at)
   where ended_at is not null;
 
+create index if not exists time_blocks_user_category_id_idx
+  on public.time_blocks (user_id, category_id);
+
 create index if not exists coach_messages_user_created_at_idx
   on public.coach_messages (user_id, created_at);
 
@@ -146,6 +192,7 @@ for each row
 execute function public.set_time_blocks_updated_at();
 
 alter table public.time_blocks enable row level security;
+alter table public.time_block_categories enable row level security;
 alter table public.active_timer enable row level security;
 alter table public.coach_messages enable row level security;
 alter table public.coach_drafts enable row level security;
@@ -176,6 +223,31 @@ create policy "Users can delete their own time blocks"
 on public.time_blocks
 for delete
 using (auth.uid() = user_id);
+
+drop policy if exists "Users can select default and own categories" on public.time_block_categories;
+create policy "Users can select default and own categories"
+on public.time_block_categories
+for select
+using (user_id is null or auth.uid() = user_id);
+
+drop policy if exists "Users can insert their own categories" on public.time_block_categories;
+create policy "Users can insert their own categories"
+on public.time_block_categories
+for insert
+with check (auth.uid() = user_id and is_default = false);
+
+drop policy if exists "Users can update their own categories" on public.time_block_categories;
+create policy "Users can update their own categories"
+on public.time_block_categories
+for update
+using (auth.uid() = user_id)
+with check (auth.uid() = user_id and is_default = false);
+
+drop policy if exists "Users can delete their own categories" on public.time_block_categories;
+create policy "Users can delete their own categories"
+on public.time_block_categories
+for delete
+using (auth.uid() = user_id and is_default = false);
 
 drop policy if exists "Users can select their own active timer" on public.active_timer;
 create policy "Users can select their own active timer"

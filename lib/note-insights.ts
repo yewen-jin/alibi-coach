@@ -1,6 +1,9 @@
 import type { TimeBlock, TimeBlockInsight } from "@/lib/types"
 
-type DerivedInsight = Omit<TimeBlockInsight, "id" | "time_block_id" | "user_id" | "created_at">
+type DerivedInsight = Omit<
+  TimeBlockInsight,
+  "id" | "time_block_id" | "note_version_id" | "user_id" | "source_notes" | "created_at"
+>
 
 const INSIGHT_MODEL_VERSION = "notes-first-heuristic-v1"
 

@@ -166,10 +166,8 @@ time_blocks (
 
   -- Block metadata
   task_name         TEXT,                             -- filled in after stopping
-  category          TEXT CHECK (category IN (
-                      'deep_work', 'admin', 'social',
-                      'errands', 'care', 'creative', 'rest'
-                    )),
+  category          TEXT,                             -- category slug; default or user-created
+  category_id       UUID REFERENCES time_block_categories(id) ON DELETE SET NULL,
   hashtags          TEXT[],                           -- e.g. {'cinecircle','coding'}
   notes             TEXT,                             -- human-authored source of truth: what happened, what got in the way, how it felt
 
@@ -189,6 +187,23 @@ time_blocks (
   novelty_marker    BOOLEAN DEFAULT FALSE,
   agent_metadata    JSONB DEFAULT '{}',               -- derived context only, never a replacement for notes
 
+  created_at        TIMESTAMPTZ DEFAULT NOW(),
+  updated_at        TIMESTAMPTZ DEFAULT NOW()
+)
+```
+
+### `time_block_categories` (v3)
+
+Default categories remain available, but users can create their own categories while editing or chatting.
+
+```sql
+time_block_categories (
+  id                UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id           UUID REFERENCES auth.users(id) ON DELETE CASCADE, -- NULL for defaults
+  slug              TEXT NOT NULL,
+  name              TEXT NOT NULL,
+  color             TEXT NOT NULL,
+  is_default        BOOLEAN DEFAULT FALSE,
   created_at        TIMESTAMPTZ DEFAULT NOW(),
   updated_at        TIMESTAMPTZ DEFAULT NOW()
 )
@@ -316,8 +331,9 @@ Current implementation status:
 | Timer persistence | Implemented through `active_timer`. |
 | Stop-to-block flow | Implemented; stopped timers create `time_blocks`. |
 | Block save/edit/delete | Implemented for user-owned `time_blocks`, including manual completed-block creation from `/app`. |
+| Custom categories | Implemented through `time_block_categories`; the editor and chat can create/use user-owned categories while keeping default categories. |
 | Note version preservation | Implemented in `saveBlock`/`stopTimer`; meaningful note edits write to `time_block_note_versions`. |
-| Note-derived insights | Implemented as a lightweight extraction pass into `time_block_insights`; raw notes remain untouched. |
+| Note-derived insights | Implemented as a lightweight extraction pass into `time_block_insights`; changing notes regenerates the current insight from the latest note version while raw notes remain untouched. |
 | Chat start/stop timer | Implemented through `processCoachMessage`. |
 | Chat completed-block logging | Implemented; writes to `time_blocks` only and never creates new legacy `entries`. |
 | Conversational coach chat | Implemented as a separate `coach_chat` path; ordinary conversation does not force block parsing. |
@@ -341,6 +357,7 @@ Manual block creation behavior:
 - New manual drafts default to start = 30 minutes before now, end = now.
 - Task, category, hashtags, and notes start blank.
 - Notes are optional, but the editor frames them as “what really happened” and invites actions, friction, feeling, changes, and noticed context.
+- Category is required, but users can type a new category name to create a user-owned category.
 - Save calls `saveBlock` without an `id`, creating one completed `time_blocks` row.
 - Task name, category, and valid start/end ordering use the same validation as regular block edits.
 - Saving notes also refreshes derived insight rows and preserves meaningful note changes.
@@ -353,7 +370,8 @@ Chat completed-block behavior:
 - Before saving, chat requires a usable time window or enough data to derive one from start/end/duration.
 - A duration-only completed log is treated as a block ending now.
 - Chat requires a task name before saving.
-- Chat uses an extracted category first, then a deterministic keyword inference when exactly one category matches.
+- Chat uses an extracted category first, then a deterministic keyword inference when exactly one default category matches.
+- If the user gives a new category name, chat creates that category for the user and saves the block with it.
 - If category is ambiguous or missing, chat stores the draft in `coach_drafts` and asks: "what category should i file it under?"
 
 ### Phase 2 — Calendar breadth

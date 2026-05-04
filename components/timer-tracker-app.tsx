@@ -27,6 +27,7 @@ import { processCoachMessage } from "@/app/actions/process-message";
 import {
   deleteBlock,
   getActiveTimer,
+  getCategories,
   getCalendarData,
   resumeBlock,
   saveBlock,
@@ -38,19 +39,20 @@ import type {
   CoachMessage,
   TimeBlock,
   TimeBlockCategory,
+  TimeBlockCategoryRecord,
 } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { TopNav } from "./top-nav";
 
-const CATEGORIES = [
-  { value: "deep_work", label: "deep work", color: "#3253C7" },
-  { value: "admin", label: "admin", color: "#93A5E4" },
-  { value: "social", label: "social", color: "#BF7DAD" },
-  { value: "errands", label: "errands", color: "#43849D" },
-  { value: "care", label: "care", color: "#BF7DAD" },
-  { value: "creative", label: "creative", color: "#3253C7" },
-  { value: "rest", label: "rest", color: "#43849D" },
-] satisfies Array<{ value: TimeBlockCategory; label: string; color: string }>;
+const FALLBACK_CATEGORIES = [
+  { id: "deep_work", user_id: null, slug: "deep_work", name: "deep work", color: "#3253C7", is_default: true, created_at: "", updated_at: "" },
+  { id: "admin", user_id: null, slug: "admin", name: "admin", color: "#93A5E4", is_default: true, created_at: "", updated_at: "" },
+  { id: "social", user_id: null, slug: "social", name: "social", color: "#BF7DAD", is_default: true, created_at: "", updated_at: "" },
+  { id: "errands", user_id: null, slug: "errands", name: "errands", color: "#43849D", is_default: true, created_at: "", updated_at: "" },
+  { id: "care", user_id: null, slug: "care", name: "care", color: "#BF7DAD", is_default: true, created_at: "", updated_at: "" },
+  { id: "creative", user_id: null, slug: "creative", name: "creative", color: "#3253C7", is_default: true, created_at: "", updated_at: "" },
+  { id: "rest", user_id: null, slug: "rest", name: "rest", color: "#43849D", is_default: true, created_at: "", updated_at: "" },
+] satisfies TimeBlockCategoryRecord[];
 
 type EditorState = {
   block?: TimeBlock;
@@ -227,12 +229,30 @@ function createManualEditorState(): EditorState {
   };
 }
 
-function getCategoryMeta(category: TimeBlockCategory | null) {
+function slugifyCategoryName(name: string) {
+  return name
+    .trim()
+    .toLowerCase()
+    .replace(/['"]/g, "")
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "")
+    .slice(0, 64);
+}
+
+function getCategoryMeta(
+  category: TimeBlockCategory | null,
+  categories: TimeBlockCategoryRecord[],
+) {
   return (
-    CATEGORIES.find((item) => item.value === category) ?? {
-      value: "admin" as TimeBlockCategory,
-      label: "uncategorized",
+    categories.find((item) => item.slug === category) ?? {
+      id: "uncategorized",
+      user_id: null,
+      slug: category ?? "uncategorized",
+      name: category ? category.replace(/_/g, " ") : "uncategorized",
       color: "#93A5E4",
+      is_default: false,
+      created_at: "",
+      updated_at: "",
     }
   );
 }
@@ -252,6 +272,7 @@ export function TimerTrackerApp({
 }: TimerTrackerAppProps) {
   const [activeTimer, setActiveTimer] = useState<ActiveTimer | null>(null);
   const [timeBlocks, setTimeBlocks] = useState<TimeBlock[]>([]);
+  const [categories, setCategories] = useState<TimeBlockCategoryRecord[]>(FALLBACK_CATEGORIES);
   const [editor, setEditor] = useState<EditorState | null>(null);
   const [now, setNow] = useState(() => Date.now());
   const [loading, setLoading] = useState(true);
@@ -272,9 +293,10 @@ export function TimerTrackerApp({
 
   const loadTracker = useCallback(async () => {
     setError(null);
-    const [timerResult, calendarResult] = await Promise.all([
+    const [timerResult, calendarResult, categoriesResult] = await Promise.all([
       getActiveTimer(),
       getCalendarData(today.input),
+      getCategories(),
     ]);
 
     if (timerResult.type === "loaded") {
@@ -287,6 +309,12 @@ export function TimerTrackerApp({
       setTimeBlocks(calendarResult.timeBlocks);
     } else {
       setError(calendarResult.message);
+    }
+
+    if (categoriesResult.type === "loaded") {
+      setCategories(categoriesResult.categories);
+    } else {
+      setError(categoriesResult.message);
     }
   }, [today.input]);
 
@@ -396,10 +424,24 @@ export function TimerTrackerApp({
         return;
       }
 
+      const typedCategory = editor.category.trim();
+      const matchedCategory = categories.find(
+        (category) =>
+          category.slug === typedCategory ||
+          category.name.toLowerCase() === typedCategory.toLowerCase(),
+      );
+      const categorySlug = matchedCategory?.slug ?? slugifyCategoryName(typedCategory);
+
+      if (!categorySlug) {
+        setError("category is invalid.");
+        return;
+      }
+
       const result = await saveBlock({
         id: editor.block?.id,
         task_name: editor.taskName,
-        category: editor.category,
+        category: categorySlug,
+        category_id: matchedCategory?.id ?? null,
         started_at: fromDateTimeLocal(editor.startedAt),
         ended_at: fromDateTimeLocal(editor.endedAt),
         hashtags: parseHashtags(editor.hashtags),
@@ -409,7 +451,14 @@ export function TimerTrackerApp({
 
       if (result.type === "saved") {
         setEditor(null);
-        await refreshBlocks();
+        await Promise.all([
+          refreshBlocks(),
+          getCategories().then((categoriesResult) => {
+            if (categoriesResult.type === "loaded") {
+              setCategories(categoriesResult.categories);
+            }
+          }),
+        ]);
         return;
       }
 
@@ -642,10 +691,11 @@ export function TimerTrackerApp({
             )}
 
             {editor && (
-              <BlockEditor
-                editor={editor}
-                setEditor={setEditor}
-                onSave={handleSave}
+            <BlockEditor
+              editor={editor}
+              categories={categories}
+              setEditor={setEditor}
+              onSave={handleSave}
                 onDelete={
                   editor.block ? () => handleDelete(editor.block!) : undefined
                 }
@@ -665,6 +715,7 @@ export function TimerTrackerApp({
             date={today.start}
             loading={loading}
             blocks={timeBlocks}
+            categories={categories}
             canResume={activeTimer === null}
             onAdd={() => setEditor(createManualEditorState())}
             onEdit={(block) => setEditor(createEditorState(block))}
@@ -790,12 +841,14 @@ function CoachChatPanel({
 
 function BlockEditor({
   editor,
+  categories,
   setEditor,
   onSave,
   onDelete,
   pending,
 }: {
   editor: EditorState;
+  categories: TimeBlockCategoryRecord[];
   setEditor: (editor: EditorState | null) => void;
   onSave: () => void;
   onDelete?: () => void;
@@ -842,23 +895,28 @@ function BlockEditor({
 
         <label className="grid gap-1.5 text-sm font-bold text-alibi-blue">
           category
-          <select
+          <input
+            list="time-block-categories"
             value={editor.category}
             onChange={(event) =>
               setEditor({
                 ...editor,
-                category: event.target.value as TimeBlockCategory | "",
+                category: event.target.value,
               })
             }
             className="alibi-input h-11"
-          >
-            <option value="">choose one</option>
-            {CATEGORIES.map((category) => (
-              <option key={category.value} value={category.value}>
-                {category.label}
+            placeholder="choose or add a category"
+          />
+          <datalist id="time-block-categories">
+            {categories.map((category) => (
+              <option key={category.id} value={category.slug}>
+                {category.name}
               </option>
             ))}
-          </select>
+          </datalist>
+          <span className="text-xs font-semibold leading-5 text-alibi-teal">
+            type a new name to create a category.
+          </span>
         </label>
 
         <div className="grid gap-4 sm:grid-cols-2">
@@ -955,6 +1013,7 @@ function DailyBlocks({
   date,
   loading,
   blocks,
+  categories,
   canResume,
   onAdd,
   onEdit,
@@ -965,6 +1024,7 @@ function DailyBlocks({
   date: Date;
   loading: boolean;
   blocks: TimeBlock[];
+  categories: TimeBlockCategoryRecord[];
   canResume: boolean;
   onAdd: () => void;
   onEdit: (block: TimeBlock) => void;
@@ -1012,7 +1072,7 @@ function DailyBlocks({
         ) : (
           <ol className="grid gap-3">
             {blocks.map((block, index) => {
-              const category = getCategoryMeta(block.category);
+              const category = getCategoryMeta(block.category, categories);
               const isLatestBlock = index === blocks.length - 1;
 
               return (
@@ -1039,7 +1099,7 @@ function DailyBlocks({
                         style={{ backgroundColor: category.color }}
                       />
                       <span className="text-sm font-black uppercase tracking-[0.08em] text-alibi-teal">
-                        {category.label}
+                        {category.name}
                       </span>
                     </div>
                     <h3 className="mt-2 wrap-break-words text-base font-black text-alibi-ink">

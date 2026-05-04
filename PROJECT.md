@@ -28,17 +28,18 @@ Server action status from the v2 architecture:
 | `saveBlock` | Implemented in `app/actions/timer.ts`; creates manual/backdated blocks when `id` is absent, saves post-stop metadata edits for user-owned `time_blocks`, preserves meaningful note edits, and stores note-derived insights when notes exist. |
 | `deleteBlock` | Implemented in `app/actions/timer.ts`; deletes user-owned `time_blocks` rows and returns `not_found` for missing or non-owned blocks. |
 | `getCalendarData` | Implemented in `app/actions/timer.ts`; loads completed user-owned `time_blocks` that overlap the requested date range. |
+| `getCategories` / `createCategory` | Implemented in `app/actions/timer.ts`; loads default plus user-owned categories and creates user categories from editor/chat category names. |
 | `processCoachMessage` | Implemented in `app/actions/process-message.ts`; routes chat into conversational coaching, timer start/stop, completed-block logging, clarification, and analysis over `time_blocks`. Completed-block chat writes require clear log intent plus time, task, and explicit or confidently inferred category. |
 
-Database setup: v2 tables are installed in Supabase and verified through REST schema access. `active_timer`, `time_blocks`, `entries`, and `proactive_messages` all return `200` from the project REST API. The V3 schema additions are present in `supabase-v2.sql` and must be applied to hosted databases: `time_block_note_versions`, `time_block_insights`, and `time_blocks.agent_metadata`. The existing `entries`/v1 schema remains intact.
+Database setup: v2 tables are installed in Supabase and verified through REST schema access. `active_timer`, `time_blocks`, `entries`, and `proactive_messages` all return `200` from the project REST API. The V3 schema additions are present in `supabase-v2.sql` and must be applied to hosted databases: `time_block_categories`, `time_block_note_versions`, `time_block_insights`, `time_blocks.category_id`, and `time_blocks.agent_metadata`. The existing `entries`/v1 schema remains intact.
 
 Where we are now:
 
-- **Database foundation:** v2 tables are live; V3 migration SQL is written but hosted databases still need the new note-version and note-insight tables applied where they are not already present.
-- **Server foundation:** active timer hydration, timer start/stop/resume, manual block save/update/delete, chat-controlled writes, clarification gating, calendar range reads, note-version preservation, and note-derived insight upserts exist for `time_blocks`.
-- **UI foundation:** `/app` renders a persistent timer control, post-stop/manual block editor, daily add-block button, latest-block resume button, chat panel, and simple daily time-block list. The editor now frames notes as “what really happened” without requiring them.
+- **Database foundation:** v2 tables are live; V3 migration SQL is written but hosted databases still need the new category, note-version, and note-insight tables/columns applied where they are not already present.
+- **Server foundation:** active timer hydration, timer start/stop/resume, manual block save/update/delete, custom category creation, chat-controlled writes, clarification gating, calendar range reads, note-version preservation, and note-derived insight upserts exist for `time_blocks`.
+- **UI foundation:** `/app` renders a persistent timer control, post-stop/manual block editor, daily add-block button, latest-block resume button, chat panel, and simple daily time-block list. The editor now frames notes as “what really happened” and lets users type a new category name while logging.
 - **Dashboard progress:** `/app/dashboard` renders totals, calendar/rhythm/category views, ADHD markers, and a V3 notes mirror. ADHD marker counts now merge explicit block booleans with note-derived insight signals so older derived rows are visible without SQL backfill.
-- **Chat progress:** implemented as a secondary input surface. It can respond conversationally without forcing a log, start a timer, stop a timer into `time_blocks`, log completed blocks with extracted metadata, ask for missing timing/task/category before writes, and answer from saved blocks. Analysis now prioritizes notes, then block metadata, then note-derived insights, then linked chat. New chat writes no longer go to `entries`.
+- **Chat progress:** implemented as a secondary input surface. It can respond conversationally without forcing a log, start a timer, stop a timer into `time_blocks`, log completed blocks with extracted metadata, ask for missing timing/task/category before writes, create/use custom categories from category names, and answer from saved blocks. Analysis now prioritizes notes, then block metadata, then note-derived insights, then linked chat. New chat writes no longer go to `entries`.
 - **Public/docs copy:** `/` and `/app/docs` still mainly describe the v2 product shape; deeper V3 notes-first copy is documented in `SPECS.md` and should be reflected in app-facing docs later.
 - **Verification:** `npm run build` passes after the notes-first dashboard and analysis updates. Live Supabase/OpenRouter flows still need browser QA with an authenticated user after applying the hosted database migration.
 - **Next implementation step:** apply/verify the V3 database migration in the hosted database, run live note-save and dashboard smoke tests, then broaden analysis beyond today into explicit week/month summaries.
@@ -122,7 +123,8 @@ If a feature pushes the user, it doesn't ship.
 | `ended_at`         | timestamptz   | block end, nullable while running |
 | `duration_seconds` | integer       | generated from start/end       |
 | `task_name`        | text          | short block label              |
-| `category`         | text          | v2 category enum               |
+| `category`         | text          | category slug, default or user-created |
+| `category_id`      | uuid          | optional FK to `time_block_categories` |
 | `hashtags`         | text[]        | optional context tags          |
 | `notes`            | text          | optional but primary reflection evidence: what happened, friction, feeling, changes, and noticed context |
 | `mood`             | text          | AI-extracted, nullable         |
@@ -132,6 +134,17 @@ If a feature pushes the user, it doesn't ship.
 | `hyperfocus_marker` | boolean      | explicit or note-derived marker |
 | `guilt_marker`     | boolean       | explicit or note-derived marker |
 | `novelty_marker`   | boolean       | explicit marker                |
+
+`public.time_block_categories`:
+
+| column       | type        | note                                  |
+| ------------ | ----------- | ------------------------------------- |
+| `id`         | uuid pk     | category id                           |
+| `user_id`    | uuid/null   | null for defaults, user id for custom |
+| `slug`       | text        | stable category key                   |
+| `name`       | text        | display label                         |
+| `color`      | text        | hex color                             |
+| `is_default` | boolean     | default category marker               |
 | `agent_metadata`   | jsonb         | derived context only           |
 | `created_at`       | timestamptz   | default `now()`                |
 
