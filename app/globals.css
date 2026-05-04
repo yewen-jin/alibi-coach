@@ -1,15 +1,15 @@
 @import "tailwindcss";
 
 :root {
-  --background: #F8FAFF;
-  --background-edge: #EAF0FF;
+  --background: #f8faff;
+  --background-edge: #eaf0ff;
   --foreground: #162044;
-  --foreground-soft: #3253C7;
-  --foreground-muted: #43849D;
-  --alibi-pink: #BF7DAD;
-  --alibi-blue: #3253C7;
-  --alibi-teal: #43849D;
-  --alibi-lavender: #93A5E4;
+  --foreground-soft: #3253c7;
+  --foreground-muted: #43849d;
+  --alibi-pink: #bf7dad;
+  --alibi-blue: #3253c7;
+  --alibi-teal: #43849d;
+  --alibi-lavender: #93a5e4;
   --alibi-surface: rgba(255, 255, 255, 0.76);
   --alibi-surface-strong: rgba(255, 255, 255, 0.9);
   --alibi-border: rgba(50, 83, 199, 0.18);
@@ -17,8 +17,11 @@
 }
 
 @theme inline {
-  --font-sans: var(--font-figtree), ui-sans-serif, system-ui, -apple-system, sans-serif;
-  --font-mono: var(--font-jetbrains-mono), ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --font-sans:
+    var(--font-figtree), ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --font-mono:
+    var(--font-jetbrains-mono), ui-monospace, "SF Mono", Menlo, Consolas,
+    monospace;
 
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -33,15 +36,35 @@
 @layer base {
   html {
     background:
-      radial-gradient(circle at 16% 18%, rgba(191, 125, 173, 0.38) 0 12%, transparent 28%),
-      radial-gradient(circle at 84% 8%, rgba(147, 165, 228, 0.55) 0 15%, transparent 32%),
-      radial-gradient(circle at 74% 82%, rgba(67, 132, 157, 0.34) 0 14%, transparent 31%),
-      linear-gradient(135deg, var(--background) 0%, #F4F0FF 42%, var(--background-edge) 100%);
+      radial-gradient(
+        circle at 16% 18%,
+        rgba(191, 125, 173, 0.38) 0 12%,
+        transparent 28%
+      ),
+      radial-gradient(
+        circle at 84% 8%,
+        rgba(147, 165, 228, 0.55) 0 15%,
+        transparent 32%
+      ),
+      radial-gradient(
+        circle at 74% 82%,
+        rgba(67, 132, 157, 0.34) 0 14%,
+        transparent 31%
+      ),
+      linear-gradient(
+        135deg,
+        var(--background) 0%,
+        #f4f0ff 42%,
+        var(--background-edge) 100%
+      );
     background-attachment: fixed;
     color: var(--foreground);
   }
   body {
-    font-feature-settings: "rlig" 1, "calt" 1, "ss01" 1;
+    font-feature-settings:
+      "rlig" 1,
+      "calt" 1,
+      "ss01" 1;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     min-height: 100vh;
@@ -68,7 +91,7 @@
   }
 
   .alibi-card-pop {
-    @apply rounded-3xl border-2 border-alibi-blue/20 bg-white/85 shadow-[0_20px_0_rgba(147,165,228,0.22),0_28px_55px_rgba(50,83,199,0.16)] backdrop-blur-xl;
+    @apply rounded-3xl border-2 border-alibi-blue/20 bg-white/85 shadow-[0_8px_20px_rgba(50,83,199,0.10),0_22px_50px_rgba(50,83,199,0.18)] backdrop-blur-xl;
   }
 
   .alibi-pill {
@@ -104,28 +127,56 @@
 
 /* Soft-rise: new chat messages and receipt entries appear with a gentle lift. */
 @keyframes alibi-soft-rise {
-  from { opacity: 0; transform: translateY(4px); }
-  to   { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
-.alibi-soft-rise { animation: alibi-soft-rise 200ms ease-out both; }
+.alibi-soft-rise {
+  animation: alibi-soft-rise 200ms ease-out both;
+}
 
 /* Fade-in: used for transient confirmations like "filed ✓". */
 @keyframes alibi-fade-in {
-  from { opacity: 0; }
-  to   { opacity: 1; }
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
-.alibi-fade-in { animation: alibi-fade-in 240ms ease-out both; }
+.alibi-fade-in {
+  animation: alibi-fade-in 240ms ease-out both;
+}
 
 /* Voice button: gentle 2s pulse while recording, scale 1.0 → 1.05. */
 @keyframes alibi-record-pulse {
-  0%, 100% { transform: scale(1); }
-  50%      { transform: scale(1.05); }
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.05);
+  }
 }
-.alibi-record-pulse { animation: alibi-record-pulse 2s ease-in-out infinite; }
+.alibi-record-pulse {
+  animation: alibi-record-pulse 2s ease-in-out infinite;
+}
 
 /* Listening dot: subtle warm sage breath. */
 @keyframes alibi-listen-dot {
-  0%, 100% { box-shadow: 0 0 0 3px rgba(139, 157, 127, 0.18); }
-  50%      { box-shadow: 0 0 0 5px rgba(139, 157, 127, 0.10); }
+  0%,
+  100% {
+    box-shadow: 0 0 0 3px rgba(139, 157, 127, 0.18);
+  }
+  50% {
+    box-shadow: 0 0 0 5px rgba(139, 157, 127, 0.1);
+  }
 }
-.alibi-listen-dot { animation: alibi-listen-dot 2.4s ease-in-out infinite; }
+.alibi-listen-dot {
+  animation: alibi-listen-dot 2.4s ease-in-out infinite;
+}
