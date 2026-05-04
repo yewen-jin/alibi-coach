@@ -5,6 +5,8 @@ import type {
   ActiveTimer,
   DeleteBlockInput,
   DeleteBlockResult,
+  GetCalendarDataInput,
+  GetCalendarDataResult,
   SaveBlockInput,
   SaveBlockResult,
   StartTimerResult,
@@ -151,6 +153,44 @@ function validateDeleteBlockInput(input: unknown):
   return {
     type: "valid",
     id: details.id.trim(),
+  }
+}
+
+function validateGetCalendarDataInput(input: unknown):
+  | {
+      type: "valid"
+      start: string
+      end: string
+    }
+  | {
+      type: "error"
+      message: string
+    } {
+  if (!input || typeof input !== "object") {
+    return { type: "error", message: "date range is required." }
+  }
+
+  const details = input as Partial<GetCalendarDataInput>
+
+  if (typeof details.start !== "string" || typeof details.end !== "string") {
+    return { type: "error", message: "start and end dates are required." }
+  }
+
+  const start = parseBlockDate(details.start)
+  const end = parseBlockDate(details.end)
+
+  if (!start || !end) {
+    return { type: "error", message: "start and end dates must be valid dates." }
+  }
+
+  if (end.getTime() <= start.getTime()) {
+    return { type: "error", message: "end date must be after start date." }
+  }
+
+  return {
+    type: "valid",
+    start: start.toISOString(),
+    end: end.toISOString(),
   }
 }
 
@@ -395,5 +435,45 @@ export async function deleteBlock(input: DeleteBlockInput): Promise<DeleteBlockR
   return {
     type: "deleted",
     id: validated.id,
+  }
+}
+
+/**
+ * Load completed user-owned time blocks that overlap a half-open date range.
+ */
+export async function getCalendarData(
+  input: GetCalendarDataInput,
+): Promise<GetCalendarDataResult> {
+  const validated = validateGetCalendarDataInput(input)
+
+  if (validated.type === "error") {
+    return validated
+  }
+
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  if (!user) {
+    return { type: "error", message: "not signed in." }
+  }
+
+  const { data: timeBlocks, error } = await supabase
+    .from("time_blocks")
+    .select("*")
+    .eq("user_id", user.id)
+    .lt("started_at", validated.end)
+    .not("ended_at", "is", null)
+    .gt("ended_at", validated.start)
+    .order("started_at", { ascending: true })
+
+  if (error) {
+    return { type: "error", message: "couldn't load calendar data. try again." }
+  }
+
+  return {
+    type: "loaded",
+    timeBlocks: (timeBlocks ?? []) as TimeBlock[],
   }
 }

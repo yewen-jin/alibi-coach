@@ -25,7 +25,7 @@ Server action status from the v2 architecture:
 | `stopTimer` | Implemented in `app/actions/timer.ts`; moves the current user's `active_timer` into `time_blocks` and clears the active timer. Stopped blocks intentionally have no metadata until the block editor exists. |
 | `saveBlock` | Implemented in `app/actions/timer.ts`; creates manual/backdated blocks and saves post-stop metadata edits for user-owned `time_blocks`. |
 | `deleteBlock` | Implemented in `app/actions/timer.ts`; deletes user-owned `time_blocks` rows and returns `not_found` for missing or non-owned blocks. |
-| `getCalendarData` | Not implemented. |
+| `getCalendarData` | Implemented in `app/actions/timer.ts`; loads completed user-owned `time_blocks` that overlap the requested date range. |
 | `analyseBlocks` | Not implemented. |
 
 Database assumption: `active_timer` and `time_blocks` exist in Supabase with the shapes defined in `SPECS.md`.
