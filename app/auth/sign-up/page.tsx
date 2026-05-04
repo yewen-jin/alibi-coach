@@ -4,12 +4,14 @@ import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { createClient } from "@/lib/supabase/client"
+import type { Provider } from "@supabase/supabase-js"
 
 export default function SignUpPage() {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
+  const [oauthLoading, setOauthLoading] = useState<Provider | null>(null)
   const [fromDemo, setFromDemo] = useState(false)
   const router = useRouter()
 
@@ -40,6 +42,24 @@ export default function SignUpPage() {
     }
 
     router.push(fromDemo ? "/app" : "/auth/sign-up-success")
+  }
+
+  const handleOAuthSignUp = async (provider: Extract<Provider, "google" | "github">) => {
+    setOauthLoading(provider)
+    setError(null)
+
+    const supabase = createClient()
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider,
+      options: {
+        redirectTo: `${window.location.origin}/auth/callback?next=/app`,
+      },
+    })
+
+    if (error) {
+      setError(error.message)
+      setOauthLoading(null)
+    }
   }
 
   return (
@@ -94,12 +114,38 @@ export default function SignUpPage() {
 
           <button
             type="submit"
-            disabled={loading}
+            disabled={loading || Boolean(oauthLoading)}
             className="w-full py-2.5 bg-primary text-primary-foreground rounded-lg font-medium hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {loading ? "Creating account..." : "Create account"}
           </button>
         </form>
+
+        <div className="my-6 flex items-center gap-3">
+          <div className="h-px flex-1 bg-border" />
+          <span className="text-xs uppercase tracking-wide text-muted-foreground">or</span>
+          <div className="h-px flex-1 bg-border" />
+        </div>
+
+        <div className="space-y-3">
+          <button
+            type="button"
+            disabled={loading || Boolean(oauthLoading)}
+            onClick={() => handleOAuthSignUp("google")}
+            className="w-full py-2.5 bg-card border border-border text-foreground rounded-lg font-medium hover:bg-muted transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {oauthLoading === "google" ? "Continuing with Google..." : "Continue with Google"}
+          </button>
+
+          <button
+            type="button"
+            disabled={loading || Boolean(oauthLoading)}
+            onClick={() => handleOAuthSignUp("github")}
+            className="w-full py-2.5 bg-card border border-border text-foreground rounded-lg font-medium hover:bg-muted transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {oauthLoading === "github" ? "Continuing with GitHub..." : "Continue with GitHub"}
+          </button>
+        </div>
 
         <p className="text-center text-sm text-muted-foreground mt-6">
           Already have an account?{" "}
