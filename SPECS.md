@@ -61,6 +61,20 @@ Required behavior:
 - hashtags and notes are optional;
 - save writes the same `time_blocks` shape used by timer and chat.
 
+### Public Demo
+
+The public demo should let a visitor experience the app before creating an account. Demo data should use browser `localStorage` by default, not anonymous database rows.
+
+Required behavior:
+
+- visitor enters a name and starts a local demo session;
+- timer, manual entry, chat, edit/delete, and latest-block resume are available in demo form;
+- completed demo blocks are stored locally on the device;
+- no cleanup job is required because no anonymous database rows are created;
+- if the visitor signs up or signs in on the same device, the authenticated app can import completed demo blocks into the real `time_blocks` table.
+
+Temporary database-backed demo sessions are a future option only if the product needs cross-device demos, server-side AI during demo, or shared demo links.
+
 ### Notes
 
 Notes are optional in the UI but structurally important in V3. The note field should invite "what really happened," including:

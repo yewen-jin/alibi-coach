@@ -23,6 +23,11 @@
 
   ## Phase 0 — Product Wiki / User Guidance
 
+  - Update `/` so the landing page reflects the notes-first product, existing feature set, and future RAG ambition.
+  - Remove inert fake chat blocks from the landing page.
+  - Create a dedicated `/demo` route for unauthenticated product trial.
+  - Store public demo data in localStorage by default.
+  - Let authenticated users import completed demo blocks from localStorage into their account after sign-up/sign-in.
   - Turn `/app/docs` into a wiki-style guide, not a feature list.
   - Explain:
       - what Alibi is and is not

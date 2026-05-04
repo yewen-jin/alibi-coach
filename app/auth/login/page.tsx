@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { createClient } from "@/lib/supabase/client"
@@ -10,7 +10,12 @@ export default function LoginPage() {
   const [password, setPassword] = useState("")
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
+  const [fromDemo, setFromDemo] = useState(false)
   const router = useRouter()
+
+  useEffect(() => {
+    setFromDemo(new URLSearchParams(window.location.search).get("from") === "demo")
+  }, [])
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -38,7 +43,11 @@ export default function LoginPage() {
       <div className="w-full max-w-sm">
         <div className="text-center mb-8">
           <h1 className="font-serif text-3xl text-foreground mb-2">welcome back</h1>
-          <p className="text-muted-foreground">your day&apos;s still here, on the record.</p>
+          <p className="text-muted-foreground">
+            {fromDemo
+              ? "sign in, then import your demo blocks."
+              : "your day&apos;s still here, on the record."}
+          </p>
         </div>
 
         <form onSubmit={handleLogin} className="space-y-4">
@@ -89,7 +98,7 @@ export default function LoginPage() {
 
         <p className="text-center text-sm text-muted-foreground mt-6">
           Don&apos;t have an account?{" "}
-          <Link href="/auth/sign-up" className="text-primary hover:underline">
+          <Link href={fromDemo ? "/auth/sign-up?from=demo" : "/auth/sign-up"} className="text-primary hover:underline">
             Sign up
           </Link>
         </p>

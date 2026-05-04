@@ -88,7 +88,9 @@ UI status:
 - `/app` has timer, post-stop/manual block editor, daily add-block button, latest-block resume, chat panel, and simple daily block list.
 - `/app/dashboard` has totals, calendar/rhythm/category views, ADHD markers, and notes mirror.
 - `/app/docs` is now a wiki-style guide explaining what Alibi is, how the evidence model works, how to write useful notes, how to use chat well, and where the V3/RAG direction is going.
-- `/` still mostly describes the v2 product shape and should be updated to match the V3 language in `SPECS.md`.
+- `/` now describes the notes-first product, existing feature set, and future RAG ambition instead of embedding a fake chat demo.
+- `/demo` provides an unauthenticated localStorage-backed demo with name entry, timer, manual blocks, chat-style logging, edit/delete, latest-block resume, and a sign-up CTA.
+- `/app` detects completed local demo blocks after login/sign-up and offers to import them into the authenticated account.
 
 Verification:
 
@@ -101,6 +103,7 @@ Known working principle:
 - Timer UI, manual block creation, and chat logging share `time_blocks`.
 - Notes remain human-authored source text.
 - Derived insight rows are replaceable and traceable.
+- Public demo data stays in browser `localStorage` until the user imports completed blocks into an authenticated account.
 
 ## Current Gaps
 
@@ -110,14 +113,14 @@ Known working principle:
 - Chat can analyze saved data, but its elicitation style should become more deliberate: it should ask better questions about feelings, drift, mixed outcomes, and context.
 - RAG is not implemented yet. The project first needs cleaner source records and evidence pointers.
 - Agentic database evolution is not implemented. Future work should let the agent propose schema changes, not mutate production schema directly.
-- Landing-page copy still needs to reflect V3: nuanced notes, chat as elicitation, timeline-linked evidence, and future pattern/RAG direction.
+- Demo chat is a local approximation, not the OpenRouter-backed authenticated agent. It is useful for product feel, but not a complete AI demo.
 
 ## Roadmap
 
 ### Phase 1 - Live QA And Copy Alignment
 
 - Run authenticated smoke tests for note save/edit, custom categories, chat logging, chat analysis, and dashboard notes mirror.
-- Update `/` copy to match the V3 product contract.
+- Smoke test `/demo` localStorage persistence, timer stop/edit, manual block save, chat-created block, resume, clear demo, sign-up/sign-in, and authenticated import.
 - Keep `/app/docs` as a wiki, not a feature list. It should explain what Alibi is, how it works, how to write useful notes, and how to prompt chat well.
 - Fix any remaining UI copy that treats notes as a minor optional field instead of primary evidence.
 
