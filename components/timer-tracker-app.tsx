@@ -58,8 +58,8 @@ type ChatMessage = {
 
 interface TimerTrackerAppProps {
   userEmail: string | null
-  initialChatMessages: CoachMessage[]
-  initialHasPendingDraft: boolean
+  initialChatMessages?: CoachMessage[]
+  initialHasPendingDraft?: boolean
 }
 
 function formatElapsed(totalSeconds: number) {
@@ -207,8 +207,8 @@ function coachMessageToChatMessage(message: CoachMessage): ChatMessage {
 
 export function TimerTrackerApp({
   userEmail,
-  initialChatMessages,
-  initialHasPendingDraft,
+  initialChatMessages = [],
+  initialHasPendingDraft = false,
 }: TimerTrackerAppProps) {
   const [activeTimer, setActiveTimer] = useState<ActiveTimer | null>(null)
   const [timeBlocks, setTimeBlocks] = useState<TimeBlock[]>([])
@@ -217,7 +217,7 @@ export function TimerTrackerApp({
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>(() =>
-    initialChatMessages.map(coachMessageToChatMessage),
+    (Array.isArray(initialChatMessages) ? initialChatMessages : []).map(coachMessageToChatMessage),
   )
   const [hasPendingDraft, setHasPendingDraft] = useState(initialHasPendingDraft)
   const [isPending, startTransition] = useTransition()
@@ -441,15 +441,15 @@ export function TimerTrackerApp({
           ])
         }
         const reconcileMessages = () => {
-          if (result.messages.length > 0) {
+          if (Array.isArray(result.messages) && result.messages.length > 0) {
             setChatMessages(result.messages.map(coachMessageToChatMessage))
           }
-          setHasPendingDraft(result.hasPendingDraft)
+          setHasPendingDraft(result.hasPendingDraft === true)
         }
 
         if (result.type === "error") {
           reconcileMessages()
-          if (result.messages.length === 0) {
+          if (!Array.isArray(result.messages) || result.messages.length === 0) {
             addAssistantMessage(result.message)
           }
           return
