@@ -76,6 +76,10 @@ export interface SaveBlockInput {
   notes?: string | null
 }
 
+export interface DeleteBlockInput {
+  id: string
+}
+
 export type StartTimerResult =
   | {
       type: "started"
@@ -108,6 +112,19 @@ export type SaveBlockResult =
   | {
       type: "saved"
       timeBlock: TimeBlock
+    }
+  | {
+      type: "not_found"
+    }
+  | {
+      type: "error"
+      message: string
+    }
+
+export type DeleteBlockResult =
+  | {
+      type: "deleted"
+      id: string
     }
   | {
       type: "not_found"

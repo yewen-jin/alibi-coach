@@ -3,6 +3,8 @@
 import { createClient } from "@/lib/supabase/server"
 import type {
   ActiveTimer,
+  DeleteBlockInput,
+  DeleteBlockResult,
   SaveBlockInput,
   SaveBlockResult,
   StartTimerResult,
@@ -124,6 +126,31 @@ function validateSaveBlockInput(input: unknown):
     endedAt: endedAt.toISOString(),
     hashtags: normalizeHashtags(details.hashtags),
     notes,
+  }
+}
+
+function validateDeleteBlockInput(input: unknown):
+  | {
+      type: "valid"
+      id: string
+    }
+  | {
+      type: "error"
+      message: string
+    } {
+  if (!input || typeof input !== "object") {
+    return { type: "error", message: "time block id is required." }
+  }
+
+  const details = input as Partial<DeleteBlockInput>
+
+  if (typeof details.id !== "string" || !details.id.trim()) {
+    return { type: "error", message: "time block id is required." }
+  }
+
+  return {
+    type: "valid",
+    id: details.id.trim(),
   }
 }
 
@@ -327,5 +354,46 @@ export async function saveBlock(input: SaveBlockInput): Promise<SaveBlockResult>
   return {
     type: "saved",
     timeBlock: timeBlock as TimeBlock,
+  }
+}
+
+/**
+ * Delete a user-owned time block.
+ */
+export async function deleteBlock(input: DeleteBlockInput): Promise<DeleteBlockResult> {
+  const validated = validateDeleteBlockInput(input)
+
+  if (validated.type === "error") {
+    return validated
+  }
+
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  if (!user) {
+    return { type: "error", message: "not signed in." }
+  }
+
+  const { data: timeBlock, error: deleteError } = await supabase
+    .from("time_blocks")
+    .delete()
+    .eq("id", validated.id)
+    .eq("user_id", user.id)
+    .select("id")
+    .maybeSingle()
+
+  if (deleteError) {
+    return { type: "error", message: "couldn't delete the time block. try again." }
+  }
+
+  if (!timeBlock) {
+    return { type: "not_found" }
+  }
+
+  return {
+    type: "deleted",
+    id: validated.id,
   }
 }
