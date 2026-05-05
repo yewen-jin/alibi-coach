@@ -13,7 +13,7 @@
  */
 
 import { generateText } from "ai"
-import { aiModel, extractJSON } from "@/lib/ai"
+import { coachModel, extractJSON } from "@/lib/ai"
 import { createClient } from "@/lib/supabase/server"
 import { decideCadence } from "@/lib/cadence"
 import type { Entry, ProactiveMessage, ProactiveKind } from "@/lib/types"
@@ -156,7 +156,7 @@ async function writeProactiveMessage(profile: PatternProfile): Promise<{
 
   try {
     const { text } = await generateText({
-      model: aiModel,
+      model: coachModel,
       system: [
         "You are Alibi: a warm friend who quietly tracks the user's day.",
         "You are about to send the user an UNPROMPTED message — they did not ask.",

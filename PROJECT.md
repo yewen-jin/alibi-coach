@@ -83,6 +83,12 @@ Server action status:
 | `getCategories` / `createCategory` | Implemented; default and user-owned categories. |
 | `processCoachMessage` | Implemented; routes coach chat, timer control, block logging, clarification, and notes-first analysis. |
 
+AI model routing:
+
+- OpenRouter access is centralized in `lib/ai.ts`.
+- `fastModel` uses `openai/gpt-4.1-nano` for routing, structured extraction, and short acknowledgments.
+- `coachModel` uses `openai/gpt-5-mini` for user-visible coach chat, saved-block analysis, and proactive insight copy.
+
 UI status:
 
 - `/app` has timer, post-stop/manual block editor, daily add-block button, latest-block resume, chat panel, and simple daily block list.
