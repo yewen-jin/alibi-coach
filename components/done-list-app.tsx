@@ -5,7 +5,7 @@ import { mutate } from "swr"
 
 import { Header } from "./header"
 import { EntryInput } from "./entry-input"
-import { CoachResponse } from "./coach-response"
+import { CompanionResponse } from "./companion-response"
 import { AckToast } from "./ack-toast"
 import { ProactiveBubble } from "./proactive-bubble"
 import { processMessage } from "@/app/actions/process-message"
@@ -21,7 +21,7 @@ interface DoneListAppProps {
 }
 
 export function DoneListApp({ userEmail }: DoneListAppProps) {
-  const [coachMessage, setCoachMessage] = useState<string | null>(null)
+  const [companionMessage, setCompanionMessage] = useState<string | null>(null)
   const [ack, setAck] = useState<{ text: string; key: number } | null>(null)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [proactive, setProactive] = useState<ProactiveMessage[]>([])
@@ -44,7 +44,7 @@ export function DoneListApp({ userEmail }: DoneListAppProps) {
 
   const handleMessage = useCallback(async (text: string) => {
     setErrorMessage(null)
-    setCoachMessage(null)
+    setCompanionMessage(null)
 
     try {
       const result = await processMessage(text)
@@ -66,11 +66,11 @@ export function DoneListApp({ userEmail }: DoneListAppProps) {
       }
 
       if (result.type === "clarify") {
-        setCoachMessage(result.question)
+        setCompanionMessage(result.question)
         return
       }
 
-      setCoachMessage(result.message)
+      setCompanionMessage(result.message)
     } catch (err) {
       console.log("[v0] processMessage error:", err)
       setErrorMessage("something went sideways. try again.")
@@ -87,7 +87,7 @@ export function DoneListApp({ userEmail }: DoneListAppProps) {
   }, [])
 
   const hasContent =
-    coachMessage || ack || errorMessage || proactive.length > 0
+    companionMessage || ack || errorMessage || proactive.length > 0
 
   return (
     <div className="flex min-h-screen flex-col bg-background">
@@ -106,11 +106,11 @@ export function DoneListApp({ userEmail }: DoneListAppProps) {
               />
             ))}
 
-            {/* Coach reflection */}
-            {coachMessage && (
-              <CoachResponse
-                message={coachMessage}
-                onDismiss={() => setCoachMessage(null)}
+            {/* Companion reflection */}
+            {companionMessage && (
+              <CompanionResponse
+                message={companionMessage}
+                onDismiss={() => setCompanionMessage(null)}
               />
             )}
 

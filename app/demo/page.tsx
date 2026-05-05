@@ -662,7 +662,7 @@ export default function DemoPage() {
               />
             )}
 
-            <CoachChatPanel
+            <CompanionChatPanel
               messages={messages}
               pending={chatPending}
               hasDraft={hasDraft}
@@ -687,7 +687,7 @@ export default function DemoPage() {
   )
 }
 
-function CoachChatPanel({
+function CompanionChatPanel({
   messages,
   pending,
   hasDraft,
@@ -773,11 +773,11 @@ function CoachChatPanel({
       )}
 
       <form onSubmit={handleSubmit} className="mt-4 flex items-end gap-2">
-        <label className="sr-only" htmlFor="demo-coach-message">
+        <label className="sr-only" htmlFor="demo-companion-message">
           message alibi
         </label>
         <textarea
-          id="demo-coach-message"
+          id="demo-companion-message"
           value={value}
           onChange={(event) => setValue(event.target.value)}
           onKeyDown={(event) => {

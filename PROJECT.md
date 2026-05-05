@@ -81,13 +81,15 @@ Server action status:
 | `deleteBlock` | Implemented; deletes user-owned blocks. |
 | `getCalendarData` | Implemented; loads blocks for date ranges. |
 | `getCategories` / `createCategory` | Implemented; default and user-owned categories. |
-| `processCoachMessage` | Implemented; routes coach chat, timer control, block logging, clarification, and notes-first analysis. |
+| `processCompanionMessage` | Implemented; routes companion chat, timer control, block logging, clarification, notes-first analysis, and reflective block threads. |
 
 AI model routing:
 
 - OpenRouter access is centralized in `lib/ai.ts`.
 - `fastModel` uses `openai/gpt-4.1-nano` for routing, structured extraction, and short acknowledgments.
-- `coachModel` uses `openai/gpt-5-mini` for user-visible coach chat, saved-block analysis, and proactive insight copy.
+- `companionModel` uses `openai/gpt-5-mini` for user-visible companion chat, saved-block analysis, and proactive insight copy.
+- New `companion_messages` rows record the conversation-level companion model in `model`; the Supabase backfill script preserves legacy rows as `openai/gpt-4o-mini`.
+- Companion-facing prompts share the reusable `alibiCompanionGuide` in `lib/companion-voice.ts`.
 
 UI status:
 

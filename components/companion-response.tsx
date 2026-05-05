@@ -2,28 +2,31 @@
 
 import { X } from "lucide-react"
 
-interface CoachResponseProps {
+interface CompanionResponseProps {
   message: string
   onDismiss?: () => void
 }
 
-export function CoachResponse({ message, onDismiss }: CoachResponseProps) {
+export function CompanionResponse({
+  message,
+  onDismiss,
+}: CompanionResponseProps) {
   return (
     <div
-      className="alibi-soft-rise rounded-2xl border border-coach-border bg-coach-bg p-5"
+      className="alibi-soft-rise rounded-2xl border border-alibi-blue/15 bg-white/85 p-5"
       role="status"
       aria-live="polite"
     >
       <div className="flex items-start gap-3">
         <div className="min-w-0 flex-1">
-          <p className="whitespace-pre-wrap font-serif text-[1.05rem] leading-relaxed text-coach-text">
+          <p className="whitespace-pre-wrap font-serif text-[1.05rem] leading-relaxed text-alibi-ink">
             {message}
           </p>
         </div>
         {onDismiss && (
           <button
             onClick={onDismiss}
-            className="-mr-1 -mt-1 rounded-md p-1 text-muted-foreground transition-colors hover:text-foreground"
+            className="-mr-1 -mt-1 rounded-md p-1 text-alibi-teal/70 transition-colors hover:text-alibi-blue"
             aria-label="Dismiss"
           >
             <X className="h-4 w-4" />

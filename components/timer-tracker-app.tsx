@@ -24,7 +24,10 @@ import {
   Trash2,
   X,
 } from "lucide-react";
-import { processCoachMessage } from "@/app/actions/process-message";
+import {
+  getCompanionThread,
+  processCompanionMessage,
+} from "@/app/actions/process-message";
 import {
   deleteBlock,
   getActiveTimer,
@@ -37,7 +40,8 @@ import {
 } from "@/app/actions/timer";
 import type {
   ActiveTimer,
-  CoachMessage,
+  CompanionMessage,
+  CompanionThreadState,
   TimeBlock,
   TimeBlockCategory,
   TimeBlockCategoryRecord,
@@ -81,8 +85,7 @@ type ChatMessage = {
 
 interface TimerTrackerAppProps {
   userEmail: string | null;
-  initialChatMessages?: CoachMessage[];
-  initialHasPendingDraft?: boolean;
+  initialCompanionThread?: CompanionThreadState;
 }
 
 function formatElapsed(totalSeconds: number) {
@@ -279,7 +282,7 @@ function getCategoryMeta(
   );
 }
 
-function coachMessageToChatMessage(message: CoachMessage): ChatMessage {
+function companionMessageToChatMessage(message: CompanionMessage): ChatMessage {
   return {
     id: message.id,
     role: message.role,
@@ -290,8 +293,7 @@ function coachMessageToChatMessage(message: CoachMessage): ChatMessage {
 
 export function TimerTrackerApp({
   userEmail,
-  initialChatMessages = [],
-  initialHasPendingDraft = false,
+  initialCompanionThread,
 }: TimerTrackerAppProps) {
   const [activeTimer, setActiveTimer] = useState<ActiveTimer | null>(null);
   const [timeBlocks, setTimeBlocks] = useState<TimeBlock[]>([]);
@@ -300,13 +302,13 @@ export function TimerTrackerApp({
   const [now, setNow] = useState(() => Date.now());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [activeCompanionThread, setActiveCompanionThread] =
+    useState<CompanionThreadState | null>(initialCompanionThread ?? null);
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>(() =>
-    (Array.isArray(initialChatMessages) ? initialChatMessages : []).map(
-      coachMessageToChatMessage,
-    ),
+    (initialCompanionThread?.messages ?? []).map(companionMessageToChatMessage),
   );
   const [hasPendingDraft, setHasPendingDraft] = useState(
-    initialHasPendingDraft,
+    initialCompanionThread?.hasPendingDraft ?? false,
   );
   const [demoImportBlocks, setDemoImportBlocks] = useState<DemoStoredBlock[]>([]);
   const [demoImportName, setDemoImportName] = useState<string | null>(null);
@@ -596,7 +598,40 @@ export function TimerTrackerApp({
     ]);
   };
 
-  const handleCoachMessage = useCallback(
+  const showCompanionThread = useCallback((thread: CompanionThreadState) => {
+    setActiveCompanionThread(thread);
+    setChatMessages(thread.messages.map(companionMessageToChatMessage));
+    setHasPendingDraft(thread.hasPendingDraft);
+  }, []);
+
+  const handleOpenGeneralCompanionThread = useCallback(async () => {
+    const thread = await getCompanionThread();
+    if (thread) {
+      showCompanionThread(thread);
+    }
+  }, [showCompanionThread]);
+
+  const handleChatAboutBlock = useCallback(
+    async (block: TimeBlock) => {
+      if (isChatPending) {
+        return;
+      }
+
+      startChatTransition(async () => {
+        const thread = await getCompanionThread({
+          relatedTimeBlockId: block.id,
+        });
+        if (thread) {
+          showCompanionThread(thread);
+        } else {
+          setError("couldn't open that companion thread.");
+        }
+      });
+    },
+    [isChatPending, showCompanionThread],
+  );
+
+  const handleCompanionMessage = useCallback(
     async (text: string) => {
       const trimmed = text.trim();
       if (!trimmed || isChatPending) {
@@ -615,9 +650,10 @@ export function TimerTrackerApp({
 
       startChatTransition(async () => {
         const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-        const result = await processCoachMessage({
+        const result = await processCompanionMessage({
           text: trimmed,
           timezone,
+          conversationId: activeCompanionThread?.conversation.id ?? null,
         });
 
         const addAssistantMessage = (text: string) => {
@@ -633,8 +669,15 @@ export function TimerTrackerApp({
         };
         const reconcileMessages = () => {
           if (Array.isArray(result.messages) && result.messages.length > 0) {
-            setChatMessages(result.messages.map(coachMessageToChatMessage));
+            setChatMessages(
+              result.messages.map(companionMessageToChatMessage),
+            );
           }
+          setActiveCompanionThread({
+            conversation: result.conversation,
+            messages: result.messages,
+            hasPendingDraft: result.hasPendingDraft,
+          });
           setHasPendingDraft(result.hasPendingDraft === true);
         };
 
@@ -677,7 +720,7 @@ export function TimerTrackerApp({
         }
       });
     },
-    [isChatPending, refreshBlocks],
+    [activeCompanionThread?.conversation.id, isChatPending, refreshBlocks],
   );
 
   return (
@@ -826,11 +869,16 @@ export function TimerTrackerApp({
               />
             )}
 
-            <CoachChatPanel
+            <CompanionChatPanel
+              threadKind={
+                activeCompanionThread?.conversation.kind ?? "general"
+              }
+              threadTitle={activeCompanionThread?.conversation.title ?? null}
               messages={chatMessages}
               pending={isChatPending}
               hasDraft={hasPendingDraft}
-              onSubmit={handleCoachMessage}
+              onOpenGeneral={handleOpenGeneralCompanionThread}
+              onSubmit={handleCompanionMessage}
             />
           </div>
 
@@ -844,6 +892,7 @@ export function TimerTrackerApp({
             onEdit={(block) => setEditor(createEditorState(block))}
             onDelete={handleDelete}
             onResume={handleResume}
+            onChatAbout={handleChatAboutBlock}
             pending={isPending}
           />
         </section>
@@ -852,15 +901,21 @@ export function TimerTrackerApp({
   );
 }
 
-function CoachChatPanel({
+function CompanionChatPanel({
+  threadKind,
+  threadTitle,
   messages,
   pending,
   hasDraft,
+  onOpenGeneral,
   onSubmit,
 }: {
+  threadKind: "general" | "time_block";
+  threadTitle: string | null;
   messages: ChatMessage[];
   pending: boolean;
   hasDraft: boolean;
+  onOpenGeneral: () => Promise<void>;
   onSubmit: (text: string) => Promise<void>;
 }) {
   const [value, setValue] = useState("");
@@ -892,10 +947,28 @@ function CoachChatPanel({
           <p className="font-mono text-xs font-black uppercase tracking-[0.12em] text-alibi-teal">
             alibi
           </p>
-          <h2 className="mt-1 text-xl font-black text-alibi-blue">chat log</h2>
+          <h2 className="mt-1 text-xl font-black text-alibi-blue">
+            {threadKind === "time_block"
+              ? threadTitle
+                ? `about ${threadTitle}`
+                : "about this block"
+              : "companion chat"}
+          </h2>
         </div>
-        <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-alibi-pink/15 text-alibi-pink">
-          <MessageCircle className="h-4 w-4" />
+        <div className="flex items-center gap-2">
+          {threadKind === "time_block" && (
+            <button
+              type="button"
+              onClick={() => void onOpenGeneral()}
+              disabled={pending}
+              className="h-9 rounded-2xl px-3 text-xs font-black text-alibi-teal transition hover:bg-alibi-lavender/20 hover:text-alibi-blue disabled:opacity-55"
+            >
+              main chat
+            </button>
+          )}
+          <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-alibi-pink/15 text-alibi-pink">
+            <MessageCircle className="h-4 w-4" />
+          </div>
         </div>
       </div>
 
@@ -944,11 +1017,11 @@ function CoachChatPanel({
       )}
 
       <form onSubmit={handleSubmit} className="mt-4 flex items-end gap-2">
-        <label className="sr-only" htmlFor="coach-message">
+        <label className="sr-only" htmlFor="companion-message">
           message alibi
         </label>
         <textarea
-          id="coach-message"
+          id="companion-message"
           value={value}
           onChange={(event) => setValue(event.target.value)}
           onKeyDown={(event) => {
@@ -1160,6 +1233,7 @@ function DailyBlocks({
   onEdit,
   onDelete,
   onResume,
+  onChatAbout,
   pending,
 }: {
   date: Date;
@@ -1171,6 +1245,7 @@ function DailyBlocks({
   onEdit: (block: TimeBlock) => void;
   onDelete: (block: TimeBlock) => void;
   onResume: (block: TimeBlock) => void;
+  onChatAbout: (block: TimeBlock) => void;
   pending: boolean;
 }) {
   return (
@@ -1276,6 +1351,15 @@ function DailyBlocks({
                         resume
                       </button>
                     )}
+                    <button
+                      type="button"
+                      onClick={() => onChatAbout(block)}
+                      aria-label="chat about this block"
+                      title="chat about this"
+                      className="flex h-9 w-9 items-center justify-center rounded-2xl text-alibi-teal transition hover:-translate-y-0.5 hover:bg-alibi-lavender/20 hover:text-alibi-blue"
+                    >
+                      <MessageCircle className="h-4 w-4" />
+                    </button>
                     <button
                       type="button"
                       onClick={() => onEdit(block)}

@@ -9,11 +9,14 @@ const openrouter = createOpenAICompatible({
   },
 })
 
-// Cheap, low-latency model for routing, extraction, and terse acknowledgments.
-export const fastModel = openrouter("openai/gpt-4.1-nano")
+export const fastModelId = "openai/gpt-4.1-nano"
+export const companionModelId = "openai/gpt-5-mini"
 
-// Stronger model for user-visible coaching, reflection, and emotional nuance.
-export const coachModel = openrouter("openai/gpt-5-mini")
+// Cheap, low-latency model for routing, extraction, and terse acknowledgments.
+export const fastModel = openrouter(fastModelId)
+
+// Stronger model for user-visible reflection and conversational nuance.
+export const companionModel = openrouter(companionModelId)
 
 /** Extract the first JSON object from a model response. */
 export function extractJSON(text: string): Record<string, unknown> | null {

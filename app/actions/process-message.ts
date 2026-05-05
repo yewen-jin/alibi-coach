@@ -2,14 +2,23 @@
 
 import { generateText, Output } from "ai"
 import { z } from "zod"
-import { coachModel, fastModel } from "@/lib/ai"
+import {
+  companionModel,
+  companionModelId,
+  fastModel,
+} from "@/lib/ai"
+import { alibiCompanionGuide } from "@/lib/companion-voice"
 import { formatInsightForPrompt } from "@/lib/note-insights"
 import { createClient } from "@/lib/supabase/server"
 import { getCalendarData, saveBlock, startTimer, stopTimer } from "./timer"
 import type {
   ActiveTimer,
-  CoachMessage,
-  CoachMessageType,
+  CompanionConversation,
+  CompanionConversationContextSnapshot,
+  CompanionMessage,
+  CompanionMessageType,
+  CompanionThreadState,
+  CompanionTimeBlockContext,
   EffortLevel,
   Mood,
   Satisfaction,
@@ -37,7 +46,7 @@ const SATISFACTION_LEVELS = [
   "unclear",
 ] as const satisfies readonly Satisfaction[]
 
-const coachDraftSchema = z.object({
+const companionDraftSchema = z.object({
   task_name: z.string().nullable(),
   category: z.string().nullable(),
   hashtags: z.array(z.string()),
@@ -54,11 +63,18 @@ const coachDraftSchema = z.object({
   novelty_marker: z.boolean(),
 })
 
-const routerSchema = coachDraftSchema.extend({
-  intent: z.enum(["coach_chat", "log_block", "start_timer", "stop_timer", "analyse_blocks", "clarify"]),
+const routerSchema = companionDraftSchema.extend({
+  intent: z.enum([
+    "companion_chat",
+    "log_block",
+    "start_timer",
+    "stop_timer",
+    "analyse_blocks",
+    "clarify",
+  ]),
 })
 
-export interface CoachDraft {
+export interface CompanionDraft {
   task_name: string | null
   category: TimeBlockCategory | null
   hashtags: string[]
@@ -75,13 +91,14 @@ export interface CoachDraft {
   novelty_marker: boolean
 }
 
-export interface ProcessCoachMessageInput {
+export interface ProcessCompanionMessageInput {
   text: string
-  draft?: CoachDraft | null
+  conversationId?: string | null
+  relatedTimeBlockId?: string | null
   timezone?: string | null
 }
 
-export type ProcessCoachMessageResult =
+export type ProcessCompanionMessageResult =
   (
     | {
         type: "logged"
@@ -118,20 +135,23 @@ export type ProcessCoachMessageResult =
     | {
         type: "clarify"
         question: string
-        draft: CoachDraft
+        draft: CompanionDraft
       }
     | {
         type: "error"
         message: string
       }
-  ) & {
-    messages: CoachMessage[]
-    hasPendingDraft: boolean
-  }
+  ) & CompanionThreadState
 
-type RouterIntent = "coach_chat" | "log_block" | "start_timer" | "stop_timer" | "analyse_blocks" | "clarify"
+type RouterIntent =
+  | "companion_chat"
+  | "log_block"
+  | "start_timer"
+  | "stop_timer"
+  | "analyse_blocks"
+  | "clarify"
 
-interface RouterOutput extends CoachDraft {
+interface RouterOutput extends CompanionDraft {
   intent: RouterIntent
 }
 
@@ -211,11 +231,14 @@ function cleanDuration(value: unknown): number | null {
   return Math.round(value)
 }
 
-function mergeDraft(base: CoachDraft | null | undefined, next: CoachDraft): CoachDraft {
+function mergeDraft(
+  base: CompanionDraft | null | undefined,
+  next: CompanionDraft,
+): CompanionDraft {
   return {
     task_name: next.task_name ?? base?.task_name ?? null,
     category: next.category ?? base?.category ?? null,
-    hashtags: next.hashtags.length > 0 ? next.hashtags : base?.hashtags ?? [],
+    hashtags: next.hashtags.length > 0 ? next.hashtags : (base?.hashtags ?? []),
     notes: next.notes ?? base?.notes ?? null,
     started_at: next.started_at ?? base?.started_at ?? null,
     ended_at: next.ended_at ?? base?.ended_at ?? null,
@@ -230,8 +253,8 @@ function mergeDraft(base: CoachDraft | null | undefined, next: CoachDraft): Coac
   }
 }
 
-function normalizeDraft(value: unknown): CoachDraft | null {
-  const parsed = coachDraftSchema.safeParse(value)
+function normalizeDraft(value: unknown): CompanionDraft | null {
+  const parsed = companionDraftSchema.safeParse(value)
 
   if (!parsed.success) {
     return null
@@ -243,17 +266,17 @@ function normalizeDraft(value: unknown): CoachDraft | null {
 function normalizeRouterOutput(
   parsed: Partial<z.infer<typeof routerSchema>> | null,
   fallbackText: string,
-): RouterOutput & { draft: CoachDraft } {
+): RouterOutput & { draft: CompanionDraft } {
   const intent = parsed?.intent
   const normalizedIntent: RouterIntent =
-    intent === "coach_chat" ||
+    intent === "companion_chat" ||
     intent === "start_timer" ||
     intent === "stop_timer" ||
     intent === "analyse_blocks" ||
     intent === "clarify" ||
     intent === "log_block"
       ? intent
-      : "coach_chat"
+      : "companion_chat"
 
   const output: RouterOutput = {
     intent: normalizedIntent,
@@ -279,7 +302,7 @@ function normalizeRouterOutput(
   }
 }
 
-function deriveWindow(draft: CoachDraft): { startedAt: string; endedAt: string } | null {
+function deriveWindow(draft: CompanionDraft): { startedAt: string; endedAt: string } | null {
   if (draft.started_at && draft.ended_at) {
     const startedAt = new Date(draft.started_at)
     const endedAt = new Date(draft.ended_at)
@@ -340,11 +363,11 @@ function inferCategoryFromText(text: string): TimeBlockCategory | null {
   return matches.length === 1 ? matches[0] : null
 }
 
-function categoryTextForDraft(draft: CoachDraft) {
+function categoryTextForDraft(draft: CompanionDraft) {
   return [draft.task_name, draft.notes, ...draft.hashtags].filter(Boolean).join(" ")
 }
 
-function resolveCategory(draft: CoachDraft): CategoryInference {
+function resolveCategory(draft: CompanionDraft): CategoryInference {
   if (draft.category) {
     return { category: draft.category, source: "extracted" }
   }
@@ -356,7 +379,7 @@ function resolveCategory(draft: CoachDraft): CategoryInference {
 }
 
 function draftToSaveInput(
-  draft: CoachDraft,
+  draft: CompanionDraft,
   window: { startedAt: string; endedAt: string },
   category: TimeBlockCategory,
 ): SaveBlockInput {
@@ -392,7 +415,7 @@ function getDayRange() {
   }
 }
 
-function getAnalysisRange(draft: CoachDraft | null | undefined) {
+function getAnalysisRange(draft: CompanionDraft | null | undefined) {
   if (draft?.started_at && draft.ended_at) {
     const startedAt = new Date(draft.started_at)
     const endedAt = new Date(draft.ended_at)
@@ -408,7 +431,27 @@ function getAnalysisRange(draft: CoachDraft | null | undefined) {
   return getDayRange()
 }
 
-function formatBlockForPrompt(block: TimeBlock) {
+function snapshotTimeBlock(block: TimeBlock): CompanionTimeBlockContext {
+  return {
+    id: block.id,
+    task_name: block.task_name,
+    category: block.category,
+    hashtags: block.hashtags ?? [],
+    notes: block.notes,
+    started_at: block.started_at,
+    ended_at: block.ended_at,
+    duration_seconds: block.duration_seconds,
+    mood: block.mood,
+    effort_level: block.effort_level,
+    satisfaction: block.satisfaction,
+    avoidance_marker: block.avoidance_marker,
+    hyperfocus_marker: block.hyperfocus_marker,
+    guilt_marker: block.guilt_marker,
+    novelty_marker: block.novelty_marker,
+  }
+}
+
+function formatBlockForPrompt(block: TimeBlock | CompanionTimeBlockContext) {
   const duration = block.duration_seconds
     ? `${Math.round(block.duration_seconds / 60)} min`
     : "duration unknown"
@@ -434,11 +477,15 @@ function formatBlockForPrompt(block: TimeBlock) {
   return `- ${startedAt}: ${task} (${category}, ${duration})${tags}${notes}${meta}`
 }
 
-function formatMessageForPrompt(message: CoachMessage) {
+function formatMessageForPrompt(message: CompanionMessage) {
   return `${message.role}: ${message.content}`
 }
 
-function looksLikeLogAttempt(text: string, draft: CoachDraft | null | undefined, routed: RouterOutput) {
+function looksLikeLogAttempt(
+  text: string,
+  draft: CompanionDraft | null | undefined,
+  routed: RouterOutput,
+) {
   if (draft) {
     return true
   }
@@ -450,18 +497,23 @@ function looksLikeLogAttempt(text: string, draft: CoachDraft | null | undefined,
   return /\b(log|logged|record|add|save|spent|worked on|finished|completed|did|from \d{1,2}|for \d+)\b/i.test(text)
 }
 
-async function fetchCoachMessagesForUser(supabase: Supabase, userId: string) {
+async function fetchTimeBlockForUser(
+  supabase: Supabase,
+  userId: string,
+  timeBlockId: string,
+) {
   const { data, error } = await supabase
-    .from("coach_messages")
+    .from("time_blocks")
     .select("*")
     .eq("user_id", userId)
-    .order("created_at", { ascending: true })
+    .eq("id", timeBlockId)
+    .maybeSingle()
 
-  if (error) {
-    return { type: "error" as const, message: "couldn't load chat history." }
+  if (error || !data) {
+    return null
   }
 
-  return { type: "loaded" as const, messages: (data ?? []) as CoachMessage[] }
+  return data as TimeBlock
 }
 
 async function fetchNoteInsightsForBlocks(
@@ -486,25 +538,156 @@ async function fetchNoteInsightsForBlocks(
   return (data ?? []) as TimeBlockInsight[]
 }
 
-async function insertCoachMessage(
+async function fetchCompanionMessagesForConversation(
   supabase: Supabase,
   userId: string,
+  conversationId: string,
+) {
+  const { data, error } = await supabase
+    .from("companion_messages")
+    .select("*")
+    .eq("user_id", userId)
+    .eq("conversation_id", conversationId)
+    .order("created_at", { ascending: true })
+
+  if (error) {
+    return { type: "error" as const, message: "couldn't load chat history." }
+  }
+
+  return { type: "loaded" as const, messages: (data ?? []) as CompanionMessage[] }
+}
+
+async function getGeneralConversation(supabase: Supabase, userId: string) {
+  const { data: existing } = await supabase
+    .from("companion_conversations")
+    .select("*")
+    .eq("user_id", userId)
+    .eq("kind", "general")
+    .is("related_time_block_id", null)
+    .order("created_at", { ascending: true })
+    .limit(1)
+    .maybeSingle()
+
+  if (existing) {
+    return existing as CompanionConversation
+  }
+
+  const snapshot: CompanionConversationContextSnapshot = { kind: "general" }
+  const { data, error } = await supabase
+    .from("companion_conversations")
+    .insert({
+      user_id: userId,
+      kind: "general",
+      title: "general",
+      related_time_block_id: null,
+      context_snapshot: snapshot,
+    })
+    .select("*")
+    .single()
+
+  if (error || !data) {
+    throw new Error("couldn't create companion conversation.")
+  }
+
+  return data as CompanionConversation
+}
+
+async function getTimeBlockConversation(
+  supabase: Supabase,
+  userId: string,
+  timeBlockId: string,
+) {
+  const block = await fetchTimeBlockForUser(supabase, userId, timeBlockId)
+
+  if (!block) {
+    return null
+  }
+
+  const { data: existing } = await supabase
+    .from("companion_conversations")
+    .select("*")
+    .eq("user_id", userId)
+    .eq("kind", "time_block")
+    .eq("related_time_block_id", timeBlockId)
+    .maybeSingle()
+
+  if (existing) {
+    return existing as CompanionConversation
+  }
+
+  const snapshot: CompanionConversationContextSnapshot = {
+    kind: "time_block",
+    time_block: snapshotTimeBlock(block),
+  }
+  const title = block.task_name || "time block"
+  const { data, error } = await supabase
+    .from("companion_conversations")
+    .insert({
+      user_id: userId,
+      kind: "time_block",
+      title,
+      related_time_block_id: timeBlockId,
+      context_snapshot: snapshot,
+    })
+    .select("*")
+    .single()
+
+  if (error || !data) {
+    throw new Error("couldn't create block companion conversation.")
+  }
+
+  return data as CompanionConversation
+}
+
+async function getConversationForInput(
+  supabase: Supabase,
+  userId: string,
+  input: {
+    conversationId?: string | null
+    relatedTimeBlockId?: string | null
+  },
+) {
+  if (input.relatedTimeBlockId) {
+    return getTimeBlockConversation(supabase, userId, input.relatedTimeBlockId)
+  }
+
+  if (input.conversationId) {
+    const { data } = await supabase
+      .from("companion_conversations")
+      .select("*")
+      .eq("user_id", userId)
+      .eq("id", input.conversationId)
+      .maybeSingle()
+
+    if (data) {
+      return data as CompanionConversation
+    }
+  }
+
+  return getGeneralConversation(supabase, userId)
+}
+
+async function insertCompanionMessage(
+  supabase: Supabase,
+  userId: string,
+  conversation: CompanionConversation,
   values: {
     role: "user" | "assistant"
     content: string
-    messageType?: CoachMessageType
-    relatedTimeBlockId?: string | null
+    messageType?: CompanionMessageType
     metadata?: Record<string, unknown>
   },
 ) {
   const { data, error } = await supabase
-    .from("coach_messages")
+    .from("companion_messages")
     .insert({
       user_id: userId,
+      conversation_id: conversation.id,
       role: values.role,
       content: values.content,
       message_type: values.messageType ?? "chat",
-      related_time_block_id: values.relatedTimeBlockId ?? null,
+      model: companionModelId,
+      related_time_block_id: conversation.related_time_block_id,
       metadata: values.metadata ?? {},
     })
     .select("*")
@@ -514,14 +697,25 @@ async function insertCoachMessage(
     return { type: "error" as const, message: "couldn't save chat history." }
   }
 
-  return { type: "inserted" as const, message: data as CoachMessage }
+  await supabase
+    .from("companion_conversations")
+    .update({ updated_at: new Date().toISOString() })
+    .eq("id", conversation.id)
+    .eq("user_id", userId)
+
+  return { type: "inserted" as const, message: data as CompanionMessage }
 }
 
-async function getPendingDraft(supabase: Supabase, userId: string) {
+async function getPendingDraft(
+  supabase: Supabase,
+  userId: string,
+  conversationId: string,
+) {
   const { data, error } = await supabase
-    .from("coach_drafts")
+    .from("companion_drafts")
     .select("draft, expires_at")
     .eq("user_id", userId)
+    .eq("conversation_id", conversationId)
     .eq("status", "pending")
     .maybeSingle()
 
@@ -531,20 +725,27 @@ async function getPendingDraft(supabase: Supabase, userId: string) {
 
   if (data.expires_at && new Date(data.expires_at).getTime() <= Date.now()) {
     await supabase
-      .from("coach_drafts")
+      .from("companion_drafts")
       .update({ status: "resolved", updated_at: new Date().toISOString() })
       .eq("user_id", userId)
+      .eq("conversation_id", conversationId)
     return null
   }
 
   return normalizeDraft(data.draft)
 }
 
-async function savePendingDraft(supabase: Supabase, userId: string, draft: CoachDraft) {
+async function savePendingDraft(
+  supabase: Supabase,
+  userId: string,
+  conversationId: string,
+  draft: CompanionDraft,
+) {
   await supabase
-    .from("coach_drafts")
+    .from("companion_drafts")
     .upsert({
       user_id: userId,
+      conversation_id: conversationId,
       draft,
       status: "pending",
       updated_at: new Date().toISOString(),
@@ -552,67 +753,92 @@ async function savePendingDraft(supabase: Supabase, userId: string, draft: Coach
     })
 }
 
-async function resolvePendingDraft(supabase: Supabase, userId: string) {
+async function resolvePendingDraft(
+  supabase: Supabase,
+  userId: string,
+  conversationId: string,
+) {
   await supabase
-    .from("coach_drafts")
+    .from("companion_drafts")
     .update({ status: "resolved", updated_at: new Date().toISOString() })
     .eq("user_id", userId)
+    .eq("conversation_id", conversationId)
     .eq("status", "pending")
 }
 
-async function getMessageState(supabase: Supabase, userId: string) {
+async function getThreadState(
+  supabase: Supabase,
+  userId: string,
+  conversation: CompanionConversation,
+): Promise<CompanionThreadState> {
   const [messagesResult, pendingDraft] = await Promise.all([
-    fetchCoachMessagesForUser(supabase, userId),
-    getPendingDraft(supabase, userId),
+    fetchCompanionMessagesForConversation(supabase, userId, conversation.id),
+    conversation.kind === "general"
+      ? getPendingDraft(supabase, userId, conversation.id)
+      : Promise.resolve(null),
   ])
 
   return {
+    conversation,
     messages: messagesResult.type === "loaded" ? messagesResult.messages : [],
     hasPendingDraft: pendingDraft !== null,
   }
 }
 
-async function withMessageState<T extends Omit<ProcessCoachMessageResult, "messages" | "hasPendingDraft">>(
+async function withThreadState<
+  T extends Omit<
+    ProcessCompanionMessageResult,
+    "conversation" | "messages" | "hasPendingDraft"
+  >,
+>(
   supabase: Supabase,
   userId: string,
+  conversation: CompanionConversation,
   result: T,
-): Promise<T & { messages: CoachMessage[]; hasPendingDraft: boolean }> {
-  const state = await getMessageState(supabase, userId)
+): Promise<T & CompanionThreadState> {
+  const state = await getThreadState(supabase, userId, conversation)
   return { ...result, ...state }
 }
 
-export async function getCoachMessages(): Promise<CoachMessage[]> {
+export async function getCompanionThread(input?: {
+  relatedTimeBlockId?: string | null
+  conversationId?: string | null
+}): Promise<CompanionThreadState | null> {
   const supabase = await createClient()
   const {
     data: { user },
   } = await supabase.auth.getUser()
 
   if (!user) {
-    return []
+    return null
   }
 
-  const result = await fetchCoachMessagesForUser(supabase, user.id)
-  return result.type === "loaded" ? result.messages : []
+  try {
+    const conversation = await getConversationForInput(supabase, user.id, input ?? {})
+    if (!conversation) {
+      return null
+    }
+    return getThreadState(supabase, user.id, conversation)
+  } catch {
+    return null
+  }
 }
 
-export async function getCoachHasPendingDraft(): Promise<boolean> {
-  const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+export async function getCompanionMessages(): Promise<CompanionMessage[]> {
+  const thread = await getCompanionThread()
+  return thread?.messages ?? []
+}
 
-  if (!user) {
-    return false
-  }
-
-  return (await getPendingDraft(supabase, user.id)) !== null
+export async function getCompanionHasPendingDraft(): Promise<boolean> {
+  const thread = await getCompanionThread()
+  return thread?.hasPendingDraft ?? false
 }
 
 async function routeMessage(
   text: string,
-  draft: CoachDraft | null | undefined,
+  draft: CompanionDraft | null | undefined,
   timezone: string | null | undefined,
-  recentMessages: CoachMessage[],
+  recentMessages: CompanionMessage[],
 ): Promise<RouterOutput> {
   try {
     const { output } = await generateText({
@@ -621,8 +847,8 @@ async function routeMessage(
       prompt: [
         "Classify this Alibi chat message and extract structured time-block data.",
         "",
-        "Valid intents: coach_chat, log_block, start_timer, stop_timer, analyse_blocks, clarify.",
-        "Use coach_chat for ordinary conversation, emotional check-ins, uncertainty, venting, or anything that is not clearly a request to save completed work.",
+        "Valid intents: companion_chat, log_block, start_timer, stop_timer, analyse_blocks, clarify.",
+        "Use companion_chat for ordinary conversation, emotional check-ins, uncertainty, venting, or anything that is not clearly a request to save completed work.",
         "Use log_block only when the user is recording completed work or gives a clear completed-work statement with timing/category details.",
         "Use start_timer or stop_timer for explicit timer control.",
         "Use analyse_blocks when they ask what they did, how long they spent, patterns, or reassurance from saved records.",
@@ -630,7 +856,7 @@ async function routeMessage(
         "",
         "Schema:",
         "{",
-        '  "intent": "coach_chat" | "log_block" | "start_timer" | "stop_timer" | "analyse_blocks" | "clarify",',
+        '  "intent": "companion_chat" | "log_block" | "start_timer" | "stop_timer" | "analyse_blocks" | "clarify",',
         '  "task_name": "string | null",',
         '  "category": "category name or slug | null",',
         '  "hashtags": ["strings without #"],',
@@ -656,7 +882,7 @@ async function routeMessage(
         "- Use an existing/default category when obvious: deep_work, admin, social, errands, care, creative, rest.",
         "- If the user gives a custom category name, return that name.",
         "- Do not turn feelings, questions, or general updates into log_block.",
-        "- When unsure whether the user wants to log a block, choose coach_chat.",
+        "- When unsure whether the user wants to log a block, choose companion_chat.",
         "",
         `Current timestamp: ${new Date().toISOString()}`,
         `User timezone: ${timezone || "unknown"}`,
@@ -696,8 +922,8 @@ async function makeAck(kind: "logged" | "started" | "stopped", subject: string) 
 
 async function analyseBlocks(
   message: string,
-  draft: CoachDraft | null | undefined,
-  recentMessages: CoachMessage[],
+  draft: CompanionDraft | null | undefined,
+  recentMessages: CompanionMessage[],
 ) {
   const range = getAnalysisRange(draft)
   const result = await getCalendarData(range)
@@ -715,16 +941,18 @@ async function analyseBlocks(
   const [noteInsights, linkedMessagesResult] = user
     ? await Promise.all([
         fetchNoteInsightsForBlocks(supabase, user.id, blockIds),
-        fetchCoachMessagesForUser(supabase, user.id),
+        supabase
+          .from("companion_messages")
+          .select("*")
+          .eq("user_id", user.id)
+          .in("related_time_block_id", blockIds)
+          .order("created_at", { ascending: true }),
       ])
-    : [[], { type: "loaded" as const, messages: [] }]
+    : [[], { data: [], error: null }]
   const insightsByBlock = new Map(noteInsights.map((insight) => [insight.time_block_id, insight]))
-  const linkedMessages =
-    linkedMessagesResult.type === "loaded"
-      ? linkedMessagesResult.messages.filter(
-          (chat) => chat.related_time_block_id && blockIds.includes(chat.related_time_block_id),
-        )
-      : []
+  const linkedMessages = linkedMessagesResult.error
+    ? []
+    : ((linkedMessagesResult.data ?? []) as CompanionMessage[])
   const context = blocks.length
     ? blocks
         .map((block) => {
@@ -737,14 +965,15 @@ async function analyseBlocks(
 
   try {
     const { text } = await generateText({
-      model: coachModel,
+      model: companionModel,
       system: [
         "You are Alibi: the friend who remembers the user's day so they don't have to defend it to themselves.",
+        alibiCompanionGuide,
         "Answer using ONLY the provided context.",
         "Use evidence in this order: time block notes, time block metadata, note-derived insights, linked chat, then recent general chat.",
         "When describing a pattern, cite the note/time evidence that supports it.",
         "General chat can add tone or continuity, but it must not override a time block note unless the user explicitly says the block record is wrong.",
-        "Be warm, specific, lowercase, and under 90 words.",
+        "Stay under 90 words.",
         "Do not mention entries. Do not invent unsaved work. Do not give productivity advice.",
       ].join("\n"),
       prompt: [
@@ -756,7 +985,7 @@ async function analyseBlocks(
         "Saved time_blocks in range:",
         context,
         "",
-        "Linked chat messages for those blocks:",
+        "Linked companion messages for those blocks:",
         linkedMessages.length ? linkedMessages.map(formatMessageForPrompt).join("\n") : "(none)",
       ].join("\n"),
     })
@@ -773,7 +1002,7 @@ async function analyseBlocks(
   }
 }
 
-async function coachChat(message: string, recentMessages: CoachMessage[]) {
+async function companionChat(message: string, recentMessages: CompanionMessage[]) {
   const result = await getCalendarData(getDayRange())
   const context =
     result.type === "loaded" && result.timeBlocks.length
@@ -782,16 +1011,16 @@ async function coachChat(message: string, recentMessages: CoachMessage[]) {
 
   try {
     const { text } = await generateText({
-      model: coachModel,
+      model: companionModel,
       system: [
-        "You are Alibi: a conversational coach and witness for the user's day.",
+        "You are Alibi: a conversational witness for the user's day.",
+        alibiCompanionGuide,
         "Do not behave like a form or parser.",
         "Do not ask for exact time or duration unless the user is clearly trying to log completed work.",
         "If the user is vague, respond conversationally first; you may ask one gentle open question.",
         "Use saved time_blocks only as context, not as a script.",
         "If you refer to saved evidence, treat block notes as the strongest source and chat history as secondary context.",
-        "Be warm, grounded, lowercase, and under 70 words.",
-        "No productivity lectures, no toxic positivity, no exclamation marks.",
+        "Stay under 70 words.",
       ].join("\n"),
       prompt: [
         `User message: ${message}`,
@@ -809,7 +1038,46 @@ async function coachChat(message: string, recentMessages: CoachMessage[]) {
   }
 }
 
-function clarificationQuestion(draft: CoachDraft) {
+async function timeBlockCompanionChat(
+  message: string,
+  conversation: CompanionConversation,
+  recentMessages: CompanionMessage[],
+) {
+  const block = conversation.context_snapshot.time_block
+
+  if (!block) {
+    return "i couldn't find the block context for this thread."
+  }
+
+  try {
+    const { text } = await generateText({
+      model: companionModel,
+      system: [
+        "You are Alibi: a reflective companion for one saved time block.",
+        alibiCompanionGuide,
+        "This thread is only about the fixed block context provided below.",
+        "Reflect, summarize, reinterpret, and help the user name what happened.",
+        "Do not edit the block, create new time blocks, operate timers, or claim you changed stored data.",
+        "Treat the block note as the strongest evidence.",
+        "Stay under 90 words.",
+      ].join("\n"),
+      prompt: [
+        `User message: ${message}`,
+        "Fixed time block context:",
+        formatBlockForPrompt(block),
+        "",
+        "Thread messages:",
+        recentMessages.length ? recentMessages.map(formatMessageForPrompt).join("\n") : "(none)",
+      ].join("\n"),
+    })
+
+    return text.trim() || "that block has more texture than it first looks."
+  } catch {
+    return "that block has more texture than it first looks."
+  }
+}
+
+function clarificationQuestion(draft: CompanionDraft) {
   if (!deriveWindow(draft)) {
     return "what time was that, or about how long did it take?"
   }
@@ -825,15 +1093,32 @@ function clarificationQuestion(draft: CoachDraft) {
   return "what else should i add before i log it?"
 }
 
-export async function processCoachMessage(
-  input: ProcessCoachMessageInput | string,
-): Promise<ProcessCoachMessageResult> {
+export async function processCompanionMessage(
+  input: ProcessCompanionMessageInput | string,
+): Promise<ProcessCompanionMessageResult> {
   const text = typeof input === "string" ? input : input.text
   const timezone = typeof input === "string" ? null : input.timezone ?? null
   const trimmed = text.trim()
 
+  const emptyConversation: CompanionConversation = {
+    id: "",
+    user_id: "",
+    kind: "general",
+    title: null,
+    related_time_block_id: null,
+    context_snapshot: { kind: "general" },
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  }
+
   if (!trimmed) {
-    return { type: "error", message: "say something.", messages: [], hasPendingDraft: false }
+    return {
+      type: "error",
+      message: "say something.",
+      conversation: emptyConversation,
+      messages: [],
+      hasPendingDraft: false,
+    }
   }
 
   const supabase = await createClient()
@@ -842,47 +1127,99 @@ export async function processCoachMessage(
   } = await supabase.auth.getUser()
 
   if (!user) {
-    return { type: "error", message: "not signed in.", messages: [], hasPendingDraft: false }
+    return {
+      type: "error",
+      message: "not signed in.",
+      conversation: emptyConversation,
+      messages: [],
+      hasPendingDraft: false,
+    }
   }
 
-  const userMessage = await insertCoachMessage(supabase, user.id, {
+  const conversation = await getConversationForInput(
+    supabase,
+    user.id,
+    typeof input === "string"
+      ? {}
+      : {
+          conversationId: input.conversationId,
+          relatedTimeBlockId: input.relatedTimeBlockId,
+        },
+  )
+
+  if (!conversation) {
+    return {
+      type: "error",
+      message: "couldn't open that companion thread.",
+      conversation: emptyConversation,
+      messages: [],
+      hasPendingDraft: false,
+    }
+  }
+
+  const userMessage = await insertCompanionMessage(supabase, user.id, conversation, {
     role: "user",
     content: trimmed,
   })
 
   if (userMessage.type === "error") {
-    return withMessageState(supabase, user.id, { type: "error", message: userMessage.message })
+    return withThreadState(supabase, user.id, conversation, {
+      type: "error",
+      message: userMessage.message,
+    })
   }
 
-  const pendingDraft = await getPendingDraft(supabase, user.id)
-  const messagesAfterUser = await fetchCoachMessagesForUser(supabase, user.id)
+  const messagesAfterUser = await fetchCompanionMessagesForConversation(
+    supabase,
+    user.id,
+    conversation.id,
+  )
   const recentMessages =
-    messagesAfterUser.type === "loaded" ? messagesAfterUser.messages.slice(-6) : [userMessage.message]
-  const routed = await routeMessage(trimmed, pendingDraft, timezone, recentMessages)
-  const mergedDraft = mergeDraft(pendingDraft, routed)
+    messagesAfterUser.type === "loaded"
+      ? messagesAfterUser.messages.slice(-6)
+      : [userMessage.message]
 
-  const finishWithAssistant = async <T extends Omit<ProcessCoachMessageResult, "messages" | "hasPendingDraft">>(
+  const finishWithAssistant = async <
+    T extends Omit<
+      ProcessCompanionMessageResult,
+      "conversation" | "messages" | "hasPendingDraft"
+    >,
+  >(
     result: T,
     content: string,
-    messageType: CoachMessageType,
-    relatedTimeBlockId: string | null = null,
+    messageType: CompanionMessageType,
     metadata: Record<string, unknown> = {},
   ) => {
-    await insertCoachMessage(supabase, user.id, {
+    await insertCompanionMessage(supabase, user.id, conversation, {
       role: "assistant",
       content,
       messageType,
-      relatedTimeBlockId,
       metadata,
     })
 
-    return withMessageState(supabase, user.id, result)
+    return withThreadState(supabase, user.id, conversation, result)
   }
+
+  if (conversation.kind === "time_block") {
+    const message = await timeBlockCompanionChat(trimmed, conversation, recentMessages)
+    return finishWithAssistant(
+      {
+        type: "conversation",
+        message,
+      },
+      message,
+      "chat",
+    )
+  }
+
+  const pendingDraft = await getPendingDraft(supabase, user.id, conversation.id)
+  const routed = await routeMessage(trimmed, pendingDraft, timezone, recentMessages)
+  const mergedDraft = mergeDraft(pendingDraft, routed)
 
   if (routed.intent === "start_timer") {
     const result = await startTimer()
     if (result.type === "started") {
-      await resolvePendingDraft(supabase, user.id)
+      await resolvePendingDraft(supabase, user.id, conversation.id)
       const ack = await makeAck("started", mergedDraft.task_name ?? "timer")
       return finishWithAssistant(
         {
@@ -896,7 +1233,7 @@ export async function processCoachMessage(
     }
 
     if (result.type === "already_running") {
-      await resolvePendingDraft(supabase, user.id)
+      await resolvePendingDraft(supabase, user.id, conversation.id)
       return finishWithAssistant(
         {
           type: "timer_already_running",
@@ -928,7 +1265,7 @@ export async function processCoachMessage(
     })
 
     if (result.type === "stopped") {
-      await resolvePendingDraft(supabase, user.id)
+      await resolvePendingDraft(supabase, user.id, conversation.id)
       const ack = await makeAck("stopped", mergedDraft.task_name ?? "timer")
       return finishWithAssistant(
         {
@@ -938,7 +1275,6 @@ export async function processCoachMessage(
         },
         ack,
         "ack",
-        result.timeBlock.id,
       )
     }
 
@@ -950,7 +1286,7 @@ export async function processCoachMessage(
       )
     }
 
-    return finishWithAssistant(result, result.message, "error", result.timeBlock?.id ?? null)
+    return finishWithAssistant(result, result.message, "error")
   }
 
   if (routed.intent === "analyse_blocks") {
@@ -965,8 +1301,11 @@ export async function processCoachMessage(
     )
   }
 
-  if (routed.intent === "coach_chat" || !looksLikeLogAttempt(trimmed, pendingDraft, routed)) {
-    const message = await coachChat(trimmed, recentMessages)
+  if (
+    routed.intent === "companion_chat" ||
+    !looksLikeLogAttempt(trimmed, pendingDraft, routed)
+  ) {
+    const message = await companionChat(trimmed, recentMessages)
     return finishWithAssistant(
       {
         type: "conversation",
@@ -980,7 +1319,7 @@ export async function processCoachMessage(
   const window = deriveWindow(mergedDraft)
   if (!window) {
     const question = clarificationQuestion(mergedDraft)
-    await savePendingDraft(supabase, user.id, mergedDraft)
+    await savePendingDraft(supabase, user.id, conversation.id, mergedDraft)
     return finishWithAssistant(
       {
         type: "clarify",
@@ -994,7 +1333,7 @@ export async function processCoachMessage(
 
   if (!mergedDraft.task_name?.trim()) {
     const question = clarificationQuestion(mergedDraft)
-    await savePendingDraft(supabase, user.id, mergedDraft)
+    await savePendingDraft(supabase, user.id, conversation.id, mergedDraft)
     return finishWithAssistant(
       {
         type: "clarify",
@@ -1009,7 +1348,7 @@ export async function processCoachMessage(
   const category = resolveCategory(mergedDraft).category
   if (!category) {
     const question = clarificationQuestion(mergedDraft)
-    await savePendingDraft(supabase, user.id, mergedDraft)
+    await savePendingDraft(supabase, user.id, conversation.id, mergedDraft)
     return finishWithAssistant(
       {
         type: "clarify",
@@ -1027,7 +1366,7 @@ export async function processCoachMessage(
   })
 
   if (result.type === "saved") {
-    await resolvePendingDraft(supabase, user.id)
+    await resolvePendingDraft(supabase, user.id, conversation.id)
     const ack = await makeAck("logged", mergedDraft.task_name ?? "time block")
     return finishWithAssistant(
       {
@@ -1037,7 +1376,6 @@ export async function processCoachMessage(
       },
       ack,
       "ack",
-      result.timeBlock.id,
     )
   }
 
@@ -1052,4 +1390,4 @@ export async function processCoachMessage(
   return finishWithAssistant(result, result.message, "error")
 }
 
-export const processMessage = processCoachMessage
+export const processMessage = processCompanionMessage

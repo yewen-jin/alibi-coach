@@ -18,7 +18,7 @@ const KIND_LABEL: Record<ProactiveMessage["kind"], string> = {
 export function ProactiveBubble({ message, onDismiss }: ProactiveBubbleProps) {
   return (
     <div
-      className="alibi-soft-rise rounded-2xl border border-coach-border bg-coach-bg/70 p-4"
+      className="alibi-soft-rise rounded-2xl border border-alibi-blue/15 bg-white/80 p-4"
       role="status"
       aria-live="polite"
     >
@@ -27,7 +27,7 @@ export function ProactiveBubble({ message, onDismiss }: ProactiveBubbleProps) {
           <p className="mb-1 text-[10px] uppercase tracking-wide text-muted-foreground">
             {KIND_LABEL[message.kind]}
           </p>
-          <p className="font-serif text-[1rem] leading-relaxed text-coach-text">
+          <p className="font-serif text-[1rem] leading-relaxed text-alibi-ink">
             {message.content}
           </p>
         </div>
