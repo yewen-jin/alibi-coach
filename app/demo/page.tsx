@@ -301,7 +301,6 @@ export default function DemoPage() {
   const [now, setNow] = useState(() => Date.now())
   const [pending, setPending] = useState(false)
   const [chatPending, setChatPending] = useState(false)
-  const [hasDraft, setHasDraft] = useState(false)
 
   const today = useMemo(() => new Date(), [])
   const elapsed = activeTimer
@@ -498,12 +497,10 @@ export default function DemoPage() {
 
   const handleOpenGeneralThread = async () => {
     setActiveThread({ kind: "general" })
-    setHasDraft(false)
   }
 
   const handleChatAboutBlock = (block: DemoStoredBlock) => {
     setActiveThread({ kind: "time_block", blockId: block.id })
-    setHasDraft(false)
     setBlockThreads((current) =>
       current[block.id]?.length
         ? current
@@ -546,7 +543,6 @@ export default function DemoPage() {
       const lower = trimmed.toLowerCase()
       setChatPending(true)
       appendThreadMessage(makeMessage("user", trimmed))
-      setHasDraft(false)
 
       await new Promise((resolve) => window.setTimeout(resolve, 350))
 
@@ -589,7 +585,6 @@ export default function DemoPage() {
         lower.includes("record")
       ) {
         if (!parseDurationMinutes(trimmed) && !/\bfrom\b.+\b(to|-)\b/i.test(trimmed)) {
-          setHasDraft(true)
           assistantText =
             "i can log that. about when was it, or roughly how long did it take?"
         } else {
@@ -769,7 +764,6 @@ export default function DemoPage() {
               threadTitle={activeBlock?.task_name ?? null}
               messages={activeMessages}
               pending={chatPending}
-              hasDraft={activeThread.kind === "general" && hasDraft}
               onOpenGeneral={handleOpenGeneralThread}
               onSubmit={handleChat}
             />
@@ -798,7 +792,6 @@ function CompanionChatPanel({
   threadTitle,
   messages,
   pending,
-  hasDraft,
   onOpenGeneral,
   onSubmit,
 }: {
@@ -806,7 +799,6 @@ function CompanionChatPanel({
   threadTitle: string | null
   messages: DemoStoredMessage[]
   pending: boolean
-  hasDraft: boolean
   onOpenGeneral: () => Promise<void>
   onSubmit: (text: string) => Promise<void>
 }) {
@@ -900,10 +892,6 @@ function CompanionChatPanel({
         )}
         <div ref={latestMessageRef} />
       </div>
-
-      {hasDraft && (
-        <p className="mt-3 text-sm font-bold leading-6 text-alibi-pink">one more detail.</p>
-      )}
 
       <form onSubmit={handleSubmit} className="mt-4 flex items-end gap-2">
         <label className="sr-only" htmlFor="demo-companion-message">

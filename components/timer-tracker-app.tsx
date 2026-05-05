@@ -11,6 +11,7 @@ import {
 } from "react";
 import {
   CalendarDays,
+  ChevronDown,
   Clock,
   Loader2,
   MessageCircle,
@@ -55,13 +56,76 @@ import {
 } from "@/lib/demo-storage";
 
 const FALLBACK_CATEGORIES = [
-  { id: "deep_work", user_id: null, slug: "deep_work", name: "deep work", color: "#3253C7", is_default: true, created_at: "", updated_at: "" },
-  { id: "admin", user_id: null, slug: "admin", name: "admin", color: "#93A5E4", is_default: true, created_at: "", updated_at: "" },
-  { id: "social", user_id: null, slug: "social", name: "social", color: "#BF7DAD", is_default: true, created_at: "", updated_at: "" },
-  { id: "errands", user_id: null, slug: "errands", name: "errands", color: "#43849D", is_default: true, created_at: "", updated_at: "" },
-  { id: "care", user_id: null, slug: "care", name: "care", color: "#BF7DAD", is_default: true, created_at: "", updated_at: "" },
-  { id: "creative", user_id: null, slug: "creative", name: "creative", color: "#3253C7", is_default: true, created_at: "", updated_at: "" },
-  { id: "rest", user_id: null, slug: "rest", name: "rest", color: "#43849D", is_default: true, created_at: "", updated_at: "" },
+  {
+    id: "deep_work",
+    user_id: null,
+    slug: "deep_work",
+    name: "deep work",
+    color: "#3253C7",
+    is_default: true,
+    created_at: "",
+    updated_at: "",
+  },
+  {
+    id: "admin",
+    user_id: null,
+    slug: "admin",
+    name: "admin",
+    color: "#93A5E4",
+    is_default: true,
+    created_at: "",
+    updated_at: "",
+  },
+  {
+    id: "social",
+    user_id: null,
+    slug: "social",
+    name: "social",
+    color: "#BF7DAD",
+    is_default: true,
+    created_at: "",
+    updated_at: "",
+  },
+  {
+    id: "errands",
+    user_id: null,
+    slug: "errands",
+    name: "errands",
+    color: "#43849D",
+    is_default: true,
+    created_at: "",
+    updated_at: "",
+  },
+  {
+    id: "care",
+    user_id: null,
+    slug: "care",
+    name: "care",
+    color: "#BF7DAD",
+    is_default: true,
+    created_at: "",
+    updated_at: "",
+  },
+  {
+    id: "creative",
+    user_id: null,
+    slug: "creative",
+    name: "creative",
+    color: "#3253C7",
+    is_default: true,
+    created_at: "",
+    updated_at: "",
+  },
+  {
+    id: "rest",
+    user_id: null,
+    slug: "rest",
+    name: "rest",
+    color: "#43849D",
+    is_default: true,
+    created_at: "",
+    updated_at: "",
+  },
 ] satisfies TimeBlockCategoryRecord[];
 
 type EditorState = {
@@ -297,7 +361,8 @@ export function TimerTrackerApp({
 }: TimerTrackerAppProps) {
   const [activeTimer, setActiveTimer] = useState<ActiveTimer | null>(null);
   const [timeBlocks, setTimeBlocks] = useState<TimeBlock[]>([]);
-  const [categories, setCategories] = useState<TimeBlockCategoryRecord[]>(FALLBACK_CATEGORIES);
+  const [categories, setCategories] =
+    useState<TimeBlockCategoryRecord[]>(FALLBACK_CATEGORIES);
   const [editor, setEditor] = useState<EditorState | null>(null);
   const [now, setNow] = useState(() => Date.now());
   const [loading, setLoading] = useState(true);
@@ -307,10 +372,9 @@ export function TimerTrackerApp({
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>(() =>
     (initialCompanionThread?.messages ?? []).map(companionMessageToChatMessage),
   );
-  const [hasPendingDraft, setHasPendingDraft] = useState(
-    initialCompanionThread?.hasPendingDraft ?? false,
+  const [demoImportBlocks, setDemoImportBlocks] = useState<DemoStoredBlock[]>(
+    [],
   );
-  const [demoImportBlocks, setDemoImportBlocks] = useState<DemoStoredBlock[]>([]);
   const [demoImportName, setDemoImportName] = useState<string | null>(null);
   const [isImportingDemo, setIsImportingDemo] = useState(false);
   const [isPending, startTransition] = useTransition();
@@ -471,7 +535,8 @@ export function TimerTrackerApp({
           category.slug === typedCategory ||
           category.name.toLowerCase() === typedCategory.toLowerCase(),
       );
-      const categorySlug = matchedCategory?.slug ?? slugifyCategoryName(typedCategory);
+      const categorySlug =
+        matchedCategory?.slug ?? slugifyCategoryName(typedCategory);
 
       if (!categorySlug) {
         setError("category is invalid.");
@@ -578,7 +643,11 @@ export function TimerTrackerApp({
       });
 
       if (result.type !== "saved") {
-        setError(result.type === "not_found" ? "time block was not found." : result.message);
+        setError(
+          result.type === "not_found"
+            ? "time block was not found."
+            : result.message,
+        );
         setIsImportingDemo(false);
         return;
       }
@@ -601,7 +670,6 @@ export function TimerTrackerApp({
   const showCompanionThread = useCallback((thread: CompanionThreadState) => {
     setActiveCompanionThread(thread);
     setChatMessages(thread.messages.map(companionMessageToChatMessage));
-    setHasPendingDraft(thread.hasPendingDraft);
   }, []);
 
   const handleOpenGeneralCompanionThread = useCallback(async () => {
@@ -669,16 +737,13 @@ export function TimerTrackerApp({
         };
         const reconcileMessages = () => {
           if (Array.isArray(result.messages) && result.messages.length > 0) {
-            setChatMessages(
-              result.messages.map(companionMessageToChatMessage),
-            );
+            setChatMessages(result.messages.map(companionMessageToChatMessage));
           }
           setActiveCompanionThread({
             conversation: result.conversation,
             messages: result.messages,
             hasPendingDraft: result.hasPendingDraft,
           });
-          setHasPendingDraft(result.hasPendingDraft === true);
         };
 
         if (result.type === "error") {
@@ -736,9 +801,12 @@ export function TimerTrackerApp({
                   import your demo blocks
                 </p>
                 <p className="mt-1 text-sm font-semibold leading-6 text-alibi-teal">
-                  {demoImportName ? `${demoImportName}'s demo session` : "your demo session"} has{" "}
-                  {demoImportBlocks.length} completed block
-                  {demoImportBlocks.length === 1 ? "" : "s"} ready to save into this account.
+                  {demoImportName
+                    ? `${demoImportName}'s demo session`
+                    : "your demo session"}{" "}
+                  has {demoImportBlocks.length} completed block
+                  {demoImportBlocks.length === 1 ? "" : "s"} ready to save into
+                  this account.
                 </p>
               </div>
               <div className="flex items-center gap-2">
@@ -758,7 +826,9 @@ export function TimerTrackerApp({
                   disabled={isImportingDemo}
                   className="inline-flex h-10 items-center justify-center gap-2 rounded-2xl bg-alibi-teal px-4 text-sm font-black text-white shadow-[0_10px_22px_rgba(67,132,157,0.28)] transition hover:-translate-y-0.5 hover:bg-alibi-blue disabled:translate-y-0 disabled:opacity-55"
                 >
-                  {isImportingDemo && <Loader2 className="h-4 w-4 animate-spin" />}
+                  {isImportingDemo && (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  )}
                   import
                 </button>
               </div>
@@ -857,11 +927,11 @@ export function TimerTrackerApp({
             )}
 
             {editor && (
-            <BlockEditor
-              editor={editor}
-              categories={categories}
-              setEditor={setEditor}
-              onSave={handleSave}
+              <BlockEditor
+                editor={editor}
+                categories={categories}
+                setEditor={setEditor}
+                onSave={handleSave}
                 onDelete={
                   editor.block ? () => handleDelete(editor.block!) : undefined
                 }
@@ -870,13 +940,10 @@ export function TimerTrackerApp({
             )}
 
             <CompanionChatPanel
-              threadKind={
-                activeCompanionThread?.conversation.kind ?? "general"
-              }
+              threadKind={activeCompanionThread?.conversation.kind ?? "general"}
               threadTitle={activeCompanionThread?.conversation.title ?? null}
               messages={chatMessages}
               pending={isChatPending}
-              hasDraft={hasPendingDraft}
               onOpenGeneral={handleOpenGeneralCompanionThread}
               onSubmit={handleCompanionMessage}
             />
@@ -906,7 +973,6 @@ function CompanionChatPanel({
   threadTitle,
   messages,
   pending,
-  hasDraft,
   onOpenGeneral,
   onSubmit,
 }: {
@@ -914,7 +980,6 @@ function CompanionChatPanel({
   threadTitle: string | null;
   messages: ChatMessage[];
   pending: boolean;
-  hasDraft: boolean;
   onOpenGeneral: () => Promise<void>;
   onSubmit: (text: string) => Promise<void>;
 }) {
@@ -996,7 +1061,9 @@ function CompanionChatPanel({
                 dateTime={message.createdAt}
                 className={cn(
                   "mt-1 block font-mono text-[10px] font-black uppercase leading-4",
-                  message.role === "user" ? "text-white/70" : "text-alibi-teal/70",
+                  message.role === "user"
+                    ? "text-white/70"
+                    : "text-alibi-teal/70",
                 )}
               >
                 {formatChatTimestamp(message.createdAt)}
@@ -1012,12 +1079,6 @@ function CompanionChatPanel({
         )}
         <div ref={latestMessageRef} />
       </div>
-
-      {hasDraft && (
-        <p className="mt-3 text-sm font-bold leading-6 text-alibi-pink">
-          one more detail.
-        </p>
-      )}
 
       <form onSubmit={handleSubmit} className="mt-4 flex items-end gap-2">
         <label className="sr-only" htmlFor="companion-message">
@@ -1053,6 +1114,144 @@ function CompanionChatPanel({
         </button>
       </form>
     </section>
+  );
+}
+
+function CategoryPicker({
+  value,
+  categories,
+  onChange,
+}: {
+  value: string;
+  categories: TimeBlockCategoryRecord[];
+  onChange: (val: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [addingNew, setAddingNew] = useState(false);
+  const [newValue, setNewValue] = useState("");
+  const ref = useRef<HTMLDivElement>(null);
+  const newInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) {
+        setOpen(false);
+        setAddingNew(false);
+        setNewValue("");
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  useEffect(() => {
+    if (addingNew) newInputRef.current?.focus();
+  }, [addingNew]);
+
+  const selected = categories.find(
+    (c) => c.slug === value || c.name.toLowerCase() === value.toLowerCase(),
+  );
+  const displayName = selected?.name ?? (value || null);
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        type="button"
+        onClick={() => {
+          setOpen((o) => !o);
+          setAddingNew(false);
+          setNewValue("");
+        }}
+        className="alibi-input flex h-11 w-full items-center justify-between gap-2 text-left"
+      >
+        <span
+          className={cn(
+            "flex items-center gap-2 text-sm font-semibold",
+            displayName ? "text-alibi-ink" : "text-alibi-teal/50",
+          )}
+        >
+          {selected && (
+            <span
+              className="h-2.5 w-2.5 flex-shrink-0 rounded-full"
+              style={{ backgroundColor: selected.color }}
+            />
+          )}
+          {displayName ?? "choose or add a category"}
+        </span>
+        <ChevronDown
+          className={cn(
+            "h-4 w-4 flex-shrink-0 text-alibi-teal transition-transform duration-150",
+            open && "rotate-180",
+          )}
+        />
+      </button>
+
+      {open && (
+        <div className="alibi-card absolute z-50 mt-1 w-full overflow-hidden p-1">
+          {!addingNew ? (
+            <button
+              type="button"
+              onClick={() => setAddingNew(true)}
+              className="flex w-full items-center gap-2.5 rounded-2xl px-3 py-2 text-sm font-semibold text-alibi-teal transition hover:bg-alibi-lavender/20"
+            >
+              <Plus className="h-3.5 w-3.5" />
+              add new
+            </button>
+          ) : (
+            <div className="px-1 pb-1 pt-0.5">
+              <input
+                ref={newInputRef}
+                value={newValue}
+                onChange={(e) => setNewValue(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && newValue.trim()) {
+                    onChange(newValue.trim());
+                    setOpen(false);
+                    setAddingNew(false);
+                    setNewValue("");
+                  } else if (e.key === "Escape") {
+                    setAddingNew(false);
+                    setNewValue("");
+                  }
+                }}
+                className="alibi-input h-9 w-full text-sm"
+                placeholder="new category name, press enter"
+              />
+            </div>
+          )}
+
+          <div className="my-1 border-t border-alibi-blue/10" />
+
+          <div className="relative -mx-1 -mb-1">
+            <div className="max-h-48 overflow-y-auto px-1 pb-6">
+              {categories.map((cat) => (
+                <button
+                  key={cat.id}
+                  type="button"
+                  onClick={() => {
+                    onChange(cat.slug);
+                    setOpen(false);
+                  }}
+                  className={cn(
+                    "flex w-full items-center gap-2.5 rounded-2xl px-3 py-2 text-sm font-semibold text-alibi-ink transition hover:bg-alibi-lavender/20",
+                    value === cat.slug && "bg-alibi-blue/10 text-alibi-blue",
+                  )}
+                >
+                  <span
+                    className="h-2.5 w-2.5 flex-shrink-0 rounded-full"
+                    style={{ backgroundColor: cat.color }}
+                  />
+                  {cat.name}
+                </button>
+              ))}
+            </div>
+            {categories.length > 4 && (
+              <div className="pointer-events-none absolute inset-x-0 bottom-0 h-14 bg-gradient-to-t from-white to-transparent" />
+            )}
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -1110,31 +1309,19 @@ function BlockEditor({
           />
         </label>
 
-        <label className="grid gap-1.5 text-sm font-bold text-alibi-blue">
+        <div className="grid gap-1.5 text-sm font-bold text-alibi-blue">
           category
-          <input
-            list="time-block-categories"
+          <CategoryPicker
             value={editor.category}
-            onChange={(event) =>
+            categories={categories}
+            onChange={(val) =>
               setEditor({
                 ...editor,
-                category: event.target.value,
+                category: val as TimeBlockCategory | "",
               })
             }
-            className="alibi-input h-11"
-            placeholder="choose or add a category"
           />
-          <datalist id="time-block-categories">
-            {categories.map((category) => (
-              <option key={category.id} value={category.slug}>
-                {category.name}
-              </option>
-            ))}
-          </datalist>
-          <span className="text-xs font-semibold leading-5 text-alibi-teal">
-            type a new name to create a category.
-          </span>
-        </label>
+        </div>
 
         <div className="grid gap-4 sm:grid-cols-2">
           <label className="grid gap-1.5 text-sm font-bold text-alibi-blue">
