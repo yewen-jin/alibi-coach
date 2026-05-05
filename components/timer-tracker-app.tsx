@@ -955,20 +955,23 @@ function CompanionChatPanel({
               : "companion chat"}
           </h2>
         </div>
-        <div className="flex items-center gap-2">
-          {threadKind === "time_block" && (
+        <div className="flex items-center">
+          {threadKind === "time_block" ? (
             <button
               type="button"
               onClick={() => void onOpenGeneral()}
               disabled={pending}
-              className="h-9 rounded-2xl px-3 text-xs font-black text-alibi-teal transition hover:bg-alibi-lavender/20 hover:text-alibi-blue disabled:opacity-55"
+              className="inline-flex h-10 items-center justify-center gap-2 rounded-2xl bg-alibi-blue px-3 text-xs font-black text-white shadow-[0_10px_22px_rgba(50,83,199,0.22)] transition hover:-translate-y-0.5 hover:bg-alibi-pink disabled:translate-y-0 disabled:opacity-55"
             >
+              <MessageCircle className="h-4 w-4" />
               main chat
             </button>
+          ) : (
+            <div className="inline-flex h-10 items-center justify-center gap-2 rounded-2xl bg-alibi-pink/15 px-3 text-xs font-black text-alibi-pink">
+              <MessageCircle className="h-4 w-4" />
+              main chat
+            </div>
           )}
-          <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-alibi-pink/15 text-alibi-pink">
-            <MessageCircle className="h-4 w-4" />
-          </div>
         </div>
       </div>
 
