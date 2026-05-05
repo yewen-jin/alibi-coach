@@ -99,11 +99,22 @@ The ADHD patterns panel counts both explicit block markers and note-derived insi
 | Auth | Supabase Auth |
 | AI | AI SDK v6 through OpenRouter |
 
+### AI model and voice configuration
+
+OpenRouter model setup is centralized in [`lib/ai.ts`](./lib/ai.ts):
+
+- `fastModelId` is `openai/gpt-4.1-nano` for routing, structured extraction, and short acknowledgments.
+- `companionModelId` is `openai/gpt-5-mini` for user-visible companion chat, saved-block analysis, and proactive insight copy.
+
+Alibi's reusable companion voice prompt lives in [`lib/companion-voice.ts`](./lib/companion-voice.ts). Change `alibiCompanionGuide` there to tune how the companion sounds. It is used by companion chat, saved-block analysis, and proactive insight generation.
+
 ---
 
 ## Database Schema
 
-The primary schema is in [supabase-v2.sql](./supabase-v2.sql).
+The primary schema is in [db/supabase-v2.sql](./db/supabase-v2.sql).
+
+For existing Supabase projects, run [db/supabase-chat-history.sql](./db/supabase-chat-history.sql) once to create the additive `companion_*` tables and backfill legacy chat rows without deleting them.
 
 ### `time_blocks`
 
@@ -145,26 +156,45 @@ active_timer (
 )
 ```
 
-### `coach_messages`
+### `companion_conversations`
 
-Chat history, with optional links to saved blocks.
+One global thread plus one optional reflective thread per saved time block.
 
 ```sql
-coach_messages (
+companion_conversations (
   id uuid primary key,
+  user_id uuid not null references auth.users(id) on delete cascade,
+  kind text not null,
+  title text,
+  related_time_block_id uuid references time_blocks(id) on delete set null,
+  context_snapshot jsonb not null default '{"kind":"general"}',
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+)
+```
+
+### `companion_messages`
+
+Thread-scoped companion history. Block-thread messages remain isolated from the general companion chat.
+
+```sql
+companion_messages (
+  id uuid primary key,
+  conversation_id uuid not null references companion_conversations(id) on delete cascade,
   user_id uuid not null references auth.users(id) on delete cascade,
   role text not null,
   content text not null,
   message_type text not null default 'chat',
+  model text not null default 'openai/gpt-5-mini',
   related_time_block_id uuid references time_blocks(id) on delete set null,
   metadata jsonb not null default '{}',
   created_at timestamptz not null default now()
 )
 ```
 
-### `coach_drafts`
+### `companion_drafts`
 
-Temporary clarification state when chat needs more details before saving a block.
+Temporary clarification state for the general companion thread when chat needs more details before saving a block.
 
 ### `time_block_note_versions`
 
@@ -262,7 +292,7 @@ alibi-coach/
 │   ├── timer-tracker-app.tsx
 │   ├── top-nav.tsx
 │   ├── proactive-bubble.tsx
-│   ├── coach-response.tsx
+│   ├── companion-response.tsx
 │   └── dashboard/
 │       ├── adhd-markers.tsx
 │       ├── notes-mirror.tsx
@@ -336,7 +366,7 @@ Implemented:
 - start, stop, resume, save, edit, delete block flows
 - manual/backdated block creation
 - chat start/stop/log/clarification/check-in flows
-- notes-first analysis retrieval for coach responses
+- notes-first analysis retrieval for companion responses
 - note version preservation
 - note-derived insight extraction
 - dashboard notes mirror
@@ -358,7 +388,7 @@ Pending:
 | A planner | Planning is the friction. |
 | A to-do list | Tasks create expectation. Alibi records evidence. |
 | A goal-setter | Goals create comparison. |
-| A coach who pushes | Push energy makes the app easier to avoid. |
+| A companion who pushes | Push energy makes the app easier to avoid. |
 | A productivity dashboard | Numbers should support self-knowledge, not judgment. |
 | A vague freeform-only chatbot | Chat writes only through structured `time_blocks` and `active_timer` operations. |
 

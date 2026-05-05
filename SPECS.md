@@ -127,8 +127,8 @@ Insight generation must use sources in this order:
 
 1. `time_blocks.notes` - highest-trust human-written evidence tied to time.
 2. `time_blocks` metadata - time, duration, category, tags, mood, effort, satisfaction, markers.
-3. linked `coach_messages` - clarification and emotional context around a block.
-4. general `coach_messages` - background narrative and recurring language.
+3. linked `companion_messages` - clarification and emotional context around a block.
+4. general `companion_messages` - background narrative and recurring language.
 5. derived tables - useful for retrieval and summaries, never more authoritative than raw input.
 
 ### Current Core Tables
@@ -143,7 +143,7 @@ Insight generation must use sources in this order:
 
 `time_block_insights` stores derived interpretations from the latest relevant note version: actions, emotional tone, friction, avoidance, hyperfocus, satisfaction, uncertainty, people, projects, themes, source notes, and evidence excerpt.
 
-`coach_messages` stores chat history and can link messages to a related time block.
+`companion_messages` stores thread-scoped chat history, records the conversation-level companion model, and can link messages to a related time block.
 
 `entries` is legacy-only unless a future feature intentionally reuses it as a separate quick-note surface.
 
@@ -166,13 +166,16 @@ The agent's job is to elicit, preserve, and reflect evidence.
 AI calls should use a split-model strategy through OpenRouter:
 
 - fast, low-cost models for mechanical work such as intent routing, structured extraction, and terse acknowledgments;
-- stronger coach models for user-visible reflection, saved-block analysis, and proactive insight text where tone, restraint, and evidence grounding matter.
+- stronger companion models for user-visible reflection, saved-block analysis, and proactive insight text where tone, restraint, and evidence grounding matter.
+
+The reusable companion voice prompt should stay centralized in code so chat, analysis, and proactive insight copy share the same product voice.
 
 It should:
 
 - ask gentle follow-ups that help the user reconstruct what happened;
 - invite feelings and context without turning the app into a therapy bot;
 - use lowercase, calm, specific language in reflective responses;
+- sound like a close, observant friend rather than a productivity app;
 - prefer "in your note, you wrote..." over generic analysis;
 - cite dates, block labels, note excerpts, or chat context when making observations;
 - acknowledge useful drift and mixed outcomes.

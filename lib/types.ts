@@ -106,18 +106,67 @@ export interface TimeBlockCategoryRecord {
   updated_at: string
 }
 
-export type CoachMessageRole = "user" | "assistant"
-export type CoachMessageType = "chat" | "ack" | "clarification" | "analysis" | "error"
+export type CompanionMessageRole = "user" | "assistant"
+export type CompanionMessageType =
+  | "chat"
+  | "ack"
+  | "clarification"
+  | "analysis"
+  | "error"
+  | "context"
+export type CompanionConversationKind = "general" | "time_block"
 
-export interface CoachMessage {
+export interface CompanionTimeBlockContext {
+  id: string
+  task_name: string | null
+  category: TimeBlockCategory | null
+  hashtags: string[]
+  notes: string | null
+  started_at: string
+  ended_at: string | null
+  duration_seconds: number | null
+  mood: Mood | null
+  effort_level: EffortLevel | null
+  satisfaction: Satisfaction | null
+  avoidance_marker: boolean
+  hyperfocus_marker: boolean
+  guilt_marker: boolean
+  novelty_marker: boolean
+}
+
+export interface CompanionConversationContextSnapshot {
+  kind: CompanionConversationKind
+  time_block?: CompanionTimeBlockContext
+}
+
+export interface CompanionConversation {
   id: string
   user_id: string
-  role: CoachMessageRole
+  kind: CompanionConversationKind
+  title: string | null
+  related_time_block_id: string | null
+  context_snapshot: CompanionConversationContextSnapshot
+  created_at: string
+  updated_at: string
+}
+
+export interface CompanionMessage {
+  id: string
+  conversation_id: string
+  user_id: string
+  role: CompanionMessageRole
   content: string
-  message_type: CoachMessageType
+  message_type: CompanionMessageType
+  model: string
   related_time_block_id: string | null
   metadata: Record<string, unknown>
   created_at: string
+}
+
+export interface CompanionThreadState {
+  conversation: CompanionConversation
+  messages: CompanionMessage[]
+  hasPendingDraft: boolean
 }
 
 export interface SaveBlockInput {

@@ -131,13 +131,25 @@ create table if not exists public.active_timer (
   created_at timestamptz not null default now()
 );
 
-create table if not exists public.coach_messages (
+create table if not exists public.companion_conversations (
   id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  kind text not null default 'general' check (kind in ('general', 'time_block')),
+  title text,
+  related_time_block_id uuid references public.time_blocks(id) on delete set null,
+  context_snapshot jsonb not null default '{"kind":"general"}',
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists public.companion_messages (
+  id uuid primary key default gen_random_uuid(),
+  conversation_id uuid not null references public.companion_conversations(id) on delete cascade,
   user_id uuid not null references auth.users(id) on delete cascade,
   role text not null check (role in ('user', 'assistant')),
   content text not null,
   message_type text not null default 'chat' check (
-    message_type in ('chat', 'ack', 'clarification', 'analysis', 'error')
+    message_type in ('chat', 'ack', 'clarification', 'analysis', 'error', 'context')
   ),
   model text not null default 'openai/gpt-5-mini',
   related_time_block_id uuid references public.time_blocks(id) on delete set null,
@@ -145,12 +157,14 @@ create table if not exists public.coach_messages (
   created_at timestamptz not null default now()
 );
 
-create table if not exists public.coach_drafts (
-  user_id uuid primary key references auth.users(id) on delete cascade,
+create table if not exists public.companion_drafts (
+  user_id uuid not null references auth.users(id) on delete cascade,
+  conversation_id uuid not null references public.companion_conversations(id) on delete cascade,
   draft jsonb not null,
   status text not null default 'pending' check (status in ('pending', 'resolved')),
   updated_at timestamptz not null default now(),
-  expires_at timestamptz
+  expires_at timestamptz,
+  primary key (user_id, conversation_id)
 );
 
 create index if not exists time_blocks_user_started_at_idx
@@ -163,11 +177,22 @@ create index if not exists time_blocks_user_ended_at_idx
 create index if not exists time_blocks_user_category_id_idx
   on public.time_blocks (user_id, category_id);
 
-create index if not exists coach_messages_user_created_at_idx
-  on public.coach_messages (user_id, created_at);
+create unique index if not exists companion_conversations_user_general_idx
+  on public.companion_conversations (user_id)
+  where kind = 'general' and related_time_block_id is null;
 
-create index if not exists coach_drafts_user_status_idx
-  on public.coach_drafts (user_id, status);
+create unique index if not exists companion_conversations_user_block_idx
+  on public.companion_conversations (user_id, related_time_block_id)
+  where related_time_block_id is not null;
+
+create index if not exists companion_messages_conversation_created_at_idx
+  on public.companion_messages (conversation_id, created_at);
+
+create index if not exists companion_messages_user_created_at_idx
+  on public.companion_messages (user_id, created_at);
+
+create index if not exists companion_drafts_user_status_idx
+  on public.companion_drafts (user_id, status);
 
 create index if not exists time_block_note_versions_block_created_at_idx
   on public.time_block_note_versions (time_block_id, created_at desc);
@@ -195,8 +220,9 @@ execute function public.set_time_blocks_updated_at();
 alter table public.time_blocks enable row level security;
 alter table public.time_block_categories enable row level security;
 alter table public.active_timer enable row level security;
-alter table public.coach_messages enable row level security;
-alter table public.coach_drafts enable row level security;
+alter table public.companion_conversations enable row level security;
+alter table public.companion_messages enable row level security;
+alter table public.companion_drafts enable row level security;
 alter table public.time_block_note_versions enable row level security;
 alter table public.time_block_insights enable row level security;
 
@@ -275,53 +301,78 @@ on public.active_timer
 for delete
 using (auth.uid() = user_id);
 
-drop policy if exists "Users can select their own coach messages" on public.coach_messages;
-create policy "Users can select their own coach messages"
-on public.coach_messages
+drop policy if exists "Users can select their own companion conversations" on public.companion_conversations;
+create policy "Users can select their own companion conversations"
+on public.companion_conversations
 for select
 using (auth.uid() = user_id);
 
-drop policy if exists "Users can insert their own coach messages" on public.coach_messages;
-create policy "Users can insert their own coach messages"
-on public.coach_messages
+drop policy if exists "Users can insert their own companion conversations" on public.companion_conversations;
+create policy "Users can insert their own companion conversations"
+on public.companion_conversations
 for insert
 with check (auth.uid() = user_id);
 
-drop policy if exists "Users can update their own coach messages" on public.coach_messages;
-create policy "Users can update their own coach messages"
-on public.coach_messages
+drop policy if exists "Users can update their own companion conversations" on public.companion_conversations;
+create policy "Users can update their own companion conversations"
+on public.companion_conversations
 for update
 using (auth.uid() = user_id)
 with check (auth.uid() = user_id);
 
-drop policy if exists "Users can delete their own coach messages" on public.coach_messages;
-create policy "Users can delete their own coach messages"
-on public.coach_messages
+drop policy if exists "Users can delete their own companion conversations" on public.companion_conversations;
+create policy "Users can delete their own companion conversations"
+on public.companion_conversations
 for delete
 using (auth.uid() = user_id);
 
-drop policy if exists "Users can select their own coach drafts" on public.coach_drafts;
-create policy "Users can select their own coach drafts"
-on public.coach_drafts
+drop policy if exists "Users can select their own companion messages" on public.companion_messages;
+create policy "Users can select their own companion messages"
+on public.companion_messages
 for select
 using (auth.uid() = user_id);
 
-drop policy if exists "Users can insert their own coach drafts" on public.coach_drafts;
-create policy "Users can insert their own coach drafts"
-on public.coach_drafts
+drop policy if exists "Users can insert their own companion messages" on public.companion_messages;
+create policy "Users can insert their own companion messages"
+on public.companion_messages
 for insert
 with check (auth.uid() = user_id);
 
-drop policy if exists "Users can update their own coach drafts" on public.coach_drafts;
-create policy "Users can update their own coach drafts"
-on public.coach_drafts
+drop policy if exists "Users can update their own companion messages" on public.companion_messages;
+create policy "Users can update their own companion messages"
+on public.companion_messages
 for update
 using (auth.uid() = user_id)
 with check (auth.uid() = user_id);
 
-drop policy if exists "Users can delete their own coach drafts" on public.coach_drafts;
-create policy "Users can delete their own coach drafts"
-on public.coach_drafts
+drop policy if exists "Users can delete their own companion messages" on public.companion_messages;
+create policy "Users can delete their own companion messages"
+on public.companion_messages
+for delete
+using (auth.uid() = user_id);
+
+drop policy if exists "Users can select their own companion drafts" on public.companion_drafts;
+create policy "Users can select their own companion drafts"
+on public.companion_drafts
+for select
+using (auth.uid() = user_id);
+
+drop policy if exists "Users can insert their own companion drafts" on public.companion_drafts;
+create policy "Users can insert their own companion drafts"
+on public.companion_drafts
+for insert
+with check (auth.uid() = user_id);
+
+drop policy if exists "Users can update their own companion drafts" on public.companion_drafts;
+create policy "Users can update their own companion drafts"
+on public.companion_drafts
+for update
+using (auth.uid() = user_id)
+with check (auth.uid() = user_id);
+
+drop policy if exists "Users can delete their own companion drafts" on public.companion_drafts;
+create policy "Users can delete their own companion drafts"
+on public.companion_drafts
 for delete
 using (auth.uid() = user_id);
 
