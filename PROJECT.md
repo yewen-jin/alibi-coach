@@ -58,7 +58,8 @@ Implemented V3 foundation:
 - companion chat is split into a general thread plus one reflective thread per completed time block;
 - block-specific companion threads use the selected block, including its note, as fixed context and do not mutate blocks in v1;
 - dashboard notes mirror surfaces note-grounded observations;
-- hosted Supabase V3 schema has been applied and REST-verified.
+- hosted Supabase V3 schema has been applied and REST-verified;
+- pure helpers extracted from `process-message.ts` into `lib/block-draft-utils.ts` (`deriveWindow`, `resolveCategory`, `inferCategoryFromText`, `getDayRange`, `CompanionDraft`) so they are independently testable without the `"use server"` boundary.
 
 ## Current Status
 
@@ -111,6 +112,8 @@ UI status:
 Verification:
 
 - `npm run build` passes.
+- `npm run test` passes — 37 unit tests across `lib/note-insights.ts`, `lib/dashboard-data.ts`, and `lib/block-draft-utils.ts` (Vitest).
+- Playwright E2E skeleton exists at `tests/e2e/demo.test.ts`; integration tests for server actions are not yet implemented.
 - Hosted schema was checked through Supabase REST table/column probes.
 - Authenticated browser QA is still needed for note-save, note-edit insight regeneration, custom category creation, chat logging, chat analysis, and dashboard display.
 
@@ -129,6 +132,11 @@ Known working principle:
 - Period analysis exists but is still shallow; week/month summaries need deterministic aggregation and stronger evidence trails.
 - Notes mirror is an initial vertical slice, not a full longitudinal pattern engine.
 - Chat can analyze saved data, but its elicitation style should become more deliberate: it should ask better questions about feelings, drift, mixed outcomes, and context.
+- `deriveWindow` still builds a now-anchored window from duration-only input, fabricating when work happened (see REVIEW.md Finding 1a). Removing that branch would enforce the product contract that time must be asked for, not guessed.
+- `resolveCategory` with `source: "inferred"` saves silently without asking the user to confirm (see REVIEW.md Finding 1b).
+- `getDayRange` is not timezone-safe: server-side "today" uses server local time instead of the user's IANA timezone (see REVIEW.md Finding 2).
+- Integration tests for `app/actions/timer.ts` and `app/actions/process-message.ts` are not yet written.
+- Playwright E2E tests are a skeleton only; the timer flow and manual block entry tests need selectors confirmed against the live `/demo` UI.
 - Long notes in block-specific companion context need a cached summary/excerpt strategy before notes become large enough to create token pressure.
 - RAG is not implemented yet. The project first needs cleaner source records and evidence pointers.
 - Agentic database evolution is not implemented. Future work should let the agent propose schema changes, not mutate production schema directly.

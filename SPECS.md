@@ -112,7 +112,7 @@ Required behavior for block-specific companion threads:
 - discuss, summarize, reframe, and help the user reinterpret the block;
 - avoid editing the block, creating new blocks, or operating timers in v1.
 
-The agent must not guess missing time windows or silently invent categories when the user is uncertain. If information is necessary to write a valid block in the general thread, it asks.
+The agent must not guess missing time windows or silently invent categories when the user is uncertain. If information is necessary to write a valid block in the general thread, it asks. This applies to both time and category: a duration-only input is not enough to save a block, and a category inferred from keyword matching must be confirmed with the user before saving.
 
 ### Calendar And Mirror
 

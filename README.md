@@ -301,12 +301,22 @@ alibi-coach/
 │       ├── project-distribution.tsx
 │       └── stats-overview.tsx
 ├── lib/
+│   ├── block-draft-utils.ts   ← pure helpers extracted for testing
 │   ├── note-insights.ts
 │   ├── dashboard-data.ts
 │   ├── ai.ts
 │   ├── types.ts
 │   └── supabase/
-├── supabase-v2.sql
+├── tests/
+│   ├── unit/
+│   │   ├── block-draft-utils.test.ts
+│   │   ├── dashboard-data.test.ts
+│   │   └── note-insights.test.ts
+│   └── e2e/
+│       └── demo.test.ts
+├── vitest.config.ts
+├── playwright.config.ts
+├── db/supabase-v2.sql
 ├── SPECS.md
 ├── PROJECT.md
 └── RESEARCH.md
@@ -351,10 +361,12 @@ Apply [supabase-v2.sql](./supabase-v2.sql) in the Supabase SQL editor. If your h
 ### Verification
 
 ```bash
-npm run build
+npm run build      # type-check + static build
+npm run test       # 37 unit tests (Vitest)
+npm run test:e2e   # Playwright E2E against localhost:3000 (requires dev server)
 ```
 
-The current build passes.
+`npm run build` and `npm run test` both pass. `npm run lint` is broken and pending a fix.
 
 ---
 
@@ -371,6 +383,7 @@ Implemented:
 - note-derived insight extraction
 - dashboard notes mirror
 - ADHD marker dashboard that merges explicit markers and note-derived signals
+- unit test layer: 37 tests across `lib/note-insights.ts`, `lib/dashboard-data.ts`, and `lib/block-draft-utils.ts`
 
 Pending:
 
@@ -378,6 +391,11 @@ Pending:
 - authenticated browser QA against live Supabase/OpenRouter
 - richer week/month analysis
 - time-block-aware proactive messages replacing the legacy `entries` cadence
+- integration tests for `timer.ts` and `process-message.ts` server actions
+- Playwright E2E selectors confirmed against live UI; authenticated app flows not yet covered
+- fix `npm run lint` (`next lint` incompatible with Next 16)
+- timezone-safe `getDayRange` (server uses server local time instead of user IANA timezone)
+- enforce clarification for duration-only input and keyword-inferred categories before saving
 
 ---
 
