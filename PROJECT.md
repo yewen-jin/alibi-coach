@@ -55,8 +55,11 @@ Implemented V3 foundation:
 - note-derived insight extraction into `time_block_insights`;
 - note edits regenerate current insight rows;
 - chat analysis prioritizes notes, then metadata, then derived insights, then linked/general chat;
+- companion chat is split into a general thread plus one reflective thread per completed time block;
+- block-specific companion threads use the selected block, including its note, as fixed context and do not mutate blocks in v1;
 - dashboard notes mirror surfaces note-grounded observations;
-- hosted Supabase V3 schema has been applied and REST-verified.
+- hosted Supabase V3 schema has been applied and REST-verified;
+- pure helpers extracted from `process-message.ts` into `lib/block-draft-utils.ts` (`deriveWindow`, `resolveCategory`, `inferCategoryFromText`, `getDayRange`, `CompanionDraft`) so they are independently testable without the `"use server"` boundary.
 
 ## Current Status
 
@@ -66,6 +69,8 @@ Database setup:
 
 - `active_timer`, `time_blocks`, `entries`, and `proactive_messages` are live and REST-visible.
 - V3 additions are applied and REST-visible: `time_block_categories`, `time_block_note_versions`, `time_block_insights`, `time_blocks.category_id`, and `time_blocks.agent_metadata`.
+- Companion chat tables are the current app path: `companion_conversations`, `companion_messages`, and `companion_drafts`.
+- Existing legacy `coach_messages` / `coach_drafts` are preserved by additive migration and copied into the general companion thread.
 - Default category rows are visible through REST.
 - `entries` remains legacy-only for the current app path.
 
@@ -94,8 +99,10 @@ AI model routing:
 UI status:
 
 - `/app` has timer, post-stop/manual block editor, daily add-block button, latest-block resume, chat panel, and simple daily block list.
+- Daily block rows include `chat about this`, which opens or reopens the block's reflective companion thread.
+- The resume button is removed from the DOM while a timer is active; when no timer is active, only the latest completed block can be resumed.
 - `/app/dashboard` has totals, calendar/rhythm/category views, ADHD markers, and notes mirror.
-- `/app/docs` is now a wiki-style guide explaining what Alibi is, how the evidence model works, how to write useful notes, how to use chat well, and where the V3/RAG direction is going.
+- `/app/docs` is now a wiki-style guide explaining what Alibi is, how the evidence model works, how to write useful notes, how to use general and block-specific companion chat, and where the V3/RAG direction is going.
 - `/` now describes the notes-first product, existing feature set, and future RAG ambition instead of embedding a fake chat demo.
 - `/demo` provides an unauthenticated localStorage-backed demo with name entry, timer, manual blocks, chat-style logging, edit/delete, latest-block resume, and a sign-up CTA.
 - `/auth/login` and `/auth/sign-up` use the `STYLES.md` Alibi auth surface, including OAuth provider buttons, while preserving demo redirects and callback behavior.
@@ -104,7 +111,9 @@ UI status:
 
 Verification:
 
-- `npm run build` passes.
+- `pnpm build` passes.
+- `pnpm test` passes — 37 unit tests across `lib/note-insights.ts`, `lib/dashboard-data.ts`, and `lib/block-draft-utils.ts` (Vitest).
+- Playwright E2E skeleton exists at `tests/e2e/demo.test.ts`; integration tests for server actions are not yet implemented.
 - Hosted schema was checked through Supabase REST table/column probes.
 - Authenticated browser QA is still needed for note-save, note-edit insight regeneration, custom category creation, chat logging, chat analysis, and dashboard display.
 
@@ -113,6 +122,7 @@ Known working principle:
 - Timer UI, manual block creation, and chat logging share `time_blocks`.
 - Notes remain human-authored source text.
 - Derived insight rows are replaceable and traceable.
+- Block-specific companion threads are reflective only and use compact block context instead of broad retrieval.
 - Public demo data stays in browser `localStorage` until the user imports completed blocks into an authenticated account.
 
 ## Current Gaps
@@ -122,6 +132,12 @@ Known working principle:
 - Period analysis exists but is still shallow; week/month summaries need deterministic aggregation and stronger evidence trails.
 - Notes mirror is an initial vertical slice, not a full longitudinal pattern engine.
 - Chat can analyze saved data, but its elicitation style should become more deliberate: it should ask better questions about feelings, drift, mixed outcomes, and context.
+- `deriveWindow` still builds a now-anchored window from duration-only input, fabricating when work happened (see REVIEW.md Finding 1a). Removing that branch would enforce the product contract that time must be asked for, not guessed.
+- `resolveCategory` with `source: "inferred"` saves silently without asking the user to confirm (see REVIEW.md Finding 1b).
+- `getDayRange` is not timezone-safe: server-side "today" uses server local time instead of the user's IANA timezone (see REVIEW.md Finding 2).
+- Integration tests for `app/actions/timer.ts` and `app/actions/process-message.ts` are not yet written.
+- Playwright E2E tests are a skeleton only; the timer flow and manual block entry tests need selectors confirmed against the live `/demo` UI.
+- Long notes in block-specific companion context need a cached summary/excerpt strategy before notes become large enough to create token pressure.
 - RAG is not implemented yet. The project first needs cleaner source records and evidence pointers.
 - Agentic database evolution is not implemented. Future work should let the agent propose schema changes, not mutate production schema directly.
 - Demo chat is a local approximation, not the OpenRouter-backed authenticated agent. It is useful for product feel, but not a complete AI demo.
@@ -149,6 +165,8 @@ Known working principle:
 - Let chat help expand or revise notes while preserving note history.
 - Add prompt patterns for "ask me questions before saving," "turn this into a useful note," and "help me name what actually happened."
 - Ensure chat asks for missing details before writing valid blocks.
+- Keep block-specific companion threads scoped to one block and reflective-only unless a later explicit edit flow is added.
+- Add cached note summaries or excerpts for very long notes so block threads stay token-efficient without losing note context.
 
 ### Phase 4 - Source-Linked Evidence Layer
 

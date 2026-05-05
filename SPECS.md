@@ -91,9 +91,9 @@ When notes change, insight data derived from those notes must change too. Raw no
 
 ### Chat Agent
 
-Chat is secondary to the timeline, but important for elicitation. It should help the user say what happened and how it felt, especially when the user does not yet have clean structured input.
+The companion is secondary to the timeline, but important for elicitation and reflection. It should help the user say what happened and how it felt, especially when the user does not yet have clean structured input.
 
-The agent can:
+The general companion thread can:
 
 - respond conversationally without forcing a log;
 - start or stop the active timer;
@@ -102,7 +102,17 @@ The agent can:
 - help the user elaborate notes and emotional context;
 - analyze saved blocks using notes first, then metadata, then linked chat, then general chat.
 
-The agent must not guess missing time windows or silently invent categories when the user is uncertain. If information is necessary to write a valid block, it asks.
+Each completed time block can also open a dedicated companion thread through "chat about this." This thread is one conversation per user/time block. Reopening the same block must return to the existing thread rather than creating duplicates.
+
+Required behavior for block-specific companion threads:
+
+- use the selected block as fixed context;
+- include the block note as the highest-trust context for reflection;
+- keep messages isolated from the general companion chat;
+- discuss, summarize, reframe, and help the user reinterpret the block;
+- avoid editing the block, creating new blocks, or operating timers in v1.
+
+The agent must not guess missing time windows or silently invent categories when the user is uncertain. If information is necessary to write a valid block in the general thread, it asks. This applies to both time and category: a duration-only input is not enough to save a block, and a category inferred from keyword matching must be confirmed with the user before saving.
 
 ### Calendar And Mirror
 
@@ -143,7 +153,13 @@ Insight generation must use sources in this order:
 
 `time_block_insights` stores derived interpretations from the latest relevant note version: actions, emotional tone, friction, avoidance, hyperfocus, satisfaction, uncertainty, people, projects, themes, source notes, and evidence excerpt.
 
+`companion_conversations` stores one general thread per user and one optional block-specific thread per time block. Block conversations store a compact `context_snapshot` of the selected block so the companion can reflect from fixed block context without repeatedly loading broad history.
+
 `companion_messages` stores thread-scoped chat history, records the conversation-level companion model, and can link messages to a related time block.
+
+`companion_drafts` stores temporary clarification state for the general companion thread when the agent needs more information before writing a valid time block.
+
+Legacy `coach_messages` and `coach_drafts` may remain in existing databases temporarily. The additive migration copies them into the new `companion_*` tables without deleting or overwriting legacy rows.
 
 `entries` is legacy-only unless a future feature intentionally reuses it as a separate quick-note surface.
 
@@ -187,6 +203,7 @@ It must not:
 - present derived insight as certain truth;
 - mutate database structure autonomously;
 - create logs when required details are missing.
+- let block-specific reflective threads mutate time blocks or timers.
 
 ## Guardrails
 

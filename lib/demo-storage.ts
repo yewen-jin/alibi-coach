@@ -28,6 +28,7 @@ export interface DemoStoredSession {
   } | null
   blocks: DemoStoredBlock[]
   messages: DemoStoredMessage[]
+  block_threads?: Record<string, DemoStoredMessage[]>
   updated_at: string
 }
 
@@ -47,6 +48,10 @@ export function readDemoSession(): DemoStoredSession | null {
       active_timer: parsed.active_timer ?? null,
       blocks: Array.isArray(parsed.blocks) ? parsed.blocks : [],
       messages: Array.isArray(parsed.messages) ? parsed.messages : [],
+      block_threads:
+        parsed.block_threads && typeof parsed.block_threads === "object"
+          ? parsed.block_threads
+          : {},
       updated_at: parsed.updated_at ?? new Date().toISOString(),
     }
   } catch {

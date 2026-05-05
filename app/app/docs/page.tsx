@@ -10,6 +10,7 @@ import {
   NotebookPen,
   Route,
   SearchCheck,
+  Split,
   Sparkles,
   Timer,
   type LucideIcon,
@@ -48,7 +49,8 @@ const SECTIONS: WikiSection[] = [
     points: [
       "a time block gives the note coordinates: date, start, end, duration, category, and tags.",
       "the note explains what really happened inside that time.",
-      "chat can start or stop the timer, add a completed block, or ask for missing details.",
+      "the general companion chat can start or stop the timer, add a completed block, or ask for missing details.",
+      "each completed block can open its own companion thread for reflection about that block.",
       "derived insights are stored beside your notes, but they never replace the original text.",
     ],
   },
@@ -79,6 +81,21 @@ const SECTIONS: WikiSection[] = [
       "tell it to ask follow-up questions before saving if timing or category is unclear.",
       "ask for evidence-backed reflections, such as what your notes show this week.",
       "use it when you feel like you did nothing; it can read saved blocks back with specifics.",
+      "use chat about this on a saved block when you want reflection scoped to one block and its note.",
+    ],
+  },
+  {
+    id: "block-threads",
+    icon: Split,
+    title: "general chat vs block chats",
+    intro:
+      "alibi now keeps the main companion chat separate from block-specific threads. the main chat can operate the timer and log blocks. a block thread is reflective: it stays focused on one saved block.",
+    points: [
+      "open a block thread from the message button on a completed time block.",
+      "opening the same block again returns to the same thread instead of starting over.",
+      "the block note is included as fixed context, so the companion can discuss what actually happened inside that block.",
+      "block threads can summarize, reframe, and help you reinterpret the block, but they do not edit stored data in this version.",
+      "use main chat when you want to log new work, start or stop the timer, or ask about the whole day.",
     ],
   },
   {
@@ -90,7 +107,7 @@ const SECTIONS: WikiSection[] = [
     points: [
       "the strongest evidence is a note tied to a dated time block.",
       "metadata like category, duration, mood, effort, and tags adds context.",
-      "linked chat can explain feelings or missing details around a block.",
+      "block-specific companion threads can explain feelings or missing details around a block.",
       "good observations should point back to dates, blocks, excerpts, or messages.",
     ],
   },
@@ -103,6 +120,8 @@ const SECTIONS: WikiSection[] = [
     points: [
       "row-level security protects time blocks, active timer state, categories, note versions, insights, and chat messages.",
       "timer, manual entry, and chat share the same time-block data structure.",
+      "companion conversations keep general chat separate from block-specific chats.",
+      "block chats store compact block context so the agent can use the note without loading unrelated history.",
       "note versions preserve meaningful edits instead of silently losing the old version.",
       "future retrieval should cite source records instead of producing unsupported summaries.",
     ],
@@ -131,6 +150,14 @@ const CHAT_PROMPTS = [
   "what do my notes this week suggest about when admin turns into avoidance?",
   "i feel like i did nothing today. can you read back the evidence from my blocks?",
   "turn this messy description into a note, and keep the uncertainty in it.",
+]
+
+const BLOCK_THREAD_PROMPTS = [
+  "what does this note say that the task name misses?",
+  "help me name the actual work inside this block.",
+  "summarize this block without making it sound cleaner than it was.",
+  "what friction shows up here?",
+  "what should future-me remember about this block?",
 ]
 
 export default async function DocsPage() {
@@ -172,7 +199,7 @@ export default async function DocsPage() {
           </div>
           <p className="mt-3 max-w-3xl text-[14px] leading-[1.6] text-alibi-teal">
             this page is the working manual for alibi: what it is, how the record is built, how to
-            write notes that future-you can actually use, and how to talk to the chat agent when the
+            write notes that future-you can actually use, and how to talk to the companion when the
             day was too tangled for a clean label.
           </p>
         </header>
@@ -260,10 +287,24 @@ export default async function DocsPage() {
 
                 <div>
                   <h3 className="text-[13px] font-black uppercase tracking-[0.06em] text-alibi-teal">
-                    prompts that make chat better
+                    prompts for main chat
                   </h3>
                   <ul className="mt-3 flex flex-col gap-2">
                     {CHAT_PROMPTS.map((prompt) => (
+                      <li
+                        key={prompt}
+                        className="rounded-[7px] border border-alibi-lavender/30 bg-white/55 px-4 py-3 font-mono text-[11.5px] leading-[1.5] text-alibi-teal"
+                      >
+                        {prompt}
+                      </li>
+                    ))}
+                  </ul>
+
+                  <h3 className="mt-5 text-[13px] font-black uppercase tracking-[0.06em] text-alibi-teal">
+                    prompts for chat about this
+                  </h3>
+                  <ul className="mt-3 flex flex-col gap-2">
+                    {BLOCK_THREAD_PROMPTS.map((prompt) => (
                       <li
                         key={prompt}
                         className="rounded-[7px] border border-alibi-lavender/30 bg-white/55 px-4 py-3 font-mono text-[11.5px] leading-[1.5] text-alibi-teal"
@@ -281,9 +322,11 @@ export default async function DocsPage() {
                 where this is going
               </h2>
               <p className="mt-2 text-[14px] leading-[1.7] text-alibi-ink">
-                the next version should make alibi better at extracting structured evidence from
-                notes and chat. after that, retrieval can become useful: not generic memory, but
-                source-backed patterns connected to dated blocks.
+                the next version should make alibi better at extracting compact structured evidence
+                from notes and companion threads. for block chats, that means keeping the selected
+                note available as context without loading unrelated history. after that, retrieval
+                can become useful: not generic memory, but source-backed patterns connected to dated
+                blocks.
               </p>
               <div className="mt-5 grid gap-3 md:grid-cols-3">
                 <RoadmapCard

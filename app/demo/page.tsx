@@ -40,6 +40,15 @@ const CATEGORIES = [
 
 type DemoActiveTimer = NonNullable<DemoStoredSession["active_timer"]>
 
+type DemoActiveThread =
+  | {
+      kind: "general"
+    }
+  | {
+      kind: "time_block"
+      blockId: string
+    }
+
 type EditorState = {
   block?: DemoStoredBlock
   isNewlyStopped: boolean
@@ -193,6 +202,39 @@ function makeMessage(role: DemoStoredMessage["role"], text: string): DemoStoredM
   }
 }
 
+function blockThreadIntro(block: DemoStoredBlock): DemoStoredMessage {
+  return makeMessage(
+    "assistant",
+    `opened a thread for ${block.task_name || "this block"}. i can reflect on the note and details here without changing the block.`,
+  )
+}
+
+function blockContextReply(block: DemoStoredBlock, text: string) {
+  const lower = text.toLowerCase()
+  const note = block.notes?.trim()
+  const task = block.task_name || "this block"
+  const category = block.category ? block.category.replace(/_/g, " ") : "uncategorized"
+  const duration = formatDuration(block.started_at, block.ended_at)
+
+  if (!note) {
+    return `${task} is on the record as ${category} for ${duration}, but there is no note yet. the most useful next step is probably adding what actually happened inside it.`
+  }
+
+  if (lower.includes("summar") || lower.includes("what happened")) {
+    return `the block says: ${note}. filed as ${category} for ${duration}. that note is the context i would keep attached to this thread.`
+  }
+
+  if (lower.includes("friction") || lower.includes("stuck") || lower.includes("avoid")) {
+    return `looking only at this block, the friction seems to be in the note itself: ${note}. i would keep that wording instead of smoothing it out.`
+  }
+
+  if (lower.includes("name") || lower.includes("title") || lower.includes("call")) {
+    return `i would name the real work from the note, not just the category. current label: ${task}. note context: ${note}`
+  }
+
+  return `for this block, i am using the note as context: ${note}. nothing changes in the stored block from this demo thread.`
+}
+
 function parseDurationMinutes(text: string) {
   const hourMatch = text.match(/\b(\d+(?:\.\d+)?)\s*(?:h|hr|hrs|hour|hours)\b/i)
   const minuteMatch = text.match(/\b(\d+)\s*(?:m|min|mins|minute|minutes)\b/i)
@@ -252,12 +294,13 @@ export default function DemoPage() {
   const [activeTimer, setActiveTimer] = useState<DemoActiveTimer | null>(null)
   const [blocks, setBlocks] = useState<DemoStoredBlock[]>([])
   const [messages, setMessages] = useState<DemoStoredMessage[]>([])
+  const [blockThreads, setBlockThreads] = useState<Record<string, DemoStoredMessage[]>>({})
+  const [activeThread, setActiveThread] = useState<DemoActiveThread>({ kind: "general" })
   const [editor, setEditor] = useState<EditorState | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [now, setNow] = useState(() => Date.now())
   const [pending, setPending] = useState(false)
   const [chatPending, setChatPending] = useState(false)
-  const [hasDraft, setHasDraft] = useState(false)
 
   const today = useMemo(() => new Date(), [])
   const elapsed = activeTimer
@@ -272,6 +315,7 @@ export default function DemoPage() {
       setActiveTimer(existing.active_timer)
       setBlocks(existing.blocks)
       setMessages(existing.messages)
+      setBlockThreads(existing.block_threads ?? {})
     }
     setLoaded(true)
   }, [])
@@ -285,9 +329,10 @@ export default function DemoPage() {
       active_timer: activeTimer,
       blocks,
       messages,
+      block_threads: blockThreads,
       updated_at: new Date().toISOString(),
     })
-  }, [activeTimer, blocks, loaded, messages, name])
+  }, [activeTimer, blockThreads, blocks, loaded, messages, name])
 
   useEffect(() => {
     const interval = window.setInterval(() => setNow(Date.now()), 1000)
@@ -318,6 +363,14 @@ export default function DemoPage() {
         .sort((a, b) => new Date(a.started_at).getTime() - new Date(b.started_at).getTime()),
     [blocks],
   )
+  const activeBlock =
+    activeThread.kind === "time_block"
+      ? blocks.find((block) => block.id === activeThread.blockId) ?? null
+      : null
+  const activeMessages =
+    activeThread.kind === "time_block"
+      ? (blockThreads[activeThread.blockId] ?? [])
+      : messages
 
   const handleNameSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
@@ -334,6 +387,18 @@ export default function DemoPage() {
             ),
           ],
     )
+  }
+
+  const appendThreadMessage = (message: DemoStoredMessage) => {
+    if (activeThread.kind === "time_block") {
+      setBlockThreads((current) => ({
+        ...current,
+        [activeThread.blockId]: [...(current[activeThread.blockId] ?? []), message],
+      }))
+      return
+    }
+
+    setMessages((current) => [...current, message])
   }
 
   const handleStart = () => {
@@ -419,12 +484,39 @@ export default function DemoPage() {
 
   const handleDelete = (block: DemoStoredBlock) => {
     setBlocks((current) => current.filter((item) => item.id !== block.id))
+    setBlockThreads((current) => {
+      const next = { ...current }
+      delete next[block.id]
+      return next
+    })
+    if (activeThread.kind === "time_block" && activeThread.blockId === block.id) {
+      setActiveThread({ kind: "general" })
+    }
     if (editor?.block?.id === block.id) setEditor(null)
+  }
+
+  const handleOpenGeneralThread = async () => {
+    setActiveThread({ kind: "general" })
+  }
+
+  const handleChatAboutBlock = (block: DemoStoredBlock) => {
+    setActiveThread({ kind: "time_block", blockId: block.id })
+    setBlockThreads((current) =>
+      current[block.id]?.length
+        ? current
+        : {
+            ...current,
+            [block.id]: [blockThreadIntro(block)],
+          },
+    )
   }
 
   const handleResume = (block: DemoStoredBlock) => {
     if (activeTimer) return
     setEditor(null)
+    if (activeThread.kind === "time_block" && activeThread.blockId === block.id) {
+      setActiveThread({ kind: "general" })
+    }
     setActiveTimer({ started_at: block.started_at, resumed_block: block })
     setBlocks((current) => current.filter((item) => item.id !== block.id))
     setNow(Date.now())
@@ -437,6 +529,8 @@ export default function DemoPage() {
     setActiveTimer(null)
     setBlocks([])
     setMessages([])
+    setBlockThreads({})
+    setActiveThread({ kind: "general" })
     setEditor(null)
     setError(null)
   }
@@ -448,14 +542,18 @@ export default function DemoPage() {
 
       const lower = trimmed.toLowerCase()
       setChatPending(true)
-      setMessages((current) => [...current, makeMessage("user", trimmed)])
-      setHasDraft(false)
+      appendThreadMessage(makeMessage("user", trimmed))
 
       await new Promise((resolve) => window.setTimeout(resolve, 350))
 
       let assistantText = "got it."
 
-      if (lower.includes("start timer") || lower === "start" || lower.includes("start the timer")) {
+      if (activeThread.kind === "time_block") {
+        const block = blocks.find((item) => item.id === activeThread.blockId)
+        assistantText = block
+          ? blockContextReply(block, trimmed)
+          : "i can't find that demo block anymore. returning to the main chat is the safest move."
+      } else if (lower.includes("start timer") || lower === "start" || lower.includes("start the timer")) {
         if (!activeTimer) {
           setActiveTimer({ started_at: new Date().toISOString() })
           setNow(Date.now())
@@ -487,7 +585,6 @@ export default function DemoPage() {
         lower.includes("record")
       ) {
         if (!parseDurationMinutes(trimmed) && !/\bfrom\b.+\b(to|-)\b/i.test(trimmed)) {
-          setHasDraft(true)
           assistantText =
             "i can log that. about when was it, or roughly how long did it take?"
         } else {
@@ -500,10 +597,10 @@ export default function DemoPage() {
           "i can help reconstruct that. try telling me what you intended, what actually happened, and how it felt."
       }
 
-      setMessages((current) => [...current, makeMessage("assistant", assistantText)])
+      appendThreadMessage(makeMessage("assistant", assistantText))
       setChatPending(false)
     },
-    [activeTimer, chatPending, completedBlocks],
+    [activeThread, activeTimer, blocks, chatPending, completedBlocks],
   )
 
   if (!loaded) {
@@ -663,9 +760,11 @@ export default function DemoPage() {
             )}
 
             <CompanionChatPanel
-              messages={messages}
+              threadKind={activeThread.kind}
+              threadTitle={activeBlock?.task_name ?? null}
+              messages={activeMessages}
               pending={chatPending}
-              hasDraft={hasDraft}
+              onOpenGeneral={handleOpenGeneralThread}
               onSubmit={handleChat}
             />
           </div>
@@ -679,6 +778,7 @@ export default function DemoPage() {
             onEdit={(block) => setEditor(createEditorState(block))}
             onDelete={handleDelete}
             onResume={handleResume}
+            onChatAbout={handleChatAboutBlock}
             pending={pending}
           />
         </section>
@@ -688,14 +788,18 @@ export default function DemoPage() {
 }
 
 function CompanionChatPanel({
+  threadKind,
+  threadTitle,
   messages,
   pending,
-  hasDraft,
+  onOpenGeneral,
   onSubmit,
 }: {
+  threadKind: DemoActiveThread["kind"]
+  threadTitle: string | null
   messages: DemoStoredMessage[]
   pending: boolean
-  hasDraft: boolean
+  onOpenGeneral: () => Promise<void>
   onSubmit: (text: string) => Promise<void>
 }) {
   const [value, setValue] = useState("")
@@ -723,10 +827,31 @@ function CompanionChatPanel({
           <p className="font-mono text-xs font-black uppercase tracking-[0.12em] text-alibi-teal">
             alibi
           </p>
-          <h2 className="mt-1 text-xl font-black text-alibi-blue">chat log</h2>
+          <h2 className="mt-1 text-xl font-black text-alibi-blue">
+            {threadKind === "time_block"
+              ? threadTitle
+                ? `about ${threadTitle}`
+                : "about this block"
+              : "companion chat"}
+          </h2>
         </div>
-        <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-alibi-pink/15 text-alibi-pink">
-          <MessageCircle className="h-4 w-4" />
+        <div className="flex items-center">
+          {threadKind === "time_block" ? (
+            <button
+              type="button"
+              onClick={() => void onOpenGeneral()}
+              disabled={pending}
+              className="inline-flex h-10 items-center justify-center gap-2 rounded-2xl bg-alibi-blue px-3 text-xs font-black text-white shadow-[0_10px_22px_rgba(50,83,199,0.22)] transition hover:-translate-y-0.5 hover:bg-alibi-pink disabled:translate-y-0 disabled:opacity-55"
+            >
+              <MessageCircle className="h-4 w-4" />
+              main chat
+            </button>
+          ) : (
+            <div className="inline-flex h-10 items-center justify-center gap-2 rounded-2xl bg-alibi-pink/15 px-3 text-xs font-black text-alibi-pink">
+              <MessageCircle className="h-4 w-4" />
+              main chat
+            </div>
+          )}
         </div>
       </div>
 
@@ -767,10 +892,6 @@ function CompanionChatPanel({
         )}
         <div ref={latestMessageRef} />
       </div>
-
-      {hasDraft && (
-        <p className="mt-3 text-sm font-bold leading-6 text-alibi-pink">one more detail.</p>
-      )}
 
       <form onSubmit={handleSubmit} className="mt-4 flex items-end gap-2">
         <label className="sr-only" htmlFor="demo-companion-message">
@@ -964,6 +1085,7 @@ function DailyBlocks({
   onEdit,
   onDelete,
   onResume,
+  onChatAbout,
   pending,
 }: {
   date: Date
@@ -974,6 +1096,7 @@ function DailyBlocks({
   onEdit: (block: DemoStoredBlock) => void
   onDelete: (block: DemoStoredBlock) => void
   onResume: (block: DemoStoredBlock) => void
+  onChatAbout: (block: DemoStoredBlock) => void
   pending: boolean
 }) {
   return (
@@ -1069,6 +1192,15 @@ function DailyBlocks({
                         resume
                       </button>
                     )}
+                    <button
+                      type="button"
+                      onClick={() => onChatAbout(block)}
+                      aria-label="chat about this block"
+                      title="chat about this"
+                      className="flex h-9 w-9 items-center justify-center rounded-2xl text-alibi-teal transition hover:-translate-y-0.5 hover:bg-alibi-lavender/20 hover:text-alibi-blue"
+                    >
+                      <MessageCircle className="h-4 w-4" />
+                    </button>
                     <button
                       type="button"
                       onClick={() => onEdit(block)}
