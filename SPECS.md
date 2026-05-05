@@ -163,6 +163,11 @@ Agentic schema evolution must be migration-reviewed. The agent may propose datab
 
 The agent's job is to elicit, preserve, and reflect evidence.
 
+AI calls should use a split-model strategy through OpenRouter:
+
+- fast, low-cost models for mechanical work such as intent routing, structured extraction, and terse acknowledgments;
+- stronger coach models for user-visible reflection, saved-block analysis, and proactive insight text where tone, restraint, and evidence grounding matter.
+
 It should:
 
 - ask gentle follow-ups that help the user reconstruct what happened;

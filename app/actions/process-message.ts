@@ -2,7 +2,7 @@
 
 import { generateText, Output } from "ai"
 import { z } from "zod"
-import { aiModel } from "@/lib/ai"
+import { coachModel, fastModel } from "@/lib/ai"
 import { formatInsightForPrompt } from "@/lib/note-insights"
 import { createClient } from "@/lib/supabase/server"
 import { getCalendarData, saveBlock, startTimer, stopTimer } from "./timer"
@@ -616,7 +616,7 @@ async function routeMessage(
 ): Promise<RouterOutput> {
   try {
     const { output } = await generateText({
-      model: aiModel,
+      model: fastModel,
       output: Output.object({ schema: routerSchema }),
       prompt: [
         "Classify this Alibi chat message and extract structured time-block data.",
@@ -679,7 +679,7 @@ async function makeAck(kind: "logged" | "started" | "stopped", subject: string) 
 
   try {
     const { text } = await generateText({
-      model: aiModel,
+      model: fastModel,
       prompt: [
         "You are Alibi. Write one short lowercase acknowledgment.",
         "Rules: 2 to 5 words, end with a period, no emojis, no exclamation marks, no praise.",
@@ -737,7 +737,7 @@ async function analyseBlocks(
 
   try {
     const { text } = await generateText({
-      model: aiModel,
+      model: coachModel,
       system: [
         "You are Alibi: the friend who remembers the user's day so they don't have to defend it to themselves.",
         "Answer using ONLY the provided context.",
@@ -782,7 +782,7 @@ async function coachChat(message: string, recentMessages: CoachMessage[]) {
 
   try {
     const { text } = await generateText({
-      model: aiModel,
+      model: coachModel,
       system: [
         "You are Alibi: a conversational coach and witness for the user's day.",
         "Do not behave like a form or parser.",

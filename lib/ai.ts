@@ -9,8 +9,11 @@ const openrouter = createOpenAICompatible({
   },
 })
 
-// Default working model for all agents.
-export const aiModel = openrouter("openai/gpt-4o-mini")
+// Cheap, low-latency model for routing, extraction, and terse acknowledgments.
+export const fastModel = openrouter("openai/gpt-4.1-nano")
+
+// Stronger model for user-visible coaching, reflection, and emotional nuance.
+export const coachModel = openrouter("openai/gpt-5-mini")
 
 /** Extract the first JSON object from a model response. */
 export function extractJSON(text: string): Record<string, unknown> | null {
