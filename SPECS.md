@@ -168,6 +168,8 @@ Legacy `coach_messages` and `coach_drafts` may remain in existing databases temp
 V3 should evolve toward timeline-linked evidence, not a single flattened productivity row. Future schema work may add:
 
 - `block_evidence_items` for atomic extracted claims from notes/chat, each tied to a source and time block;
+- `projects` and child project-segment tables for grouping time blocks by concrete work stream, plus focused/non-focused allocations inside a block;
+- break/event tables linked to the active timer or time block so breaks can be tracked without interrupting the underlying block;
 - `pattern_observations` for longitudinal observations across many blocks;
 - `rag_documents` or `rag_chunks` for retrievable note/chat/insight snippets with source pointers;
 - embedding storage for retrieval once there is enough real user data to justify RAG;
