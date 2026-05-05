@@ -1056,11 +1056,11 @@ function DailyBlocks({
                   </div>
 
                   <div className="flex items-start gap-1">
-                    {isLatestBlock && (
+                    {isLatestBlock && canResume && (
                       <button
                         type="button"
                         onClick={() => onResume(block)}
-                        disabled={pending || !canResume}
+                        disabled={pending}
                         aria-label="resume latest block"
                         title="resume"
                         className="inline-flex h-9 items-center justify-center gap-1.5 rounded-2xl bg-alibi-teal px-3 text-xs font-black text-white shadow-[0_8px_18px_rgba(67,132,157,0.22)] transition hover:-translate-y-0.5 hover:bg-alibi-blue disabled:translate-y-0 disabled:opacity-55"
