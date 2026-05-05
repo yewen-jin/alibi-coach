@@ -111,8 +111,8 @@ UI status:
 
 Verification:
 
-- `npm run build` passes.
-- `npm run test` passes — 37 unit tests across `lib/note-insights.ts`, `lib/dashboard-data.ts`, and `lib/block-draft-utils.ts` (Vitest).
+- `pnpm build` passes.
+- `pnpm test` passes — 37 unit tests across `lib/note-insights.ts`, `lib/dashboard-data.ts`, and `lib/block-draft-utils.ts` (Vitest).
 - Playwright E2E skeleton exists at `tests/e2e/demo.test.ts`; integration tests for server actions are not yet implemented.
 - Hosted schema was checked through Supabase REST table/column probes.
 - Authenticated browser QA is still needed for note-save, note-edit insight regeneration, custom category creation, chat logging, chat analysis, and dashboard display.

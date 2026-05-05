@@ -329,7 +329,8 @@ alibi-coach/
 ### Prerequisites
 
 - Node.js 18+
-- npm
+- pnpm 10+
+- If `pnpm` is not already available on a new machine, enable it with `corepack enable` after installing Node.js.
 - Supabase project with auth enabled
 - OpenRouter API key
 
@@ -348,8 +349,9 @@ OPENROUTER_API_KEY=
 ```bash
 git clone https://github.com/yewen-jin/alibi-coach
 cd alibi-coach
-npm install
-npm run dev
+corepack enable
+pnpm install
+pnpm dev
 ```
 
 Apply [supabase-v2.sql](./supabase-v2.sql) in the Supabase SQL editor. If your hosted database already has the v2 tables, make sure the V3 additions are present:
@@ -361,12 +363,12 @@ Apply [supabase-v2.sql](./supabase-v2.sql) in the Supabase SQL editor. If your h
 ### Verification
 
 ```bash
-npm run build      # type-check + static build
-npm run test       # 37 unit tests (Vitest)
-npm run test:e2e   # Playwright E2E against localhost:3000 (requires dev server)
+pnpm build      # type-check + static build
+pnpm test       # 37 unit tests (Vitest)
+pnpm test:e2e   # Playwright E2E against localhost:3000 (requires dev server)
 ```
 
-`npm run build` and `npm run test` both pass. `npm run lint` is broken and pending a fix.
+`pnpm build` and `pnpm test` both pass. `pnpm lint` is broken and pending a fix.
 
 ---
 
@@ -393,7 +395,7 @@ Pending:
 - time-block-aware proactive messages replacing the legacy `entries` cadence
 - integration tests for `timer.ts` and `process-message.ts` server actions
 - Playwright E2E selectors confirmed against live UI; authenticated app flows not yet covered
-- fix `npm run lint` (`next lint` incompatible with Next 16)
+- fix `pnpm lint` (`next lint` incompatible with Next 16)
 - timezone-safe `getDayRange` (server uses server local time instead of user IANA timezone)
 - enforce clarification for duration-only input and keyword-inferred categories before saving
 
