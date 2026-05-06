@@ -10,6 +10,7 @@ import {
   getDayRange,
   inferCategoryFromText,
   resolveCategory,
+  slugifyCategoryName,
 } from "@/lib/block-draft-utils";
 import type {
   CompanionDraft,
@@ -178,16 +179,6 @@ function cleanString(value: unknown): string | null {
 
   const trimmed = value.trim();
   return trimmed || null;
-}
-
-function slugifyCategoryName(name: string) {
-  return name
-    .trim()
-    .toLowerCase()
-    .replace(/['"]/g, "")
-    .replace(/[^a-z0-9]+/g, "_")
-    .replace(/^_+|_+$/g, "")
-    .slice(0, 64);
 }
 
 function cleanCategory(value: unknown): TimeBlockCategory | null {

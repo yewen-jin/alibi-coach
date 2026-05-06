@@ -52,6 +52,16 @@ const CATEGORY_KEYWORDS: Record<TimeBlockCategory, RegExp> = {
   rest: /\b(rest|nap|sleep|break|recover|recovery|downtime)\b/,
 };
 
+export function slugifyCategoryName(name: string) {
+  return name
+    .trim()
+    .toLowerCase()
+    .replace(/['"]/g, "")
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "")
+    .slice(0, 64);
+}
+
 export function deriveWindow(
   draft: CompanionDraft,
 ): { startedAt: string; endedAt: string } | null {
