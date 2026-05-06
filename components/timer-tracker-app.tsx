@@ -54,79 +54,22 @@ import {
   readDemoSession,
   type DemoStoredBlock,
 } from "@/lib/demo-storage";
-
-const FALLBACK_CATEGORIES = [
-  {
-    id: "deep_work",
-    user_id: null,
-    slug: "deep_work",
-    name: "deep work",
-    color: "#3253C7",
-    is_default: true,
-    created_at: "",
-    updated_at: "",
-  },
-  {
-    id: "admin",
-    user_id: null,
-    slug: "admin",
-    name: "admin",
-    color: "#93A5E4",
-    is_default: true,
-    created_at: "",
-    updated_at: "",
-  },
-  {
-    id: "social",
-    user_id: null,
-    slug: "social",
-    name: "social",
-    color: "#BF7DAD",
-    is_default: true,
-    created_at: "",
-    updated_at: "",
-  },
-  {
-    id: "errands",
-    user_id: null,
-    slug: "errands",
-    name: "errands",
-    color: "#43849D",
-    is_default: true,
-    created_at: "",
-    updated_at: "",
-  },
-  {
-    id: "care",
-    user_id: null,
-    slug: "care",
-    name: "care",
-    color: "#BF7DAD",
-    is_default: true,
-    created_at: "",
-    updated_at: "",
-  },
-  {
-    id: "creative",
-    user_id: null,
-    slug: "creative",
-    name: "creative",
-    color: "#3253C7",
-    is_default: true,
-    created_at: "",
-    updated_at: "",
-  },
-  {
-    id: "rest",
-    user_id: null,
-    slug: "rest",
-    name: "rest",
-    color: "#43849D",
-    is_default: true,
-    created_at: "",
-    updated_at: "",
-  },
-] satisfies TimeBlockCategoryRecord[];
+import { slugifyCategoryName } from "@/lib/block-draft-utils";
+import {
+  FALLBACK_CATEGORIES,
+  createCategoryMetaMap,
+  formatChatTimestamp,
+  formatDateHeading,
+  formatDuration,
+  formatElapsed,
+  formatTime,
+  fromDateTimeLocal,
+  getCategoryMeta,
+  getElapsedSeconds,
+  getTodayRange,
+  parseHashtags,
+  toDateTimeLocal,
+} from "@/lib/time-block-display";
 
 type EditorState = {
   block?: TimeBlock;
@@ -150,139 +93,6 @@ type ChatMessage = {
 interface TimerTrackerAppProps {
   userEmail: string | null;
   initialCompanionThread?: CompanionThreadState;
-}
-
-function formatElapsed(totalSeconds: number) {
-  const hours = Math.floor(totalSeconds / 3600);
-  const minutes = Math.floor((totalSeconds % 3600) / 60);
-  const seconds = totalSeconds % 60;
-
-  return [hours, minutes, seconds]
-    .map((part) => part.toString().padStart(2, "0"))
-    .join(":");
-}
-
-function getElapsedSeconds(activeTimer: ActiveTimer | null, now: number) {
-  if (!activeTimer) {
-    return 0;
-  }
-
-  const startedAt = new Date(activeTimer.started_at).getTime();
-
-  if (Number.isNaN(startedAt)) {
-    return 0;
-  }
-
-  return Math.max(0, Math.floor((now - startedAt) / 1000));
-}
-
-function formatDuration(
-  seconds: number | null,
-  start: string,
-  end: string | null,
-) {
-  let totalSeconds = seconds;
-
-  if (totalSeconds === null && end) {
-    totalSeconds = Math.max(
-      0,
-      Math.floor((new Date(end).getTime() - new Date(start).getTime()) / 1000),
-    );
-  }
-
-  if (!totalSeconds) {
-    return "0m";
-  }
-
-  const hours = Math.floor(totalSeconds / 3600);
-  const minutes = Math.round((totalSeconds % 3600) / 60);
-
-  if (hours > 0 && minutes > 0) {
-    return `${hours}h ${minutes}m`;
-  }
-
-  if (hours > 0) {
-    return `${hours}h`;
-  }
-
-  return `${Math.max(1, minutes)}m`;
-}
-
-function formatTime(value: string | null) {
-  if (!value) {
-    return "--:--";
-  }
-
-  return new Intl.DateTimeFormat(undefined, {
-    hour: "numeric",
-    minute: "2-digit",
-  }).format(new Date(value));
-}
-
-function formatChatTimestamp(value: string) {
-  const date = new Date(value);
-
-  if (Number.isNaN(date.getTime())) {
-    return "";
-  }
-
-  return new Intl.DateTimeFormat(undefined, {
-    month: "short",
-    day: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-  }).format(date);
-}
-
-function formatDateHeading(date: Date) {
-  return new Intl.DateTimeFormat(undefined, {
-    weekday: "long",
-    month: "long",
-    day: "numeric",
-  }).format(date);
-}
-
-function toDateTimeLocal(value: string | null) {
-  if (!value) {
-    return "";
-  }
-
-  const date = new Date(value);
-
-  if (Number.isNaN(date.getTime())) {
-    return "";
-  }
-
-  const offsetMs = date.getTimezoneOffset() * 60_000;
-  return new Date(date.getTime() - offsetMs).toISOString().slice(0, 16);
-}
-
-function fromDateTimeLocal(value: string) {
-  return new Date(value).toISOString();
-}
-
-function getTodayRange() {
-  const start = new Date();
-  start.setHours(0, 0, 0, 0);
-
-  const end = new Date(start);
-  end.setDate(end.getDate() + 1);
-
-  return {
-    start,
-    end,
-    input: {
-      start: start.toISOString(),
-      end: end.toISOString(),
-    },
-  };
-}
-
-function parseHashtags(value: string) {
-  return value
-    .split(/[\s,]+/)
-    .map((tag) => tag.trim())
-    .filter(Boolean);
 }
 
 function createEditorState(
@@ -316,34 +126,6 @@ function createManualEditorState(): EditorState {
     startedAt: toDateTimeLocal(startedAt.toISOString()),
     endedAt: toDateTimeLocal(endedAt.toISOString()),
   };
-}
-
-function slugifyCategoryName(name: string) {
-  return name
-    .trim()
-    .toLowerCase()
-    .replace(/['"]/g, "")
-    .replace(/[^a-z0-9]+/g, "_")
-    .replace(/^_+|_+$/g, "")
-    .slice(0, 64);
-}
-
-function getCategoryMeta(
-  category: TimeBlockCategory | null,
-  categories: TimeBlockCategoryRecord[],
-) {
-  return (
-    categories.find((item) => item.slug === category) ?? {
-      id: "uncategorized",
-      user_id: null,
-      slug: category ?? "uncategorized",
-      name: category ? category.replace(/_/g, " ") : "uncategorized",
-      color: "#93A5E4",
-      is_default: false,
-      created_at: "",
-      updated_at: "",
-    }
-  );
 }
 
 function companionMessageToChatMessage(message: CompanionMessage): ChatMessage {
@@ -1438,6 +1220,10 @@ function DailyBlocks({
   onChatAbout: (block: TimeBlock) => void;
   pending: boolean;
 }) {
+  const categoryMap = useMemo(() => createCategoryMetaMap(categories), [
+    categories,
+  ]);
+
   return (
     <section className="alibi-card min-h-130 p-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -1478,7 +1264,7 @@ function DailyBlocks({
         ) : (
           <ol className="grid gap-3">
             {blocks.map((block, index) => {
-              const category = getCategoryMeta(block.category, categories);
+              const category = getCategoryMeta(block.category, categoryMap);
               const isLatestBlock = index === blocks.length - 1;
 
               return (
