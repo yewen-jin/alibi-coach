@@ -5,6 +5,7 @@ import Link from "next/link"
 import {
   ArrowRight,
   CalendarDays,
+  ChevronDown,
   Clock,
   KeyRound,
   LayoutGrid,
@@ -29,6 +30,7 @@ import {
   demoDurationSeconds,
   makeDemoMessage,
   readDemoSession,
+  upsertDemoChatInsight,
   upsertDemoInsight,
   writeDemoSession,
   type DemoStoredBlock,
@@ -47,7 +49,7 @@ import {
   createDemoAiUsage,
   type DemoAiUsage,
 } from "@/lib/demo-token-budget"
-import type { TimeBlockCategoryRecord, TimeBlockInsight } from "@/lib/types"
+import type { CompanionMessageInsight, TimeBlockCategoryRecord, TimeBlockInsight } from "@/lib/types"
 import { cn } from "@/lib/utils"
 
 type DemoActiveTimer = NonNullable<DemoStoredSession["active_timer"]>
@@ -362,6 +364,7 @@ export default function DemoPage() {
   const [blockThreads, setBlockThreads] = useState<Record<string, DemoStoredMessage[]>>({})
   const [pendingDraft, setPendingDraft] = useState<CompanionDraft | null>(null)
   const [insights, setInsights] = useState<TimeBlockInsight[]>([])
+  const [chatInsights, setChatInsights] = useState<CompanionMessageInsight[]>([])
   const [aiUsage, setAiUsage] = useState<DemoAiUsage>(() => createDemoAiUsage())
   const [aiSettings, setAiSettings] = useState<DemoAiSettings>(() => createDemoAiSettings())
   const [activeThread, setActiveThread] = useState<DemoActiveThread>({ kind: "general" })
@@ -390,6 +393,7 @@ export default function DemoPage() {
       setBlockThreads(existing.block_threads ?? {})
       setPendingDraft(existing.pending_draft as CompanionDraft | null)
       setInsights(existing.insights)
+      setChatInsights(existing.chat_insights)
       setAiUsage(existing.ai_usage)
       setAiSettings(existing.ai_settings)
     }
@@ -409,11 +413,12 @@ export default function DemoPage() {
       block_threads: blockThreads,
       pending_draft: pendingDraft,
       insights,
+      chat_insights: chatInsights,
       ai_usage: aiUsage,
       ai_settings: aiSettings,
       updated_at: new Date().toISOString(),
     })
-  }, [activeTimer, aiSettings, aiUsage, blockThreads, blocks, categories, insights, loaded, messages, name, pendingDraft])
+  }, [activeTimer, aiSettings, aiUsage, blockThreads, blocks, categories, chatInsights, insights, loaded, messages, name, pendingDraft])
 
   useEffect(() => {
     const interval = window.setInterval(() => setNow(Date.now()), 1000)
@@ -680,6 +685,7 @@ export default function DemoPage() {
     setBlockThreads({})
     setPendingDraft(null)
     setInsights([])
+    setChatInsights([])
     setAiUsage(createDemoAiUsage())
     setAiSettings(createDemoAiSettings())
     setCategories([...DEMO_DEFAULT_CATEGORIES])
@@ -695,8 +701,18 @@ export default function DemoPage() {
 
       const lower = trimmed.toLowerCase()
       const threadAtSubmit = activeThread
+      const userMessage = makeDemoMessage("user", trimmed, {
+        related_time_block_id: threadAtSubmit.kind === "time_block" ? threadAtSubmit.blockId : null,
+      })
       setChatPending(true)
-      appendThreadMessage(makeMessage("user", trimmed), threadAtSubmit)
+      appendThreadMessage(userMessage, threadAtSubmit)
+      setChatInsights((current) =>
+        upsertDemoChatInsight(
+          current,
+          userMessage,
+          threadAtSubmit.kind === "time_block" ? "time_block" : "general",
+        ),
+      )
 
       if (!usingCustomAiEndpoint && !canSpendDemoTokens(aiUsage, DEMO_COMPANION_MIN_TOKENS)) {
         appendThreadMessage(
@@ -721,7 +737,7 @@ export default function DemoPage() {
               Object.entries(blockThreads).map(([blockId, thread]) => [blockId, thread.slice(-12)]),
             ),
             pending_draft: pendingDraft,
-            insights: insights.slice(0, 60),
+          insights: insights.slice(0, 60),
           },
           thread:
             threadAtSubmit.kind === "time_block"
@@ -928,7 +944,7 @@ export default function DemoPage() {
               "inline-flex h-10 items-center gap-2 rounded-2xl px-4 text-sm font-black transition",
               view === "tracker"
                 ? "bg-alibi-blue text-white"
-                : "bg-white/70 text-alibi-teal hover:bg-alibi-lavender/20 hover:text-alibi-blue",
+                : "bg-white text-alibi-teal hover:bg-alibi-lavender/20 hover:text-alibi-blue",
             )}
           >
             <Clock className="h-4 w-4" />
@@ -941,7 +957,7 @@ export default function DemoPage() {
               "inline-flex h-10 items-center gap-2 rounded-2xl px-4 text-sm font-black transition",
               view === "dashboard"
                 ? "bg-alibi-blue text-white"
-                : "bg-white/70 text-alibi-teal hover:bg-alibi-lavender/20 hover:text-alibi-blue",
+                : "bg-white text-alibi-teal hover:bg-alibi-lavender/20 hover:text-alibi-blue",
             )}
           >
             <LayoutGrid className="h-4 w-4" />
@@ -955,6 +971,7 @@ export default function DemoPage() {
             insights={insights}
             emptyHref="/demo"
             emptyAction="back to tracker"
+            chatInsights={chatInsights}
           />
         ) : (
         <section className="grid gap-5 lg:grid-cols-[minmax(0,0.95fr)_minmax(0,1.25fr)]">
@@ -1311,6 +1328,144 @@ function DemoAiSettingsPanel({
   )
 }
 
+function CategoryPicker({
+  value,
+  categories,
+  onChange,
+}: {
+  value: string
+  categories: TimeBlockCategoryRecord[]
+  onChange: (val: string) => void
+}) {
+  const [open, setOpen] = useState(false)
+  const [addingNew, setAddingNew] = useState(false)
+  const [newValue, setNewValue] = useState("")
+  const ref = useRef<HTMLDivElement>(null)
+  const newInputRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) {
+        setOpen(false)
+        setAddingNew(false)
+        setNewValue("")
+      }
+    }
+    document.addEventListener("mousedown", handler)
+    return () => document.removeEventListener("mousedown", handler)
+  }, [])
+
+  useEffect(() => {
+    if (addingNew) newInputRef.current?.focus()
+  }, [addingNew])
+
+  const selected = categories.find(
+    (c) => c.slug === value || c.name.toLowerCase() === value.toLowerCase(),
+  )
+  const displayName = selected?.name ?? (value || null)
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        type="button"
+        onClick={() => {
+          setOpen((o) => !o)
+          setAddingNew(false)
+          setNewValue("")
+        }}
+        className="alibi-input flex h-11 w-full items-center justify-between gap-2 text-left"
+      >
+        <span
+          className={cn(
+            "flex items-center gap-2 text-sm font-semibold",
+            displayName ? "text-alibi-ink" : "text-alibi-teal/50",
+          )}
+        >
+          {selected && (
+            <span
+              className="h-2.5 w-2.5 flex-shrink-0 rounded-full"
+              style={{ backgroundColor: selected.color }}
+            />
+          )}
+          {displayName ?? "choose or add a category"}
+        </span>
+        <ChevronDown
+          className={cn(
+            "h-4 w-4 flex-shrink-0 text-alibi-teal transition-transform duration-150",
+            open && "rotate-180",
+          )}
+        />
+      </button>
+
+      {open && (
+        <div className="alibi-card absolute z-50 mt-1 w-full overflow-hidden p-1">
+          {!addingNew ? (
+            <button
+              type="button"
+              onClick={() => setAddingNew(true)}
+              className="flex w-full items-center gap-2.5 rounded-2xl px-3 py-2 text-sm font-semibold text-alibi-teal transition hover:bg-alibi-lavender/20"
+            >
+              <Plus className="h-3.5 w-3.5" />
+              add new
+            </button>
+          ) : (
+            <div className="px-1 pb-1 pt-0.5">
+              <input
+                ref={newInputRef}
+                value={newValue}
+                onChange={(e) => setNewValue(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && newValue.trim()) {
+                    onChange(newValue.trim())
+                    setOpen(false)
+                    setAddingNew(false)
+                    setNewValue("")
+                  } else if (e.key === "Escape") {
+                    setAddingNew(false)
+                    setNewValue("")
+                  }
+                }}
+                className="alibi-input h-9 w-full text-sm"
+                placeholder="new category name, press enter"
+              />
+            </div>
+          )}
+
+          <div className="my-1 border-t border-alibi-blue/10" />
+
+          <div className="relative -mx-1 -mb-1">
+            <div className="max-h-48 overflow-y-auto px-1 pb-6">
+              {categories.map((cat) => (
+                <button
+                  key={cat.id}
+                  type="button"
+                  onClick={() => {
+                    onChange(cat.slug)
+                    setOpen(false)
+                  }}
+                  className={cn(
+                    "flex w-full items-center gap-2.5 rounded-2xl px-3 py-2 text-sm font-semibold text-alibi-ink transition hover:bg-alibi-lavender/20",
+                    value === cat.slug && "bg-alibi-blue/10 text-alibi-blue",
+                  )}
+                >
+                  <span
+                    className="h-2.5 w-2.5 flex-shrink-0 rounded-full"
+                    style={{ backgroundColor: cat.color }}
+                  />
+                  {cat.name}
+                </button>
+              ))}
+            </div>
+            {categories.length > 4 && (
+              <div className="pointer-events-none absolute inset-x-0 bottom-0 h-14 bg-gradient-to-t from-white to-transparent" />
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
 function BlockEditor({
   editor,
   categories,
@@ -1359,35 +1514,26 @@ function BlockEditor({
           />
         </label>
 
-        <label className="grid gap-1.5 text-sm font-bold text-alibi-blue">
-          category
-          <input
-            list="demo-time-block-categories"
+        <div className="grid gap-1.5">
+          <span className="text-sm font-bold text-alibi-blue">category</span>
+          <CategoryPicker
             value={editor.category}
-            onChange={(event) => setEditor({ ...editor, category: event.target.value })}
-            className="alibi-input h-11"
-            placeholder="choose or add a category"
+            categories={categories}
+            onChange={(val) => setEditor({ ...editor, category: val })}
           />
-          <datalist id="demo-time-block-categories">
-            {categories.map((category) => (
-              <option key={category.id} value={category.slug}>
-                {category.name}
-              </option>
-            ))}
-          </datalist>
           <span className="text-xs font-semibold leading-5 text-alibi-teal">
             type a new name to create a demo category.
           </span>
-        </label>
+        </div>
 
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className="grid gap-4 grid-cols-[repeat(auto-fit,minmax(200px,1fr))]">
           <label className="grid gap-1.5 text-sm font-bold text-alibi-blue">
             start
             <input
               type="datetime-local"
               value={editor.startedAt}
               onChange={(event) => setEditor({ ...editor, startedAt: event.target.value })}
-              className="alibi-input h-11"
+              className="alibi-input h-11 min-w-0"
             />
           </label>
 
@@ -1397,7 +1543,7 @@ function BlockEditor({
               type="datetime-local"
               value={editor.endedAt}
               onChange={(event) => setEditor({ ...editor, endedAt: event.target.value })}
-              className="alibi-input h-11"
+              className="alibi-input h-11 min-w-0"
             />
           </label>
         </div>

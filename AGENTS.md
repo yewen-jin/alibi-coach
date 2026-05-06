@@ -36,3 +36,7 @@ Recent commits use short, plain-language subjects such as `resume button fix` an
 ## Security & Configuration Tips
 
 Supabase and OpenRouter keys live in `.env`. Do not commit secrets. Treat `db/*.sql` as reviewed migration artifacts, especially anything touching `companion_*` or legacy `coach_*` tables.
+
+## Styles:
+
+Always follow the design system forcomponent and class rules, refer to STYLES.md

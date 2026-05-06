@@ -95,6 +95,28 @@ export interface TimeBlockInsight {
   created_at: string
 }
 
+export type CompanionMessageInsightScope = "general" | "time_block"
+
+export interface CompanionMessageInsight {
+  id: string
+  user_id: string
+  message_id: string
+  conversation_id: string
+  related_time_block_id: string | null
+  scope: CompanionMessageInsightScope
+  did_actions: string[]
+  intended_actions: string[]
+  avoided_or_deferred: string[]
+  friction_points: string[]
+  emotional_signals: string[]
+  useful_drift: string[]
+  mismatch_signals: string[]
+  themes: string[]
+  evidence_excerpt: string | null
+  model_version: string
+  created_at: string
+}
+
 export interface TimeBlockCategoryRecord {
   id: string
   user_id: string | null

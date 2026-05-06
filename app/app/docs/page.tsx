@@ -108,6 +108,8 @@ const SECTIONS: WikiSection[] = [
       "the strongest evidence is a note tied to a dated time block.",
       "metadata like category, duration, mood, effort, and tags adds context.",
       "block-specific companion threads can explain feelings or missing details around a block.",
+      "the notes mirror shows what happened inside saved blocks; the chat mirror shows patterns in how you describe the day.",
+      "chat-derived insights can surface intention, avoidance, useful drift, mismatch, and feeling language without turning every message into a block.",
       "good observations should point back to dates, blocks, excerpts, or messages.",
     ],
   },

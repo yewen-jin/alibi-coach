@@ -3,9 +3,10 @@ import {
   aggregateByCategory,
   aggregateByHour,
   aggregateByWeekday,
+  buildChatMirrorObservations,
   bucketByDay,
 } from "@/lib/dashboard-data"
-import type { TimeBlock } from "@/lib/types"
+import type { CompanionMessageInsight, TimeBlock } from "@/lib/types"
 
 function makeBlock(overrides: Partial<TimeBlock> = {}): TimeBlock {
   return {
@@ -28,6 +29,29 @@ function makeBlock(overrides: Partial<TimeBlock> = {}): TimeBlock {
     created_at: "2026-05-05T10:00:00.000Z",
     updated_at: "2026-05-05T10:00:00.000Z",
     note_version_id: null,
+    ...overrides,
+  }
+}
+
+function makeChatInsight(overrides: Partial<CompanionMessageInsight> = {}): CompanionMessageInsight {
+  return {
+    id: "chat-insight-1",
+    user_id: "user-1",
+    message_id: "message-1",
+    conversation_id: "conversation-1",
+    related_time_block_id: null,
+    scope: "general",
+    did_actions: [],
+    intended_actions: [],
+    avoided_or_deferred: [],
+    friction_points: [],
+    emotional_signals: [],
+    useful_drift: [],
+    mismatch_signals: [],
+    themes: [],
+    evidence_excerpt: "i felt scattered after lunch",
+    model_version: "test",
+    created_at: "2026-05-05T10:00:00.000Z",
     ...overrides,
   }
 }
@@ -109,5 +133,52 @@ describe("aggregateByHour", () => {
     // getHours() reads local time; derive expected slot the same way
     const expectedHour = new Date(started_at).getHours()
     expect(result[expectedHour].count).toBe(1)
+  })
+})
+
+describe("buildChatMirrorObservations", () => {
+  it("turns chat insights into mirror observations", () => {
+    const result = buildChatMirrorObservations([
+      makeChatInsight({
+        intended_actions: ["meant to work on proposal"],
+        evidence_excerpt: "i meant to work on the proposal but got stuck",
+      }),
+    ])
+
+    expect(result[0].title).toBe("intended versus actual")
+    expect(result[0].evidence).toContain("general chat")
+  })
+
+  it("keeps note insights and chat insights separate by only using chat insight fields", () => {
+    const result = buildChatMirrorObservations([
+      makeChatInsight({
+        did_actions: ["fixed bug"],
+        evidence_excerpt: "fixed the bug",
+      }),
+    ])
+
+    expect(result).toHaveLength(0)
+  })
+
+  it("block-linked chat insights can cite the related block", () => {
+    const block = makeBlock({ id: "block-1", task_name: "receipt cleanup" })
+    const result = buildChatMirrorObservations(
+      [
+        makeChatInsight({
+          related_time_block_id: "block-1",
+          scope: "time_block",
+          friction_points: ["stuck"],
+          evidence_excerpt: "i got stuck naming what this was",
+        }),
+      ],
+      [block],
+    )
+
+    expect(result[0].evidence).toContain("chat about")
+    expect(result[0].evidence).toContain("receipt cleanup")
+  })
+
+  it("empty chat insights produce no observations for neutral empty state rendering", () => {
+    expect(buildChatMirrorObservations([])).toHaveLength(0)
   })
 })
