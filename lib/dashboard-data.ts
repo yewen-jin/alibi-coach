@@ -1,4 +1,8 @@
-import type { TimeBlock, TimeBlockCategory } from "@/lib/types"
+import type {
+  CompanionMessageInsight,
+  TimeBlock,
+  TimeBlockCategory,
+} from "@/lib/types"
 
 export interface DayBucket {
   date: string // YYYY-MM-DD in user's local time
@@ -23,6 +27,12 @@ export interface WeekdayStat {
 export interface HourStat {
   hour: number // 0–23
   count: number
+}
+
+export interface ChatMirrorObservation {
+  title: string
+  body: string
+  evidence: string
 }
 
 const WEEKDAY_LABELS = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"]
@@ -173,6 +183,97 @@ export function totalsFor(blocks: TimeBlock[]) {
     distinctDays: distinctDays.size,
     totalMinutes,
   }
+}
+
+function insightExcerpt(value: string | null) {
+  if (!value) return "no excerpt"
+  return value.length > 140 ? `${value.slice(0, 137)}...` : value
+}
+
+function blockLabel(block: TimeBlock) {
+  const date = new Date(block.started_at).toLocaleDateString("en-GB", {
+    day: "numeric",
+    month: "short",
+  })
+  return `${date}, ${block.task_name ?? "unnamed block"}`
+}
+
+function chatEvidenceLabel(insight: CompanionMessageInsight, blocksById: Map<string, TimeBlock>) {
+  if (insight.related_time_block_id) {
+    const block = blocksById.get(insight.related_time_block_id)
+    return block ? `chat about ${blockLabel(block)}` : "block-linked chat"
+  }
+
+  return "general chat"
+}
+
+export function buildChatMirrorObservations(
+  insights: CompanionMessageInsight[],
+  blocks: TimeBlock[] = [],
+): ChatMirrorObservation[] {
+  const blocksById = new Map(blocks.map((block) => [block.id, block]))
+  const observations: ChatMirrorObservation[] = []
+  const withEvidence = insights.filter((insight) => insight.evidence_excerpt?.trim())
+  const mismatch = withEvidence.filter(
+    (insight) => insight.mismatch_signals.length > 0 || insight.themes.includes("mismatch"),
+  )
+  const intention = withEvidence.filter(
+    (insight) => insight.intended_actions.length > 0 || insight.avoided_or_deferred.length > 0,
+  )
+  const drift = withEvidence.filter(
+    (insight) => insight.useful_drift.length > 0 || insight.themes.includes("useful drift"),
+  )
+  const friction = withEvidence.filter(
+    (insight) => insight.friction_points.length > 0 || insight.avoided_or_deferred.length > 0,
+  )
+  const emotion = withEvidence.filter((insight) => insight.emotional_signals.length > 0)
+
+  const firstMismatch = mismatch[0]
+  if (firstMismatch) {
+    observations.push({
+      title: "what counted but didn't feel counted",
+      body: `${mismatch.length} chat message${mismatch.length === 1 ? "" : "s"} mention a gap between what happened and what felt real.`,
+      evidence: `${chatEvidenceLabel(firstMismatch, blocksById)}: ${insightExcerpt(firstMismatch.evidence_excerpt)}`,
+    })
+  }
+
+  const firstIntention = intention[0]
+  if (firstIntention) {
+    observations.push({
+      title: "intended versus actual",
+      body: `${intention.length} chat message${intention.length === 1 ? "" : "s"} name an intention, deferral, or avoided task explicitly.`,
+      evidence: `${chatEvidenceLabel(firstIntention, blocksById)}: ${insightExcerpt(firstIntention.evidence_excerpt)}`,
+    })
+  }
+
+  const firstDrift = drift[0]
+  if (firstDrift) {
+    observations.push({
+      title: "useful drift",
+      body: `${drift.length} chat message${drift.length === 1 ? "" : "s"} describe a sidetrack that still produced something useful.`,
+      evidence: `${chatEvidenceLabel(firstDrift, blocksById)}: ${insightExcerpt(firstDrift.evidence_excerpt)}`,
+    })
+  }
+
+  const firstFriction = friction.find((insight) => !observations.some((item) => item.evidence.includes(insightExcerpt(insight.evidence_excerpt))))
+  if (firstFriction) {
+    observations.push({
+      title: "recurring friction language",
+      body: `${friction.length} chat message${friction.length === 1 ? "" : "s"} use friction, avoidance, or stuck language.`,
+      evidence: `${chatEvidenceLabel(firstFriction, blocksById)}: ${insightExcerpt(firstFriction.evidence_excerpt)}`,
+    })
+  }
+
+  const firstEmotion = emotion.find((insight) => !observations.some((item) => item.evidence.includes(insightExcerpt(insight.evidence_excerpt))))
+  if (firstEmotion) {
+    observations.push({
+      title: "emotional weather",
+      body: `${emotion.length} chat message${emotion.length === 1 ? "" : "s"} carry explicit feeling language.`,
+      evidence: `${chatEvidenceLabel(firstEmotion, blocksById)}: ${insightExcerpt(firstEmotion.evidence_excerpt)}`,
+    })
+  }
+
+  return observations.slice(0, 4)
 }
 
 /* ─────────────────── ADHD Marker Stats ─────────────────── */

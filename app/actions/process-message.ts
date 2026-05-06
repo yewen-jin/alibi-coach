@@ -16,6 +16,7 @@ import type {
   CategoryInference,
 } from "@/lib/block-draft-utils";
 import { alibiCompanionGuide } from "@/lib/companion-voice";
+import { generateCompanionMessageInsightRecord } from "@/lib/chat-insights";
 import { formatInsightForPrompt } from "@/lib/note-insights";
 import { createClient } from "@/lib/supabase/server";
 import { getCalendarData, saveBlock, startTimer, stopTimer } from "./timer";
@@ -632,6 +633,42 @@ async function insertCompanionMessage(
   return { type: "inserted" as const, message: data as CompanionMessage };
 }
 
+async function upsertCompanionMessageInsight(
+  supabase: Supabase,
+  message: CompanionMessage,
+  conversation: CompanionConversation,
+) {
+  const insight = await generateCompanionMessageInsightRecord(
+    message,
+    conversation,
+  );
+
+  if (!insight) {
+    return;
+  }
+
+  await supabase.from("companion_message_insights").upsert(
+    {
+      user_id: insight.user_id,
+      message_id: insight.message_id,
+      conversation_id: insight.conversation_id,
+      related_time_block_id: insight.related_time_block_id,
+      scope: insight.scope,
+      did_actions: insight.did_actions,
+      intended_actions: insight.intended_actions,
+      avoided_or_deferred: insight.avoided_or_deferred,
+      friction_points: insight.friction_points,
+      emotional_signals: insight.emotional_signals,
+      useful_drift: insight.useful_drift,
+      mismatch_signals: insight.mismatch_signals,
+      themes: insight.themes,
+      evidence_excerpt: insight.evidence_excerpt,
+      model_version: insight.model_version,
+    },
+    { onConflict: "message_id" },
+  );
+}
+
 async function getPendingDraft(
   supabase: Supabase,
   userId: string,
@@ -1128,6 +1165,12 @@ export async function processCompanionMessage(
       message: userMessage.message,
     });
   }
+
+  await upsertCompanionMessageInsight(
+    supabase,
+    userMessage.message,
+    conversation,
+  ).catch(() => undefined);
 
   const messagesAfterUser = await fetchCompanionMessagesForConversation(
     supabase,

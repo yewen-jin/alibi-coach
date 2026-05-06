@@ -1,4 +1,5 @@
 import { deriveInsightFromNotes } from "@/lib/note-insights"
+import { deriveChatInsightFromMessage } from "@/lib/chat-insights"
 import type { CompanionDraft } from "@/lib/block-draft-utils"
 import { createDemoAiUsage, type DemoAiUsage } from "@/lib/demo-token-budget"
 import type {
@@ -8,12 +9,13 @@ import type {
   Mood,
   Satisfaction,
   TimeBlock,
+  CompanionMessageInsight,
   TimeBlockCategoryRecord,
   TimeBlockInsight,
 } from "@/lib/types"
 
 export const DEMO_SESSION_STORAGE_KEY = "alibi_demo_session_v1"
-export const DEMO_SESSION_VERSION = 2
+export const DEMO_SESSION_VERSION = 3
 
 export const DEMO_DEFAULT_CATEGORIES = [
   { id: "deep_work", user_id: null, slug: "deep_work", name: "deep work", color: "#3253C7", is_default: true, created_at: "", updated_at: "" },
@@ -69,7 +71,7 @@ export interface DemoAiSettings {
 }
 
 export interface DemoStoredSession {
-  version: 2
+  version: 3
   name: string
   active_timer: (ActiveTimer & { resumed_block?: DemoStoredBlock }) | null
   blocks: DemoStoredBlock[]
@@ -78,6 +80,7 @@ export interface DemoStoredSession {
   block_threads: Record<string, DemoStoredMessage[]>
   pending_draft: CompanionDraft | null
   insights: TimeBlockInsight[]
+  chat_insights: CompanionMessageInsight[]
   ai_usage: DemoAiUsage
   ai_settings: DemoAiSettings
   updated_at: string
@@ -90,6 +93,7 @@ type LegacyDemoSession = {
   blocks?: Array<Partial<DemoStoredBlock>>
   messages?: Array<Partial<DemoStoredMessage>>
   block_threads?: Record<string, Array<Partial<DemoStoredMessage>>>
+  chat_insights?: CompanionMessageInsight[]
   ai_usage?: Partial<DemoAiUsage>
   ai_settings?: Partial<DemoAiSettings>
   updated_at?: string
@@ -178,6 +182,38 @@ function insightForBlock(block: DemoStoredBlock): TimeBlockInsight | null {
   }
 }
 
+export function demoChatInsightForMessage(
+  message: DemoStoredMessage,
+  scope: "general" | "time_block" = message.related_time_block_id ? "time_block" : "general",
+): CompanionMessageInsight | null {
+  if (message.role !== "user") return null
+  const derived = deriveChatInsightFromMessage(message.text)
+  if (!derived) return null
+
+  return {
+    id: `demo-chat-insight-${message.id}`,
+    user_id: "demo",
+    message_id: message.id,
+    conversation_id: scope === "time_block" && message.related_time_block_id
+      ? `demo-block-thread-${message.related_time_block_id}`
+      : "demo-general",
+    related_time_block_id: message.related_time_block_id,
+    scope,
+    created_at: message.created_at,
+    ...derived,
+  }
+}
+
+export function upsertDemoChatInsight(
+  insights: CompanionMessageInsight[],
+  message: DemoStoredMessage,
+  scope?: "general" | "time_block",
+) {
+  const insight = demoChatInsightForMessage(message, scope)
+  const rest = insights.filter((item) => item.message_id !== message.id)
+  return insight ? [insight, ...rest] : rest
+}
+
 function migrateSession(parsed: LegacyDemoSession): DemoStoredSession | null {
   if (typeof parsed.name !== "string") return null
 
@@ -191,6 +227,20 @@ function migrateSession(parsed: LegacyDemoSession): DemoStoredSession | null {
       messages.map(normalizeMessage).filter((message): message is DemoStoredMessage => Boolean(message)),
     ]),
   )
+  const messages = (Array.isArray(parsed.messages) ? parsed.messages : [])
+    .map(normalizeMessage)
+    .filter((message): message is DemoStoredMessage => Boolean(message))
+  const migratedChatInsights = [
+    ...messages.map((message) => demoChatInsightForMessage(message, "general")),
+    ...Object.entries(blockThreads).flatMap(([blockId, thread]) =>
+      thread.map((message) =>
+        demoChatInsightForMessage(
+          { ...message, related_time_block_id: message.related_time_block_id ?? blockId },
+          "time_block",
+        ),
+      ),
+    ),
+  ].filter((insight): insight is CompanionMessageInsight => Boolean(insight))
 
   const customCategories = Array.from(new Set(blocks.map((block) => block.category).filter(Boolean)))
     .filter((slug): slug is string => !DEMO_DEFAULT_CATEGORIES.some((item) => item.slug === slug))
@@ -220,12 +270,11 @@ function migrateSession(parsed: LegacyDemoSession): DemoStoredSession | null {
       : null,
     blocks,
     categories: [...DEMO_DEFAULT_CATEGORIES, ...customCategories],
-    messages: (Array.isArray(parsed.messages) ? parsed.messages : [])
-      .map(normalizeMessage)
-      .filter((message): message is DemoStoredMessage => Boolean(message)),
+    messages,
     block_threads: blockThreads,
     pending_draft: null,
     insights: blocks.map(insightForBlock).filter((insight): insight is TimeBlockInsight => Boolean(insight)),
+    chat_insights: Array.isArray(parsed.chat_insights) ? parsed.chat_insights : migratedChatInsights,
     ai_usage: {
       ...createDemoAiUsage(),
       ...(parsed.ai_usage ?? {}),

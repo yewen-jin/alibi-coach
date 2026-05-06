@@ -69,7 +69,7 @@ Required behavior:
 
 - visitor enters a name and starts a local demo session;
 - timer, manual entry, OpenRouter-backed companion chat, block-specific threads, edit/delete, latest-block resume, custom categories, and dashboard mirror are available in demo form;
-- completed demo blocks, active timer state, categories, chat messages, pending drafts, note-derived insights, demo AI token usage, and optional visitor-supplied AI endpoint settings are stored locally on the device;
+- completed demo blocks, active timer state, categories, chat messages, pending drafts, note-derived insights, chat-derived insights, demo AI token usage, and optional visitor-supplied AI endpoint settings are stored locally on the device;
 - demo server actions may process a trimmed local snapshot for companion replies and note insights, but must not write demo records to Supabase;
 - demo AI can use visitor-supplied OpenAI-compatible or Anthropic endpoint settings; otherwise it uses `OPENROUTER_DEMO_API_KEY` / demo model env vars, then the main OpenRouter defaults;
 - demo AI calls must enforce a per-local-session token budget and gracefully fall back to local tracking or heuristic note insights when the budget is exhausted;
@@ -142,7 +142,7 @@ Insight generation must use sources in this order:
 2. `time_blocks` metadata - time, duration, category, tags, mood, effort, satisfaction, markers.
 3. linked `companion_messages` - clarification and emotional context around a block.
 4. general `companion_messages` - background narrative and recurring language.
-5. derived tables - useful for retrieval and summaries, never more authoritative than raw input.
+5. `time_block_insights` and `companion_message_insights` - source-linked derived interpretations for retrieval and summaries, never more authoritative than raw input.
 
 ### Current Core Tables
 
@@ -159,6 +159,8 @@ Insight generation must use sources in this order:
 `companion_conversations` stores one general thread per user and one optional block-specific thread per time block. Block conversations store a compact `context_snapshot` of the selected block so the companion can reflect from fixed block context without repeatedly loading broad history.
 
 `companion_messages` stores thread-scoped chat history, records the conversation-level companion model, and can link messages to a related time block.
+
+`companion_message_insights` stores derived interpretations from user-authored chat messages: actions they said they did, intentions, avoided or deferred items, friction, emotional language, useful drift, mismatch language, themes, and a source excerpt. It supports the dashboard chat mirror without forcing general chat into time blocks.
 
 `companion_drafts` stores temporary clarification state for the general companion thread when the agent needs more information before writing a valid time block.
 

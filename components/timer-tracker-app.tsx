@@ -1323,7 +1323,7 @@ function BlockEditor({
           />
         </div>
 
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className="grid gap-4 grid-cols-[repeat(auto-fit,minmax(200px,1fr))]">
           <label className="grid gap-1.5 text-sm font-bold text-alibi-blue">
             start
             <input
@@ -1332,7 +1332,7 @@ function BlockEditor({
               onChange={(event) =>
                 setEditor({ ...editor, startedAt: event.target.value })
               }
-              className="alibi-input h-11"
+              className="alibi-input h-11 min-w-0"
             />
           </label>
 
@@ -1344,7 +1344,7 @@ function BlockEditor({
               onChange={(event) =>
                 setEditor({ ...editor, endedAt: event.target.value })
               }
-              className="alibi-input h-11"
+              className="alibi-input h-11 min-w-0"
             />
           </label>
         </div>

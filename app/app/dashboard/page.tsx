@@ -1,6 +1,13 @@
 import { redirect } from "next/navigation"
+import { deriveCompanionMessageInsightRecord } from "@/lib/chat-insights"
 import { createClient } from "@/lib/supabase/server"
-import type { TimeBlock, TimeBlockInsight } from "@/lib/types"
+import type {
+  CompanionConversation,
+  CompanionMessage,
+  CompanionMessageInsight,
+  TimeBlock,
+  TimeBlockInsight,
+} from "@/lib/types"
 import { TopNav } from "@/components/top-nav"
 import { DashboardOverview } from "@/components/dashboard/dashboard-overview"
 
@@ -30,6 +37,45 @@ export default async function DashboardPage() {
         .in("time_block_id", blockIds)
     : { data: [] }
   const safeInsights = (insights ?? []) as TimeBlockInsight[]
+  const { data: chatInsights } = await supabase
+    .from("companion_message_insights")
+    .select("*")
+    .eq("user_id", user.id)
+    .order("created_at", { ascending: false })
+    .limit(80)
+  const safeChatInsights = (chatInsights ?? []) as CompanionMessageInsight[]
+  const { data: userMessages } = await supabase
+    .from("companion_messages")
+    .select("*")
+    .eq("user_id", user.id)
+    .eq("role", "user")
+    .order("created_at", { ascending: false })
+    .limit(80)
+  const messageBackfillInsights = ((userMessages ?? []) as CompanionMessage[])
+    .map((message) =>
+      deriveCompanionMessageInsightRecord(
+        message,
+        {
+          kind: message.related_time_block_id
+            ? "time_block"
+            : "general",
+        } satisfies Pick<CompanionConversation, "kind">,
+        {
+          id: `dashboard-derived-${message.id}`,
+          createdAt: message.created_at,
+        },
+      ),
+    )
+    .filter((insight): insight is CompanionMessageInsight => Boolean(insight))
+  const insightMessageIds = new Set(
+    safeChatInsights.map((insight) => insight.message_id),
+  )
+  const mergedChatInsights = [
+    ...safeChatInsights,
+    ...messageBackfillInsights.filter(
+      (insight) => !insightMessageIds.has(insight.message_id),
+    ),
+  ]
 
   return (
     <main className="alibi-page relative w-full">
@@ -50,7 +96,11 @@ export default async function DashboardPage() {
           </p>
         </header>
 
-        <DashboardOverview blocks={safeBlocks} insights={safeInsights} />
+        <DashboardOverview
+          blocks={safeBlocks}
+          insights={safeInsights}
+          chatInsights={mergedChatInsights}
+        />
 
         <footer className="text-center text-sm font-semibold tracking-[0.04em] text-alibi-teal">
           alibi — for the days you can&apos;t see clearly

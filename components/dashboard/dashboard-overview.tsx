@@ -1,16 +1,18 @@
 import Link from "next/link"
 import { ArrowRight } from "lucide-react"
-import type { TimeBlock, TimeBlockInsight } from "@/lib/types"
+import type { CompanionMessageInsight, TimeBlock, TimeBlockInsight } from "@/lib/types"
 import { CalendarView } from "@/components/dashboard/calendar-view"
 import { RhythmChart } from "@/components/dashboard/rhythm-chart"
 import { ProjectDistribution } from "@/components/dashboard/project-distribution"
 import { StatsOverview } from "@/components/dashboard/stats-overview"
 import { AdhdMarkers } from "@/components/dashboard/adhd-markers"
 import { NotesMirror } from "@/components/dashboard/notes-mirror"
+import { ChatMirror } from "@/components/dashboard/chat-mirror"
 
 interface DashboardOverviewProps {
   blocks: TimeBlock[]
   insights: TimeBlockInsight[]
+  chatInsights?: CompanionMessageInsight[]
   emptyHref?: string
   emptyAction?: string
 }
@@ -18,10 +20,11 @@ interface DashboardOverviewProps {
 export function DashboardOverview({
   blocks,
   insights,
+  chatInsights = [],
   emptyHref = "/app",
   emptyAction = "start tracking",
 }: DashboardOverviewProps) {
-  if (blocks.length === 0) {
+  if (blocks.length === 0 && chatInsights.length === 0) {
     return (
       <section className="alibi-card-pop flex flex-col items-center justify-center px-8 py-16 text-center">
         <p className="text-[15px] font-bold leading-[1.5] text-alibi-blue">
@@ -41,10 +44,34 @@ export function DashboardOverview({
     )
   }
 
+  if (blocks.length === 0) {
+    return (
+      <div className="space-y-5">
+        <section className="alibi-card-pop flex flex-col items-center justify-center px-8 py-10 text-center">
+          <p className="text-[15px] font-bold leading-[1.5] text-alibi-blue">
+            no saved blocks yet.
+          </p>
+          <p className="mt-1 text-base font-semibold text-alibi-teal">
+            chat can still show how you have been describing the day.
+          </p>
+          <Link
+            href={emptyHref}
+            className="alibi-button-primary mt-6 inline-flex items-center gap-2 py-2.5 text-base active:scale-95"
+          >
+            {emptyAction}
+            <ArrowRight className="h-3.5 w-3.5" strokeWidth={2.4} />
+          </Link>
+        </section>
+        <ChatMirror blocks={blocks} insights={chatInsights} />
+      </div>
+    )
+  }
+
   return (
     <div className="space-y-5">
       <StatsOverview blocks={blocks} />
       <NotesMirror blocks={blocks} insights={insights} />
+      <ChatMirror blocks={blocks} insights={chatInsights} />
       <AdhdMarkers blocks={blocks} insights={insights} />
       <CalendarView blocks={blocks} />
       <div className="grid gap-5 md:grid-cols-2">
