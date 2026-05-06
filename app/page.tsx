@@ -83,6 +83,12 @@ export default function LandingPage() {
           demo
         </Link>
         <Link
+          href="/docs"
+          className="text-[13px] font-bold text-alibi-teal transition-colors hover:text-alibi-pink"
+        >
+          docs
+        </Link>
+        <Link
           href="/auth/login"
           className="alibi-button-primary flex items-center gap-2 rounded-full px-4 py-1.5 text-[13px]"
         >
