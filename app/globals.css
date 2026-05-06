@@ -81,45 +81,84 @@
   }
 }
 
+/*
+  ─── Alibi surface hierarchy ──────────────────────────────────────────────────
+  Border radius scale:
+    rounded-3xl (24px)  — primary cards, nav pill, large panels
+    rounded-2xl (16px)  — buttons, inputs, dropdowns, block items, form elements
+    rounded-full        — pill nav links, icon buttons, chips, color dots
+
+  Shadow system (no glass/backdrop-blur — surfaces are solid white):
+    Lift   — outer diffuse shadow, cards and nav. Two layers: close + spread.
+    Pop    — stronger lift for the primary focus card.
+    Press  — inner shadow only, for recessed/inset surfaces and inputs.
+    Button — compact colored shadow under filled buttons.
+
+  Border: always `border` (1px). No `border-2`.
+  Background: `bg-white` for cards. `bg-alibi-lavender/10` for inset areas.
+  ──────────────────────────────────────────────────────────────────────────── */
+
 @layer components {
   .alibi-page {
     @apply min-h-screen text-alibi-ink;
   }
 
+  /* Primary card — main panels, sections */
   .alibi-card {
-    @apply rounded-3xl border border-alibi-blue/15 bg-white/75 shadow-[0_18px_45px_rgba(50,83,199,0.16)] backdrop-blur-xl;
+    @apply rounded-3xl border border-alibi-blue/12 bg-white
+      shadow-[0_1px_3px_rgba(50,83,199,0.06),0_6px_20px_rgba(50,83,199,0.09)];
   }
 
+  /* Elevated card — the primary focus element on a page */
   .alibi-card-pop {
-    @apply rounded-3xl border-2 border-alibi-blue/20 bg-white/85 shadow-[0_8px_20px_rgba(50,83,199,0.10),0_22px_50px_rgba(50,83,199,0.18)] backdrop-blur-xl;
+    @apply rounded-3xl border border-alibi-blue/15 bg-white
+      shadow-[0_2px_6px_rgba(50,83,199,0.08),0_12px_32px_rgba(50,83,199,0.12)];
   }
 
+  /* Nav bar — full-radius, same lift as .alibi-card */
   .alibi-pill {
-    @apply rounded-full border border-white/70 bg-white/75 shadow-[0_12px_28px_rgba(50,83,199,0.14)] backdrop-blur-xl;
+    @apply rounded-full border border-alibi-blue/12 bg-white
+      shadow-[0_1px_3px_rgba(50,83,199,0.06),0_6px_20px_rgba(50,83,199,0.09)];
   }
 
-  .alibi-input {
-    @apply rounded-2xl border-2 border-alibi-lavender/45 bg-white/80 px-3 text-base text-alibi-ink outline-none transition focus:border-alibi-pink focus:ring-4 focus:ring-alibi-pink/15;
-  }
-
-  .alibi-button-primary {
-    @apply rounded-2xl bg-alibi-blue px-4 font-bold text-white shadow-[0_10px_22px_rgba(50,83,199,0.28)] transition hover:-translate-y-0.5 hover:bg-alibi-pink disabled:translate-y-0 disabled:opacity-55;
-  }
-
-  .alibi-button-secondary {
-    @apply rounded-2xl border-2 border-alibi-lavender/45 bg-white/75 px-4 font-bold text-alibi-blue transition hover:-translate-y-0.5 hover:border-alibi-pink hover:text-alibi-pink disabled:translate-y-0 disabled:opacity-55;
-  }
-
-  .alibi-chip {
-    @apply rounded-full bg-alibi-lavender/25 px-2.5 py-1 font-mono text-xs font-bold text-alibi-blue;
-  }
-
-  /* Inset surface — receipts, quoted blocks, chat message areas. */
+  /* Recessed surface — chat areas, receipt blocks, quoted panels */
   .alibi-inset {
-    @apply rounded-[20px] border border-alibi-blue/15 bg-gradient-to-b from-white/90 to-alibi-lavender/15 shadow-[inset_0_2px_8px_rgba(50,83,199,0.08)];
+    @apply rounded-[20px] border border-alibi-blue/10 bg-alibi-lavender/10
+      shadow-[inset_0_2px_6px_rgba(50,83,199,0.08)];
   }
 
-  /* Small uppercase label — section badges, tab labels, status tags. */
+  /* Input field — recessed, inner shadow to feel pressed in */
+  .alibi-input {
+    @apply rounded-2xl border border-alibi-lavender/40 bg-white px-3 text-base
+      text-alibi-ink outline-none transition
+      shadow-[inset_0_1px_3px_rgba(50,83,199,0.07)]
+      focus:border-alibi-pink focus:ring-2 focus:ring-alibi-pink/20;
+  }
+
+  /* Filled primary button */
+  .alibi-button-primary {
+    @apply rounded-2xl bg-alibi-blue px-4 font-bold text-white transition
+      shadow-[0_2px_6px_rgba(50,83,199,0.20),0_4px_14px_rgba(50,83,199,0.16)]
+      hover:-translate-y-0.5 hover:bg-alibi-pink
+      disabled:translate-y-0 disabled:opacity-55;
+  }
+
+  /* Ghost secondary button */
+  .alibi-button-secondary {
+    @apply rounded-2xl border border-alibi-lavender/40 bg-white px-4 font-bold
+      text-alibi-blue transition
+      shadow-[0_1px_3px_rgba(50,83,199,0.06),0_3px_8px_rgba(50,83,199,0.07)]
+      hover:-translate-y-0.5 hover:border-alibi-pink hover:text-alibi-pink
+      disabled:translate-y-0 disabled:opacity-55;
+  }
+
+  /* Inline badge / tag */
+  .alibi-chip {
+    @apply rounded-full bg-alibi-lavender/20 px-2.5 py-1 font-mono text-xs
+      font-bold text-alibi-blue;
+  }
+
+  /* Uppercase section label */
   .alibi-label {
     @apply font-mono text-xs font-black uppercase tracking-[0.12em] text-alibi-teal;
   }

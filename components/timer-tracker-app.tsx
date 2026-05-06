@@ -147,13 +147,6 @@ type ChatMessage = {
   createdAt: string;
 };
 
-function isLegacyCompanionStatusMessage(message: ChatMessage) {
-  return (
-    message.role === "assistant" &&
-    message.text.trim().toLowerCase() === "one more detail."
-  );
-}
-
 interface TimerTrackerAppProps {
   userEmail: string | null;
   initialCompanionThread?: CompanionThreadState;
@@ -362,12 +355,6 @@ function companionMessageToChatMessage(message: CompanionMessage): ChatMessage {
   };
 }
 
-function companionMessagesToChatMessages(messages: CompanionMessage[]) {
-  return messages
-    .map(companionMessageToChatMessage)
-    .filter((message) => !isLegacyCompanionStatusMessage(message));
-}
-
 export function TimerTrackerApp({
   userEmail,
   initialCompanionThread,
@@ -383,7 +370,7 @@ export function TimerTrackerApp({
   const [activeCompanionThread, setActiveCompanionThread] =
     useState<CompanionThreadState | null>(initialCompanionThread ?? null);
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>(() =>
-    companionMessagesToChatMessages(initialCompanionThread?.messages ?? []),
+    (initialCompanionThread?.messages ?? []).map(companionMessageToChatMessage),
   );
   const [demoImportBlocks, setDemoImportBlocks] = useState<DemoStoredBlock[]>(
     [],
@@ -682,7 +669,7 @@ export function TimerTrackerApp({
 
   const showCompanionThread = useCallback((thread: CompanionThreadState) => {
     setActiveCompanionThread(thread);
-    setChatMessages(companionMessagesToChatMessages(thread.messages));
+    setChatMessages(thread.messages.map(companionMessageToChatMessage));
   }, []);
 
   const handleOpenGeneralCompanionThread = useCallback(async () => {
@@ -750,7 +737,7 @@ export function TimerTrackerApp({
         };
         const reconcileMessages = () => {
           if (Array.isArray(result.messages) && result.messages.length > 0) {
-            setChatMessages(companionMessagesToChatMessages(result.messages));
+            setChatMessages(result.messages.map(companionMessageToChatMessage));
           }
           setActiveCompanionThread({
             conversation: result.conversation,
