@@ -1,6 +1,11 @@
 import Link from "next/link"
 import { ArrowRight } from "lucide-react"
-import type { CompanionMessageInsight, TimeBlock, TimeBlockInsight } from "@/lib/types"
+import type {
+  CompanionMessageInsight,
+  TimeBlock,
+  TimeBlockCategoryRecord,
+  TimeBlockInsight,
+} from "@/lib/types"
 import { CalendarView } from "@/components/dashboard/calendar-view"
 import { RhythmChart } from "@/components/dashboard/rhythm-chart"
 import { ProjectDistribution } from "@/components/dashboard/project-distribution"
@@ -8,10 +13,12 @@ import { StatsOverview } from "@/components/dashboard/stats-overview"
 import { AdhdMarkers } from "@/components/dashboard/adhd-markers"
 import { NotesMirror } from "@/components/dashboard/notes-mirror"
 import { ChatMirror } from "@/components/dashboard/chat-mirror"
+import { withDistinctCategoryColors } from "@/lib/time-block-display"
 
 interface DashboardOverviewProps {
   blocks: TimeBlock[]
   insights: TimeBlockInsight[]
+  categories?: TimeBlockCategoryRecord[]
   chatInsights?: CompanionMessageInsight[]
   emptyHref?: string
   emptyAction?: string
@@ -20,10 +27,15 @@ interface DashboardOverviewProps {
 export function DashboardOverview({
   blocks,
   insights,
+  categories,
   chatInsights = [],
   emptyHref = "/app",
   emptyAction = "start tracking",
 }: DashboardOverviewProps) {
+  const displayCategories = categories
+    ? withDistinctCategoryColors(categories)
+    : undefined
+
   if (blocks.length === 0 && chatInsights.length === 0) {
     return (
       <section className="alibi-card-pop flex flex-col items-center justify-center px-8 py-16 text-center">
@@ -73,10 +85,10 @@ export function DashboardOverview({
       <NotesMirror blocks={blocks} insights={insights} />
       <ChatMirror blocks={blocks} insights={chatInsights} />
       <AdhdMarkers blocks={blocks} insights={insights} />
-      <CalendarView blocks={blocks} />
+      <CalendarView blocks={blocks} categories={displayCategories} />
       <div className="grid gap-5 md:grid-cols-2">
         <RhythmChart blocks={blocks} />
-        <ProjectDistribution blocks={blocks} />
+        <ProjectDistribution blocks={blocks} categories={displayCategories} />
       </div>
     </div>
   )

@@ -77,12 +77,12 @@ alter table public.time_blocks
 insert into public.time_block_categories (slug, name, color, is_default)
 values
   ('deep_work', 'deep work', '#3253C7', true),
-  ('admin', 'admin', '#93A5E4', true),
+  ('admin', 'admin', '#6B7DD6', true),
   ('social', 'social', '#BF7DAD', true),
   ('errands', 'errands', '#43849D', true),
-  ('care', 'care', '#BF7DAD', true),
-  ('creative', 'creative', '#3253C7', true),
-  ('rest', 'rest', '#43849D', true)
+  ('care', 'care', '#2F8F72', true),
+  ('creative', 'creative', '#7A5CC7', true),
+  ('rest', 'rest', '#C88A2D', true)
 on conflict do nothing;
 
 create table if not exists public.time_block_note_versions (

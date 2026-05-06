@@ -1,5 +1,9 @@
 import { deriveInsightFromNotes } from "@/lib/note-insights"
 import { deriveChatInsightFromMessage } from "@/lib/chat-insights"
+import {
+  FALLBACK_CATEGORIES,
+  defaultCategoryColor,
+} from "@/lib/time-block-display"
 import type { CompanionDraft } from "@/lib/block-draft-utils"
 import { createDemoAiUsage, type DemoAiUsage } from "@/lib/demo-token-budget"
 import type {
@@ -15,17 +19,9 @@ import type {
 } from "@/lib/types"
 
 export const DEMO_SESSION_STORAGE_KEY = "alibi_demo_session_v1"
-export const DEMO_SESSION_VERSION = 3
+export const DEMO_SESSION_VERSION = 4
 
-export const DEMO_DEFAULT_CATEGORIES = [
-  { id: "deep_work", user_id: null, slug: "deep_work", name: "deep work", color: "#3253C7", is_default: true, created_at: "", updated_at: "" },
-  { id: "admin", user_id: null, slug: "admin", name: "admin", color: "#93A5E4", is_default: true, created_at: "", updated_at: "" },
-  { id: "social", user_id: null, slug: "social", name: "social", color: "#BF7DAD", is_default: true, created_at: "", updated_at: "" },
-  { id: "errands", user_id: null, slug: "errands", name: "errands", color: "#43849D", is_default: true, created_at: "", updated_at: "" },
-  { id: "care", user_id: null, slug: "care", name: "care", color: "#BF7DAD", is_default: true, created_at: "", updated_at: "" },
-  { id: "creative", user_id: null, slug: "creative", name: "creative", color: "#3253C7", is_default: true, created_at: "", updated_at: "" },
-  { id: "rest", user_id: null, slug: "rest", name: "rest", color: "#43849D", is_default: true, created_at: "", updated_at: "" },
-] satisfies TimeBlockCategoryRecord[]
+export const DEMO_DEFAULT_CATEGORIES = FALLBACK_CATEGORIES
 
 export interface DemoStoredBlock {
   id: string
@@ -71,7 +67,7 @@ export interface DemoAiSettings {
 }
 
 export interface DemoStoredSession {
-  version: 3
+  version: 4
   name: string
   active_timer: (ActiveTimer & { resumed_block?: DemoStoredBlock }) | null
   blocks: DemoStoredBlock[]
@@ -249,7 +245,7 @@ function migrateSession(parsed: LegacyDemoSession): DemoStoredSession | null {
       user_id: "demo",
       slug,
       name: slug.replace(/_/g, " "),
-      color: "#BF7DAD",
+      color: defaultCategoryColor(slug),
       is_default: false,
       created_at: "",
       updated_at: "",

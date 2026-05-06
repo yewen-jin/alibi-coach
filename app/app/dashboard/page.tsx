@@ -6,6 +6,7 @@ import type {
   CompanionMessage,
   CompanionMessageInsight,
   TimeBlock,
+  TimeBlockCategoryRecord,
   TimeBlockInsight,
 } from "@/lib/types"
 import { TopNav } from "@/components/top-nav"
@@ -44,6 +45,13 @@ export default async function DashboardPage() {
     .order("created_at", { ascending: false })
     .limit(80)
   const safeChatInsights = (chatInsights ?? []) as CompanionMessageInsight[]
+  const { data: categories } = await supabase
+    .from("time_block_categories")
+    .select("*")
+    .or(`user_id.is.null,user_id.eq.${user.id}`)
+    .order("is_default", { ascending: false })
+    .order("name", { ascending: true })
+  const safeCategories = (categories ?? []) as TimeBlockCategoryRecord[]
   const { data: userMessages } = await supabase
     .from("companion_messages")
     .select("*")
@@ -99,6 +107,7 @@ export default async function DashboardPage() {
         <DashboardOverview
           blocks={safeBlocks}
           insights={safeInsights}
+          categories={safeCategories.length > 0 ? safeCategories : undefined}
           chatInsights={mergedChatInsights}
         />
 

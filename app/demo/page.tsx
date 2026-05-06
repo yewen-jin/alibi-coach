@@ -51,6 +51,7 @@ import {
 } from "@/lib/demo-token-budget"
 import type { CompanionMessageInsight, TimeBlockCategoryRecord, TimeBlockInsight } from "@/lib/types"
 import { cn } from "@/lib/utils"
+import { defaultCategoryColor, getCategoryMeta } from "@/lib/time-block-display"
 
 type DemoActiveTimer = NonNullable<DemoStoredSession["active_timer"]>
 type DemoView = "tracker" | "dashboard"
@@ -194,18 +195,7 @@ function createEditorState(block: DemoStoredBlock, isNewlyStopped = false): Edit
 }
 
 function categoryMeta(category: string | null, categories: TimeBlockCategoryRecord[]) {
-  return (
-    categories.find((item) => item.slug === category) ?? {
-      id: category ?? "uncategorized",
-      user_id: null,
-      slug: category ?? "uncategorized",
-      name: category ? category.replace(/_/g, " ") : "uncategorized",
-      color: "#93A5E4",
-      is_default: false,
-      created_at: "",
-      updated_at: "",
-    }
-  )
+  return getCategoryMeta(category, categories)
 }
 
 function makeMessage(role: DemoStoredMessage["role"], text: string): DemoStoredMessage {
@@ -433,7 +423,7 @@ export default function DemoPage() {
         user_id: "demo",
         slug,
         name: slug.replace(/_/g, " "),
-        color: "#BF7DAD",
+        color: defaultCategoryColor(slug),
         is_default: false,
         created_at: "",
         updated_at: "",
@@ -622,7 +612,7 @@ export default function DemoPage() {
           user_id: "demo",
           slug: category,
           name: category.replace(/_/g, " "),
-          color: "#BF7DAD",
+          color: defaultCategoryColor(category),
           is_default: false,
           created_at: nowIso,
           updated_at: nowIso,
@@ -969,6 +959,7 @@ export default function DemoPage() {
           <DashboardOverview
             blocks={dashboardBlocks}
             insights={insights}
+            categories={categories}
             emptyHref="/demo"
             emptyAction="back to tracker"
             chatInsights={chatInsights}
@@ -1728,7 +1719,7 @@ function DailyBlocks({
                       onClick={() => onChatAbout(block)}
                       aria-label="chat about this block"
                       title="chat about this"
-                      className="flex h-9 w-9 items-center justify-center rounded-2xl text-alibi-teal transition hover:-translate-y-0.5 hover:bg-alibi-lavender/20 hover:text-alibi-blue"
+                      className="flex h-9 w-9 items-center justify-center rounded-full text-alibi-teal transition hover:-translate-y-0.5 hover:bg-alibi-teal hover:text-white"
                     >
                       <MessageCircle className="h-4 w-4" />
                     </button>
@@ -1737,7 +1728,7 @@ function DailyBlocks({
                       onClick={() => onEdit(block)}
                       aria-label="edit block"
                       title="edit"
-                      className="flex h-9 w-9 items-center justify-center rounded-2xl text-alibi-teal transition hover:-translate-y-0.5 hover:bg-alibi-lavender/20 hover:text-alibi-blue"
+                      className="flex h-9 w-9 items-center justify-center rounded-full text-alibi-teal transition hover:-translate-y-0.5 hover:bg-alibi-blue hover:text-white"
                     >
                       <Pencil className="h-4 w-4" />
                     </button>
@@ -1747,7 +1738,7 @@ function DailyBlocks({
                       disabled={pending}
                       aria-label="delete block"
                       title="delete"
-                      className="flex h-9 w-9 items-center justify-center rounded-2xl text-alibi-pink transition hover:-translate-y-0.5 hover:bg-alibi-pink/10 disabled:translate-y-0 disabled:opacity-55"
+                      className="flex h-9 w-9 items-center justify-center rounded-full text-alibi-pink transition hover:-translate-y-0.5 hover:bg-alibi-pink hover:text-white disabled:translate-y-0 disabled:opacity-55"
                     >
                       <Trash2 className="h-4 w-4" />
                     </button>

@@ -66,7 +66,7 @@ export function TopNav({ userEmail }: TopNavProps) {
                   "inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-bold transition",
                   active
                     ? "bg-alibi-blue text-white shadow-[0_8px_16px_rgba(50,83,199,0.25)]"
-                    : "text-alibi-teal hover:-translate-y-0.5 hover:bg-alibi-lavender/20 hover:text-alibi-blue"
+                    : "text-alibi-teal hover:-translate-y-0.5 hover:bg-alibi-teal hover:text-white"
                 )}
               >
                 <Icon className="h-3.5 w-3.5" strokeWidth={2.2} />

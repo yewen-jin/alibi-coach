@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import {
+  FALLBACK_CATEGORIES,
   createCategoryMetaMap,
   formatDuration,
   formatElapsed,
@@ -70,6 +71,28 @@ describe("time block display helpers", () => {
     expect(getCategoryMeta("custom_category", categoryMap).name).toBe(
       "custom category",
     );
+  });
+
+  it("uses a distinct color for each default category", () => {
+    const colors = FALLBACK_CATEGORIES.map((category) => category.color);
+    expect(new Set(colors).size).toBe(colors.length);
+  });
+
+  it("normalizes old default category colors to the current palette", () => {
+    const categoryMap = createCategoryMetaMap([
+      {
+        id: "creative",
+        user_id: null,
+        slug: "creative",
+        name: "creative",
+        color: "#3253C7",
+        is_default: true,
+        created_at: "",
+        updated_at: "",
+      },
+    ]);
+
+    expect(getCategoryMeta("creative", categoryMap).color).not.toBe("#3253C7");
   });
 
   it("returns empty datetime-local value for invalid input", () => {

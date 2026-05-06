@@ -1,27 +1,23 @@
 "use client"
 
 import { useMemo } from "react"
-import type { TimeBlock } from "@/lib/types"
+import type { TimeBlock, TimeBlockCategoryRecord } from "@/lib/types"
 import { aggregateByCategory } from "@/lib/dashboard-data"
+import { FALLBACK_CATEGORIES, getCategoryMeta } from "@/lib/time-block-display"
 
 interface ProjectDistributionProps {
   blocks: TimeBlock[]
+  categories?: TimeBlockCategoryRecord[]
 }
 
-// Warm categorical palette — drawn from Alibi's accents.
-// Deliberately purple-free; sorted from most-to-least saturated.
-const PROJECT_COLORS = [
-  "#3253C7",
-  "#BF7DAD",
-  "#43849D",
-  "#93A5E4",
-]
+export function ProjectDistribution({
+  blocks,
+  categories = FALLBACK_CATEGORIES,
+}: ProjectDistributionProps) {
+  const categoryStats = useMemo(() => aggregateByCategory(blocks), [blocks])
+  const total = categoryStats.reduce((sum, category) => sum + category.totalMinutes, 0)
 
-export function ProjectDistribution({ blocks }: ProjectDistributionProps) {
-  const categories = useMemo(() => aggregateByCategory(blocks), [blocks])
-  const total = categories.reduce((sum, category) => sum + category.totalMinutes, 0)
-
-  if (categories.length === 0) {
+  if (categoryStats.length === 0) {
     return (
       <section className="alibi-card p-5">
         <h2 className="mb-2 text-[16px] font-black tracking-tight text-alibi-blue">
@@ -55,15 +51,16 @@ export function ProjectDistribution({ blocks }: ProjectDistributionProps) {
         role="img"
         aria-label="project distribution bar"
       >
-        {categories.map((category, i) => {
+        {categoryStats.map((category) => {
           const pct = total > 0 ? (category.totalMinutes / total) * 100 : 0
+          const meta = getCategoryMeta(category.categorySlug, categories)
           if (pct < 1) return null
           return (
             <div
-              key={category.category}
+              key={category.categorySlug ?? category.category}
               style={{
                 width: `${pct}%`,
-                background: PROJECT_COLORS[i % PROJECT_COLORS.length],
+                background: meta.color,
               }}
               title={`${category.category}: ${formatMinutes(category.totalMinutes)}`}
             />
@@ -73,17 +70,18 @@ export function ProjectDistribution({ blocks }: ProjectDistributionProps) {
 
       {/* Legend / list */}
       <ul className="space-y-2">
-        {categories.slice(0, 8).map((category, i) => {
+        {categoryStats.slice(0, 8).map((category) => {
           const pct = total > 0 ? (category.totalMinutes / total) * 100 : 0
+          const meta = getCategoryMeta(category.categorySlug, categories)
           return (
             <li
-              key={category.category}
+              key={category.categorySlug ?? category.category}
               className="flex items-center gap-3 text-base"
             >
               <span
                 className="h-2.5 w-2.5 shrink-0 rounded-sm"
                 style={{
-                  background: PROJECT_COLORS[i % PROJECT_COLORS.length],
+                  background: meta.color,
                 }}
                 aria-hidden="true"
               />
