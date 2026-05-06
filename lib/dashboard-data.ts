@@ -37,7 +37,7 @@ export interface ChatMirrorObservation {
 
 const WEEKDAY_LABELS = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"]
 
-function localDateKey(iso: string): string {
+export function localDateKey(iso: string): string {
   const d = new Date(iso)
   const y = d.getFullYear()
   const m = String(d.getMonth() + 1).padStart(2, "0")
@@ -64,6 +64,14 @@ function durationMinutes(block: TimeBlock): number {
   return Math.round((endedAt - startedAt) / 60_000)
 }
 
+export interface DailyTimelineItem {
+  block: TimeBlock
+  startMinutes: number
+  durationMinutes: number
+  topPercent: number
+  heightPercent: number
+}
+
 function categoryLabel(category: TimeBlockCategory | null): string {
   return category?.replace("_", " ") ?? "uncategorized"
 }
@@ -85,6 +93,59 @@ export function bucketByDay(blocks: TimeBlock[]): Map<string, DayBucket> {
     map.set(key, bucket)
   }
   return map
+}
+
+export function blocksForLocalDate(blocks: TimeBlock[], dateKey: string): TimeBlock[] {
+  return blocks
+    .filter((block) => localDateKey(block.started_at) === dateKey)
+    .slice()
+    .sort(
+      (a, b) =>
+        new Date(a.started_at).getTime() - new Date(b.started_at).getTime(),
+    )
+}
+
+export function buildDailyTimelineItems(blocks: TimeBlock[]): DailyTimelineItem[] {
+  return blocks
+    .map((block) => {
+      const startedAt = new Date(block.started_at)
+      const startedMs = startedAt.getTime()
+
+      if (Number.isNaN(startedMs)) {
+        return null
+      }
+
+      let duration = durationMinutes(block)
+
+      if (!duration && block.ended_at) {
+        const endedMs = new Date(block.ended_at).getTime()
+        if (!Number.isNaN(endedMs) && endedMs > startedMs) {
+          duration = Math.max(1, Math.round((endedMs - startedMs) / 60_000))
+        }
+      }
+
+      if (duration <= 0) {
+        return null
+      }
+
+      const startMinutes = startedAt.getHours() * 60 + startedAt.getMinutes()
+      const dayMinutes = 24 * 60
+      const clampedDuration = Math.min(duration, dayMinutes - startMinutes)
+
+      if (clampedDuration <= 0) {
+        return null
+      }
+
+      return {
+        block,
+        startMinutes,
+        durationMinutes: clampedDuration,
+        topPercent: (startMinutes / dayMinutes) * 100,
+        heightPercent: (clampedDuration / dayMinutes) * 100,
+      }
+    })
+    .filter((item): item is DailyTimelineItem => item !== null)
+    .sort((a, b) => a.startMinutes - b.startMinutes)
 }
 
 /** Aggregate by category (blocks without category go under "uncategorized"). */

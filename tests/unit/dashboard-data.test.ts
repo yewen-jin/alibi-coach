@@ -3,7 +3,9 @@ import {
   aggregateByCategory,
   aggregateByHour,
   aggregateByWeekday,
+  blocksForLocalDate,
   buildChatMirrorObservations,
+  buildDailyTimelineItems,
   bucketByDay,
 } from "@/lib/dashboard-data"
 import type { CompanionMessageInsight, TimeBlock } from "@/lib/types"
@@ -133,6 +135,71 @@ describe("aggregateByHour", () => {
     // getHours() reads local time; derive expected slot the same way
     const expectedHour = new Date(started_at).getHours()
     expect(result[expectedHour].count).toBe(1)
+  })
+})
+
+describe("blocksForLocalDate", () => {
+  it("returns only blocks for the matching local date", () => {
+    const blocks = [
+      makeBlock({ id: "one", started_at: "2026-05-05T10:00:00.000Z" }),
+      makeBlock({ id: "two", started_at: "2026-05-06T09:00:00.000Z" }),
+      makeBlock({ id: "three", started_at: "2026-05-05T08:00:00.000Z" }),
+    ]
+
+    const result = blocksForLocalDate(blocks, "2026-05-05")
+
+    expect(result.map((block) => block.id)).toEqual(["three", "one"])
+  })
+})
+
+describe("buildDailyTimelineItems", () => {
+  it("places a block starting and ending within the same hour", () => {
+    const result = buildDailyTimelineItems([
+      makeBlock({
+        started_at: "2026-05-05T10:15:00.000Z",
+        ended_at: "2026-05-05T10:45:00.000Z",
+        duration_seconds: null,
+      }),
+    ])
+    const expectedStart = new Date("2026-05-05T10:15:00.000Z")
+    const expectedStartMinutes = expectedStart.getHours() * 60 + expectedStart.getMinutes()
+
+    expect(result).toHaveLength(1)
+    expect(result[0].startMinutes).toBe(expectedStartMinutes)
+    expect(result[0].durationMinutes).toBe(30)
+    expect(result[0].topPercent).toBeCloseTo((expectedStartMinutes / 1440) * 100)
+    expect(result[0].heightPercent).toBeCloseTo((30 / 1440) * 100)
+  })
+
+  it("places a block spanning multiple hours", () => {
+    const result = buildDailyTimelineItems([
+      makeBlock({
+        started_at: "2026-05-05T09:30:00.000Z",
+        ended_at: "2026-05-05T12:00:00.000Z",
+        duration_seconds: null,
+      }),
+    ])
+
+    expect(result).toHaveLength(1)
+    expect(result[0].durationMinutes).toBe(150)
+    expect(result[0].heightPercent).toBeCloseTo((150 / 1440) * 100)
+  })
+
+  it("ignores blocks with missing ended_at and invalid duration", () => {
+    const result = buildDailyTimelineItems([
+      makeBlock({
+        started_at: "2026-05-05T10:00:00.000Z",
+        ended_at: null,
+        duration_seconds: null,
+      }),
+      makeBlock({
+        started_at: "2026-05-05T11:00:00.000Z",
+        ended_at: "2026-05-05T10:30:00.000Z",
+        duration_seconds: null,
+      }),
+    ])
+
+    expect(result).toHaveLength(0)
   })
 })
 
