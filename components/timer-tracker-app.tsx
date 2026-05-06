@@ -794,7 +794,7 @@ export function TimerTrackerApp({
         <TopNav userEmail={userEmail} />
 
         {demoImportBlocks.length > 0 && (
-          <section className="rounded-2xl border border-alibi-lavender/20 bg-white px-4 py-3 shadow-[0_1px_3px_rgba(50,83,199,0.06),0_6px_20px_rgba(50,83,199,0.09)]">
+          <section className="alibi-banner-info">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
                 <p className="text-sm font-black text-alibi-blue">
@@ -824,7 +824,7 @@ export function TimerTrackerApp({
                   type="button"
                   onClick={handleImportDemoBlocks}
                   disabled={isImportingDemo}
-                  className="inline-flex h-10 items-center justify-center gap-2 rounded-2xl bg-alibi-teal px-4 text-sm font-black text-white shadow-[0_10px_22px_rgba(67,132,157,0.28)] transition hover:-translate-y-0.5 hover:bg-alibi-blue disabled:translate-y-0 disabled:opacity-55"
+                  className="alibi-button-teal inline-flex h-10 items-center justify-center gap-2 px-4 text-sm font-black"
                 >
                   {isImportingDemo && (
                     <Loader2 className="h-4 w-4 animate-spin" />
@@ -866,7 +866,7 @@ export function TimerTrackerApp({
                     type="button"
                     onClick={handleStop}
                     disabled={isPending}
-                    className="inline-flex h-11 min-w-32 items-center justify-center gap-2 rounded-2xl bg-alibi-pink px-4 text-sm font-black text-white shadow-[0_10px_22px_rgba(191,125,173,0.34)] transition hover:-translate-y-0.5 hover:bg-alibi-blue disabled:translate-y-0 disabled:opacity-55"
+                    className="alibi-button-stop inline-flex h-11 min-w-32 items-center justify-center gap-2 px-4 text-sm font-black"
                   >
                     {isPending ? (
                       <Loader2 className="h-4 w-4 animate-spin" />
@@ -900,7 +900,7 @@ export function TimerTrackerApp({
                   disabled={isPending || loading}
                   aria-label="refresh timer and blocks"
                   title="refresh"
-                  className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-alibi-lavender/30 bg-white text-alibi-teal shadow-[0_1px_3px_rgba(50,83,199,0.06),0_3px_8px_rgba(50,83,199,0.07)] transition hover:-translate-y-0.5 hover:border-alibi-pink hover:text-alibi-pink disabled:translate-y-0 disabled:opacity-55"
+                  className="alibi-button-secondary inline-flex h-11 w-11 items-center justify-center"
                 >
                   {loading ? (
                     <Loader2 className="h-4 w-4 animate-spin" />
@@ -920,7 +920,7 @@ export function TimerTrackerApp({
             {error && (
               <div
                 role="alert"
-                className="rounded-2xl border border-alibi-pink/20 bg-alibi-pink/8 px-4 py-3 text-sm font-semibold text-alibi-pink"
+                className="alibi-banner-error"
               >
                 {error}
               </div>
@@ -1026,7 +1026,7 @@ function CompanionChatPanel({
               type="button"
               onClick={() => void onOpenGeneral()}
               disabled={pending}
-              className="inline-flex h-10 items-center justify-center gap-2 rounded-2xl bg-alibi-blue px-3 text-xs font-black text-white shadow-[0_10px_22px_rgba(50,83,199,0.22)] transition hover:-translate-y-0.5 hover:bg-alibi-pink disabled:translate-y-0 disabled:opacity-55"
+              className="alibi-button-primary inline-flex h-10 items-center justify-center gap-2 px-3 text-xs font-black"
             >
               <MessageCircle className="h-4 w-4" />
               main chat
@@ -1050,7 +1050,7 @@ function CompanionChatPanel({
             <div
               key={message.id}
               className={cn(
-                "max-w-[88%] wrap-break-words rounded-2xl px-3 py-2 text-sm font-semibold leading-6 shadow-sm",
+                "alibi-chat-bubble",
                 message.role === "user"
                   ? "ml-auto bg-alibi-blue text-white"
                   : "mr-auto bg-white text-alibi-ink shadow-[0_1px_3px_rgba(50,83,199,0.06)]",
@@ -1104,7 +1104,7 @@ function CompanionChatPanel({
           disabled={!value.trim() || pending}
           aria-label="send message"
           title="send"
-          className="inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-alibi-teal text-white shadow-[0_10px_22px_rgba(67,132,157,0.28)] transition hover:-translate-y-0.5 hover:bg-alibi-pink disabled:translate-y-0 disabled:opacity-55"
+          className="alibi-button-teal inline-flex h-11 w-11 items-center justify-center"
         >
           {pending ? (
             <Loader2 className="h-4 w-4 animate-spin" />
@@ -1402,7 +1402,7 @@ function BlockEditor({
             type="button"
             onClick={onSave}
             disabled={pending}
-            className="inline-flex h-10 items-center justify-center gap-2 rounded-2xl bg-alibi-teal px-4 text-sm font-black text-white shadow-[0_10px_22px_rgba(67,132,157,0.28)] transition hover:-translate-y-0.5 hover:bg-alibi-blue disabled:translate-y-0 disabled:opacity-55"
+            className="alibi-button-teal inline-flex h-10 items-center justify-center gap-2 px-4 text-sm font-black"
           >
             {pending && <Loader2 className="h-4 w-4 animate-spin" />}
             save
@@ -1456,7 +1456,7 @@ function DailyBlocks({
             disabled={pending}
             aria-label="add completed block"
             title="add block"
-            className="inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-alibi-teal text-white shadow-[0_10px_22px_rgba(67,132,157,0.22)] transition hover:-translate-y-0.5 hover:bg-alibi-blue disabled:translate-y-0 disabled:opacity-55"
+            className="alibi-button-teal inline-flex h-11 w-11 items-center justify-center"
           >
             <Plus className="h-4 w-4" />
           </button>
@@ -1472,7 +1472,7 @@ function DailyBlocks({
             <Loader2 className="h-5 w-5 animate-spin" />
           </div>
         ) : blocks.length === 0 ? (
-          <div className="flex min-h-72 items-center justify-center rounded-3xl border border-dashed border-alibi-lavender/40 bg-alibi-lavender/10 px-6 text-center text-sm font-semibold leading-6 text-alibi-teal">
+          <div className="flex min-h-72 items-center justify-center rounded-2xl border border-dashed border-alibi-lavender/40 bg-alibi-lavender/10 px-6 text-center text-sm font-semibold leading-6 text-alibi-teal">
             no completed blocks for today yet.
           </div>
         ) : (
@@ -1484,7 +1484,7 @@ function DailyBlocks({
               return (
                 <li
                   key={block.id}
-                  className="grid gap-3 rounded-3xl border border-alibi-lavender/20 bg-white p-4 shadow-[0_1px_3px_rgba(50,83,199,0.06),0_6px_20px_rgba(50,83,199,0.09)] transition hover:-translate-y-0.5 hover:border-alibi-pink/30 sm:grid-cols-[7.5rem_minmax(0,1fr)_auto]"
+                  className="alibi-block-item grid gap-3 sm:grid-cols-[7.5rem_minmax(0,1fr)_auto]"
                 >
                   <div className="font-mono text-sm font-semibold leading-6 text-alibi-teal">
                     <div>{formatTime(block.started_at)}</div>
@@ -1535,7 +1535,7 @@ function DailyBlocks({
                         disabled={pending}
                         aria-label="resume latest block"
                         title="resume"
-                        className="inline-flex h-9 items-center justify-center gap-1.5 rounded-2xl bg-alibi-teal px-3 text-xs font-black text-white shadow-[0_8px_18px_rgba(67,132,157,0.22)] transition hover:-translate-y-0.5 hover:bg-alibi-blue disabled:translate-y-0 disabled:opacity-55"
+                        className="alibi-button-teal inline-flex h-9 items-center justify-center gap-1.5 px-3 text-xs font-black"
                       >
                         <RotateCcw className="h-3.5 w-3.5" />
                         resume

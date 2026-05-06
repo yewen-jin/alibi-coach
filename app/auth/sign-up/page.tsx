@@ -79,7 +79,7 @@ export default function SignUpPage() {
 
         <form onSubmit={handleSignUp} className="space-y-4">
           {error && (
-            <div className="rounded-2xl border-2 border-alibi-pink/25 bg-alibi-pink/10 p-3 text-sm font-semibold text-alibi-pink">
+            <div className="alibi-banner-error">
               {error}
             </div>
           )}

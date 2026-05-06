@@ -18,13 +18,13 @@ const KIND_LABEL: Record<ProactiveMessage["kind"], string> = {
 export function ProactiveBubble({ message, onDismiss }: ProactiveBubbleProps) {
   return (
     <div
-      className="alibi-soft-rise rounded-2xl border border-alibi-blue/15 bg-white/80 p-4"
+      className="alibi-soft-rise alibi-card p-4"
       role="status"
       aria-live="polite"
     >
       <div className="flex items-start gap-3">
         <div className="min-w-0 flex-1">
-          <p className="mb-1 text-[10px] uppercase tracking-wide text-muted-foreground">
+          <p className="mb-1 text-[10px] uppercase tracking-wide text-alibi-teal">
             {KIND_LABEL[message.kind]}
           </p>
           <p className="font-serif text-[1rem] leading-relaxed text-alibi-ink">
@@ -34,7 +34,7 @@ export function ProactiveBubble({ message, onDismiss }: ProactiveBubbleProps) {
         {onDismiss && (
           <button
             onClick={() => onDismiss(message.id)}
-            className="-mr-1 -mt-1 rounded-md p-1 text-muted-foreground transition-colors hover:text-foreground"
+            className="-mr-1 -mt-1 rounded-full p-1 text-alibi-teal/60 transition-colors hover:text-alibi-blue"
             aria-label="Dismiss"
           >
             <X className="h-4 w-4" />

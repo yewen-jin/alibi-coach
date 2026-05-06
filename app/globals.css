@@ -83,18 +83,20 @@
 
 /*
   ─── Alibi surface hierarchy ──────────────────────────────────────────────────
-  Border radius scale:
-    rounded-3xl (24px)  — primary cards, nav pill, large panels
-    rounded-2xl (16px)  — buttons, inputs, dropdowns, block items, form elements
-    rounded-full        — pill nav links, icon buttons, chips, color dots
+  Border radius:
+    rounded-2xl (16px)  — ALL card/panel surfaces, buttons, inputs, banners,
+                          block items, dropdowns. One value for everything flat.
+    rounded-xl  (12px)  — tiny interactive highlights (sidebar nav links only).
+    rounded-full        — nav pill bar, chips, icon buttons, color dots.
+    No rounded-3xl. No rounded-[Xpx] custom values.
 
   Shadow system (no glass/backdrop-blur — surfaces are solid white):
-    Lift   — outer diffuse shadow, cards and nav. Two layers: close + spread.
+    Lift   — outer diffuse, cards and nav. Two layers: close + spread.
     Pop    — stronger lift for the primary focus card.
-    Press  — inner shadow only, for recessed/inset surfaces and inputs.
+    Press  — inner shadow, recessed/inset surfaces and inputs.
     Button — compact colored shadow under filled buttons.
 
-  Border: always `border` (1px). No `border-2`.
+  Border: always `border` (1px). Never `border-2`.
   Background: `bg-white` for cards. `bg-alibi-lavender/10` for inset areas.
   ──────────────────────────────────────────────────────────────────────────── */
 
@@ -103,19 +105,21 @@
     @apply min-h-screen text-alibi-ink;
   }
 
+  /* ─── Surfaces ──────────────────────────────────────────────────────────── */
+
   /* Primary card — main panels, sections */
   .alibi-card {
-    @apply rounded-3xl border border-alibi-blue/12 bg-white
+    @apply rounded-2xl border border-alibi-blue/12 bg-white
       shadow-[0_1px_3px_rgba(50,83,199,0.06),0_6px_20px_rgba(50,83,199,0.09)];
   }
 
-  /* Elevated card — the primary focus element on a page */
+  /* Elevated card — primary focus element on a page */
   .alibi-card-pop {
-    @apply rounded-3xl border border-alibi-blue/15 bg-white
+    @apply rounded-2xl border border-alibi-blue/15 bg-white
       shadow-[0_2px_6px_rgba(50,83,199,0.08),0_12px_32px_rgba(50,83,199,0.12)];
   }
 
-  /* Nav bar — full-radius, same lift as .alibi-card */
+  /* Nav bar — full-radius pill, same lift as .alibi-card */
   .alibi-pill {
     @apply rounded-full border border-alibi-blue/12 bg-white
       shadow-[0_1px_3px_rgba(50,83,199,0.06),0_6px_20px_rgba(50,83,199,0.09)];
@@ -123,9 +127,39 @@
 
   /* Recessed surface — chat areas, receipt blocks, quoted panels */
   .alibi-inset {
-    @apply rounded-[20px] border border-alibi-blue/10 bg-alibi-lavender/10
+    @apply rounded-2xl border border-alibi-blue/10 bg-alibi-lavender/10
       shadow-[inset_0_2px_6px_rgba(50,83,199,0.08)];
   }
+
+  /* Block list item — used in tracker and demo block lists */
+  .alibi-block-item {
+    @apply rounded-2xl border border-alibi-lavender/20 bg-white p-4
+      shadow-[0_1px_3px_rgba(50,83,199,0.06),0_6px_20px_rgba(50,83,199,0.09)]
+      transition hover:-translate-y-0.5 hover:border-alibi-pink/30;
+  }
+
+  /* Small inner card — docs examples, prompts, roadmap items, landing features.
+     Concave: faint outer edge + inset top shadow creates a pressed-in feel. */
+  .alibi-doc-card {
+    @apply rounded-2xl bg-alibi-lavender/8 p-4
+      shadow-[0_1px_2px_rgba(50,83,199,0.05),inset_0_2px_5px_rgba(50,83,199,0.08)];
+  }
+
+  /* ─── Banners ───────────────────────────────────────────────────────────── */
+
+  /* Error / warning notice */
+  .alibi-banner-error {
+    @apply rounded-2xl border border-alibi-pink/20 bg-alibi-pink/8 px-4 py-3
+      text-sm font-semibold text-alibi-pink;
+  }
+
+  /* Info / notice */
+  .alibi-banner-info {
+    @apply rounded-2xl border border-alibi-lavender/20 bg-alibi-lavender/8 px-4 py-3
+      text-sm font-semibold text-alibi-teal;
+  }
+
+  /* ─── Interactive elements ──────────────────────────────────────────────── */
 
   /* Input field — recessed, inner shadow to feel pressed in */
   .alibi-input {
@@ -135,11 +169,27 @@
       focus:border-alibi-pink focus:ring-2 focus:ring-alibi-pink/20;
   }
 
-  /* Filled primary button */
+  /* Filled primary button — blue, hover→pink */
   .alibi-button-primary {
     @apply rounded-2xl bg-alibi-blue px-4 font-bold text-white transition
       shadow-[0_2px_6px_rgba(50,83,199,0.20),0_4px_14px_rgba(50,83,199,0.16)]
       hover:-translate-y-0.5 hover:bg-alibi-pink
+      disabled:translate-y-0 disabled:opacity-55;
+  }
+
+  /* Teal action button — start, resume, send, save. Hover→blue. */
+  .alibi-button-teal {
+    @apply rounded-2xl bg-alibi-teal font-bold text-white transition
+      shadow-[0_2px_6px_rgba(67,132,157,0.22),0_4px_14px_rgba(67,132,157,0.18)]
+      hover:-translate-y-0.5 hover:bg-alibi-blue
+      disabled:translate-y-0 disabled:opacity-55;
+  }
+
+  /* Stop/cancel button — pink, used for stop-timer. Hover→blue. */
+  .alibi-button-stop {
+    @apply rounded-2xl bg-alibi-pink font-bold text-white transition
+      shadow-[0_2px_6px_rgba(191,125,173,0.22),0_4px_14px_rgba(191,125,173,0.18)]
+      hover:-translate-y-0.5 hover:bg-alibi-blue
       disabled:translate-y-0 disabled:opacity-55;
   }
 
@@ -151,6 +201,13 @@
       hover:-translate-y-0.5 hover:border-alibi-pink hover:text-alibi-pink
       disabled:translate-y-0 disabled:opacity-55;
   }
+
+  /* Chat message bubble base — color/position added per role */
+  .alibi-chat-bubble {
+    @apply max-w-[88%] break-words rounded-2xl px-3 py-2 text-sm font-semibold leading-6;
+  }
+
+  /* ─── Small tokens ─────────────────────────────────────────────────────── */
 
   /* Inline badge / tag */
   .alibi-chip {

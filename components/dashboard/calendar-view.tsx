@@ -156,7 +156,7 @@ export function CalendarView({ blocks }: CalendarViewProps) {
       <div className="mt-4 flex items-center justify-end gap-3 text-xs font-black uppercase tracking-[0.1em] text-alibi-teal">
         <span className="flex items-center gap-1.5">
           <span
-            className="h-2 w-2 rounded-sm"
+            className="h-2 w-2 rounded-full"
             style={{ background: "rgba(191, 125, 173, 0.22)" }}
             aria-hidden
           />
@@ -164,7 +164,7 @@ export function CalendarView({ blocks }: CalendarViewProps) {
         </span>
         <span className="flex items-center gap-1.5">
           <span
-            className="h-2 w-2 rounded-sm"
+            className="h-2 w-2 rounded-full"
             style={{ background: "rgba(191, 125, 173, 0.62)" }}
             aria-hidden
           />
@@ -172,7 +172,7 @@ export function CalendarView({ blocks }: CalendarViewProps) {
         </span>
         <span className="flex items-center gap-1.5">
           <span
-            className="h-2 w-2 rounded-sm border border-alibi-teal"
+            className="h-2 w-2 rounded-full border border-alibi-teal"
             style={{ background: "transparent" }}
             aria-hidden
           />
@@ -181,7 +181,7 @@ export function CalendarView({ blocks }: CalendarViewProps) {
       </div>
 
       {selected && (
-        <div className="alibi-soft-rise mt-5 rounded-3xl border border-alibi-lavender/30 bg-white/80 px-5 py-4 shadow-inner">
+        <div className="alibi-soft-rise alibi-card mt-5 px-5 py-4">
           <div className="mb-3 flex items-baseline gap-3">
             <span className="text-xs font-black uppercase tracking-[0.12em] text-alibi-blue">
               {selected.date}

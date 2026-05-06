@@ -13,7 +13,7 @@ export function CompanionResponse({
 }: CompanionResponseProps) {
   return (
     <div
-      className="alibi-soft-rise rounded-2xl border border-alibi-blue/15 bg-white/85 p-5"
+      className="alibi-soft-rise alibi-card p-5"
       role="status"
       aria-live="polite"
     >
@@ -26,7 +26,7 @@ export function CompanionResponse({
         {onDismiss && (
           <button
             onClick={onDismiss}
-            className="-mr-1 -mt-1 rounded-md p-1 text-alibi-teal/70 transition-colors hover:text-alibi-blue"
+            className="-mr-1 -mt-1 rounded-full p-1 text-alibi-teal/70 transition-colors hover:text-alibi-blue"
             aria-label="Dismiss"
           >
             <X className="h-4 w-4" />

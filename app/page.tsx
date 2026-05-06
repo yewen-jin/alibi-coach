@@ -246,7 +246,7 @@ function PromiseRow({
   body: string
 }) {
   return (
-    <div className="rounded-[7px] border border-alibi-blue/10 bg-white/65 p-4">
+    <div className="alibi-doc-card">
       <div className="flex items-start gap-3">
         <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-alibi-teal/15 text-alibi-teal">
           <Icon className="h-4 w-4" strokeWidth={2.2} />

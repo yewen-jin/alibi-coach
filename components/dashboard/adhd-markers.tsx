@@ -84,14 +84,7 @@ export function AdhdMarkers({ blocks, insights = [] }: AdhdMarkersProps) {
       {/* Markers Grid */}
       <div className="grid grid-cols-2 gap-3">
         {mergedMarkers.map((m) => (
-          <div
-            key={m.key}
-            className="rounded-2xl p-3"
-            style={{
-              background: "rgba(147, 165, 228, 0.14)",
-              border: "1px solid rgba(50, 83, 199, 0.12)",
-            }}
-          >
+          <div key={m.key} className="alibi-doc-card p-3">
             <div className="flex items-baseline justify-between">
               <span
                 className="font-mono text-[1.4rem] font-semibold leading-none tabular-nums"

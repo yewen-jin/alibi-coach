@@ -101,7 +101,7 @@ export function NotesMirror({
       </p>
 
       {observations.length === 0 ? (
-        <div className="mt-4 rounded-2xl border-2 border-dashed border-alibi-lavender/50 bg-white/70 p-4 text-sm font-semibold leading-6 text-alibi-teal">
+        <div className="alibi-banner-info mt-4 border-dashed">
           add notes to a few blocks and this panel will start showing themes without scoring them.
         </div>
       ) : (
@@ -109,7 +109,7 @@ export function NotesMirror({
           {observations.map((observation) => (
             <article
               key={observation.title}
-              className="rounded-3xl border-2 border-alibi-lavender/25 bg-white/80 p-4 shadow-[0_10px_24px_rgba(50,83,199,0.07)]"
+              className="alibi-block-item"
             >
               <h3 className="text-sm font-black uppercase tracking-[0.08em] text-alibi-blue">
                 {observation.title}
