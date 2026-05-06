@@ -121,6 +121,13 @@ The agent must not guess missing time windows or silently invent categories when
 
 The timeline interface should make days, gaps, and rhythms visible without treating empty time as failure.
 
+The dashboard calendar shows two linked views:
+
+- a compact month calendar that makes block density and empty days visible;
+- a selected-day 24-hour timeline that places completed blocks by local start/end time and colors them by category.
+
+Selecting a day updates the daily timeline. Selecting a block shows a read-only detail view with time range, duration, category, task name, notes, and hashtags. The daily timeline is evidence display only in the current phase; editing, deleting, resuming, and block-specific chat remain app-page workflows.
+
 The mirror/insight interface should surface observations such as:
 
 - recurring friction by time of day;

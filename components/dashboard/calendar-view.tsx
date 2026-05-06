@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react"
 import { ChevronLeft, ChevronRight } from "lucide-react"
-import type { TimeBlock } from "@/lib/types"
+import type { TimeBlock, TimeBlockCategoryRecord } from "@/lib/types"
 import {
   blocksForLocalDate,
   bucketByDay,
@@ -19,6 +19,7 @@ import {
 
 interface CalendarViewProps {
   blocks: TimeBlock[]
+  categories?: TimeBlockCategoryRecord[]
 }
 
 const MONTHS = [
@@ -38,7 +39,10 @@ const MONTHS = [
 
 const WEEKDAYS = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"]
 
-export function CalendarView({ blocks }: CalendarViewProps) {
+export function CalendarView({
+  blocks,
+  categories = FALLBACK_CATEGORIES,
+}: CalendarViewProps) {
   const todayKey = toDateKey(new Date())
   const buckets = useMemo(() => bucketByDay(blocks), [blocks])
   const initialSelection = useMemo(() => {
@@ -225,6 +229,7 @@ export function CalendarView({ blocks }: CalendarViewProps) {
           items={timelineItems}
           selectedBlock={selectedBlock}
           selectedBlockId={selectedBlockId}
+          categories={categories}
           onSelectBlock={setSelectedBlockId}
         />
       </div>
@@ -238,6 +243,7 @@ function DailyTimelinePane({
   items,
   selectedBlock,
   selectedBlockId,
+  categories,
   onSelectBlock,
 }: {
   dateKey: string
@@ -245,6 +251,7 @@ function DailyTimelinePane({
   items: ReturnType<typeof buildDailyTimelineItems>
   selectedBlock: TimeBlock | null
   selectedBlockId: string | null
+  categories: TimeBlockCategoryRecord[]
   onSelectBlock: (id: string) => void
 }) {
   return (
@@ -294,6 +301,7 @@ function DailyTimelinePane({
                   <TimelineBlockButton
                     key={item.block.id}
                     item={item}
+                    categories={categories}
                     selected={
                       selectedBlockId === null
                         ? selectedBlock?.id === item.block.id
@@ -307,7 +315,7 @@ function DailyTimelinePane({
           )}
         </div>
 
-        <BlockDetail block={selectedBlock} />
+        <BlockDetail block={selectedBlock} categories={categories} />
       </div>
     </div>
   )
@@ -315,14 +323,16 @@ function DailyTimelinePane({
 
 function TimelineBlockButton({
   item,
+  categories,
   selected,
   onClick,
 }: {
   item: ReturnType<typeof buildDailyTimelineItems>[number]
+  categories: TimeBlockCategoryRecord[]
   selected: boolean
   onClick: () => void
 }) {
-  const category = getCategoryMeta(item.block.category, FALLBACK_CATEGORIES)
+  const category = getCategoryMeta(item.block.category, categories)
   const minHeight = 2.75
 
   return (
@@ -354,7 +364,13 @@ function TimelineBlockButton({
   )
 }
 
-function BlockDetail({ block }: { block: TimeBlock | null }) {
+function BlockDetail({
+  block,
+  categories,
+}: {
+  block: TimeBlock | null
+  categories: TimeBlockCategoryRecord[]
+}) {
   if (!block) {
     return (
       <div className="alibi-banner-info flex min-h-32 items-center justify-center text-center">
@@ -363,7 +379,7 @@ function BlockDetail({ block }: { block: TimeBlock | null }) {
     )
   }
 
-  const category = getCategoryMeta(block.category, FALLBACK_CATEGORIES)
+  const category = getCategoryMeta(block.category, categories)
 
   return (
     <article className="alibi-block-item min-w-0">

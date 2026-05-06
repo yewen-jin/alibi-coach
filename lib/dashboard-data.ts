@@ -12,6 +12,7 @@ export interface DayBucket {
 }
 
 export interface CategoryStat {
+  categorySlug: TimeBlockCategory | null
   category: string
   count: number
   totalMinutes: number
@@ -152,8 +153,13 @@ export function buildDailyTimelineItems(blocks: TimeBlock[]): DailyTimelineItem[
 export function aggregateByCategory(blocks: TimeBlock[]): CategoryStat[] {
   const map = new Map<string, CategoryStat>()
   for (const block of blocks) {
-    const key = categoryLabel(block.category)
-    const stat = map.get(key) ?? { category: key, count: 0, totalMinutes: 0 }
+    const key = block.category ?? "uncategorized"
+    const stat = map.get(key) ?? {
+      categorySlug: block.category,
+      category: categoryLabel(block.category),
+      count: 0,
+      totalMinutes: 0,
+    }
     stat.count += 1
     stat.totalMinutes += durationMinutes(block)
     map.set(key, stat)

@@ -1332,7 +1332,7 @@ function DailyBlocks({
                       onClick={() => onChatAbout(block)}
                       aria-label="chat about this block"
                       title="chat about this"
-                      className="flex h-9 w-9 items-center justify-center rounded-2xl text-alibi-teal transition hover:-translate-y-0.5 hover:bg-alibi-lavender/20 hover:text-alibi-blue"
+                      className="flex h-9 w-9 items-center justify-center rounded-full text-alibi-teal transition hover:-translate-y-0.5 hover:bg-alibi-teal hover:text-white"
                     >
                       <MessageCircle className="h-4 w-4" />
                     </button>
@@ -1341,7 +1341,7 @@ function DailyBlocks({
                       onClick={() => onEdit(block)}
                       aria-label="edit block"
                       title="edit"
-                      className="flex h-9 w-9 items-center justify-center rounded-2xl text-alibi-teal transition hover:-translate-y-0.5 hover:bg-alibi-lavender/20 hover:text-alibi-blue"
+                      className="flex h-9 w-9 items-center justify-center rounded-full text-alibi-teal transition hover:-translate-y-0.5 hover:bg-alibi-blue hover:text-white"
                     >
                       <Pencil className="h-4 w-4" />
                     </button>
@@ -1351,7 +1351,7 @@ function DailyBlocks({
                       disabled={pending}
                       aria-label="delete block"
                       title="delete"
-                      className="flex h-9 w-9 items-center justify-center rounded-2xl text-alibi-pink transition hover:-translate-y-0.5 hover:bg-alibi-pink/10 disabled:translate-y-0 disabled:opacity-55"
+                      className="flex h-9 w-9 items-center justify-center rounded-full text-alibi-pink transition hover:-translate-y-0.5 hover:bg-alibi-pink hover:text-white disabled:translate-y-0 disabled:opacity-55"
                     >
                       <Trash2 className="h-4 w-4" />
                     </button>

@@ -1,6 +1,11 @@
 import Link from "next/link"
 import { ArrowRight } from "lucide-react"
-import type { CompanionMessageInsight, TimeBlock, TimeBlockInsight } from "@/lib/types"
+import type {
+  CompanionMessageInsight,
+  TimeBlock,
+  TimeBlockCategoryRecord,
+  TimeBlockInsight,
+} from "@/lib/types"
 import { CalendarView } from "@/components/dashboard/calendar-view"
 import { RhythmChart } from "@/components/dashboard/rhythm-chart"
 import { ProjectDistribution } from "@/components/dashboard/project-distribution"
@@ -12,6 +17,7 @@ import { ChatMirror } from "@/components/dashboard/chat-mirror"
 interface DashboardOverviewProps {
   blocks: TimeBlock[]
   insights: TimeBlockInsight[]
+  categories?: TimeBlockCategoryRecord[]
   chatInsights?: CompanionMessageInsight[]
   emptyHref?: string
   emptyAction?: string
@@ -20,6 +26,7 @@ interface DashboardOverviewProps {
 export function DashboardOverview({
   blocks,
   insights,
+  categories,
   chatInsights = [],
   emptyHref = "/app",
   emptyAction = "start tracking",
@@ -73,10 +80,10 @@ export function DashboardOverview({
       <NotesMirror blocks={blocks} insights={insights} />
       <ChatMirror blocks={blocks} insights={chatInsights} />
       <AdhdMarkers blocks={blocks} insights={insights} />
-      <CalendarView blocks={blocks} />
+      <CalendarView blocks={blocks} categories={categories} />
       <div className="grid gap-5 md:grid-cols-2">
         <RhythmChart blocks={blocks} />
-        <ProjectDistribution blocks={blocks} />
+        <ProjectDistribution blocks={blocks} categories={categories} />
       </div>
     </div>
   )
