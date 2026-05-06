@@ -1,6 +1,7 @@
 "use server"
 
 import { revalidatePath } from "next/cache"
+import { generateNoteInsight } from "@/lib/ai-note-insights"
 import { deriveInsightFromNotes } from "@/lib/note-insights"
 import { createClient } from "@/lib/supabase/server"
 import type {
@@ -447,7 +448,7 @@ async function storeNoteInsight(
   timeBlock: TimeBlock,
   noteVersionId: string | null,
 ) {
-  const insight = deriveInsightFromNotes(timeBlock.notes)
+  const insight = await generateNoteInsight(timeBlock)
 
   if (!insight) {
     await supabase

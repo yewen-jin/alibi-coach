@@ -6,6 +6,8 @@ import {
   ArrowRight,
   CalendarDays,
   Clock,
+  KeyRound,
+  LayoutGrid,
   Loader2,
   MessageCircle,
   Pencil,
@@ -13,32 +15,43 @@ import {
   Play,
   RotateCcw,
   Send,
+  Settings,
   Square,
   Trash2,
   X,
 } from "lucide-react"
 import {
+  DEMO_DEFAULT_CATEGORIES,
+  DEMO_SESSION_VERSION,
   clearDemoSession,
+  createDemoAiSettings,
+  demoBlockToTimeBlock,
+  demoDurationSeconds,
+  makeDemoMessage,
   readDemoSession,
+  upsertDemoInsight,
   writeDemoSession,
   type DemoStoredBlock,
   type DemoStoredMessage,
   type DemoStoredSession,
+  type DemoAiSettings,
 } from "@/lib/demo-storage"
-import type { TimeBlockCategoryRecord } from "@/lib/types"
+import { generateDemoBlockInsight, processDemoCompanionMessage } from "@/app/actions/demo"
+import { DashboardOverview } from "@/components/dashboard/dashboard-overview"
+import type { CompanionDraft } from "@/lib/block-draft-utils"
+import {
+  DEMO_COMPANION_MIN_TOKENS,
+  DEMO_INSIGHT_MIN_TOKENS,
+  addDemoTokenUsage,
+  canSpendDemoTokens,
+  createDemoAiUsage,
+  type DemoAiUsage,
+} from "@/lib/demo-token-budget"
+import type { TimeBlockCategoryRecord, TimeBlockInsight } from "@/lib/types"
 import { cn } from "@/lib/utils"
 
-const CATEGORIES = [
-  { id: "deep_work", user_id: null, slug: "deep_work", name: "deep work", color: "#3253C7", is_default: true, created_at: "", updated_at: "" },
-  { id: "admin", user_id: null, slug: "admin", name: "admin", color: "#93A5E4", is_default: true, created_at: "", updated_at: "" },
-  { id: "social", user_id: null, slug: "social", name: "social", color: "#BF7DAD", is_default: true, created_at: "", updated_at: "" },
-  { id: "errands", user_id: null, slug: "errands", name: "errands", color: "#43849D", is_default: true, created_at: "", updated_at: "" },
-  { id: "care", user_id: null, slug: "care", name: "care", color: "#BF7DAD", is_default: true, created_at: "", updated_at: "" },
-  { id: "creative", user_id: null, slug: "creative", name: "creative", color: "#3253C7", is_default: true, created_at: "", updated_at: "" },
-  { id: "rest", user_id: null, slug: "rest", name: "rest", color: "#43849D", is_default: true, created_at: "", updated_at: "" },
-] satisfies TimeBlockCategoryRecord[]
-
 type DemoActiveTimer = NonNullable<DemoStoredSession["active_timer"]>
+type DemoView = "tracker" | "dashboard"
 
 type DemoActiveThread =
   | {
@@ -194,12 +207,7 @@ function categoryMeta(category: string | null, categories: TimeBlockCategoryReco
 }
 
 function makeMessage(role: DemoStoredMessage["role"], text: string): DemoStoredMessage {
-  return {
-    id: newId(role),
-    role,
-    text,
-    created_at: new Date().toISOString(),
-  }
+  return makeDemoMessage(role, text)
 }
 
 function blockThreadIntro(block: DemoStoredBlock): DemoStoredMessage {
@@ -276,13 +284,69 @@ function createBlockFromChat(text: string): DemoStoredBlock {
 
   return {
     id: newId("demo-block"),
+    user_id: "demo",
     started_at: startedAt.toISOString(),
     ended_at: endedAt.toISOString(),
+    duration_seconds: durationMinutes * 60,
+    category_id: inferCategory(text),
     task_name: taskName,
     category: inferCategory(text),
     hashtags: [],
     notes: text,
+    mood: null,
+    effort_level: null,
+    satisfaction: null,
+    avoidance_marker: false,
+    hyperfocus_marker: false,
+    guilt_marker: false,
+    novelty_marker: false,
+    agent_metadata: { source: "demo_local_fallback" },
     created_at: now,
+    updated_at: now,
+  }
+}
+
+function createBlockFromOperation({
+  id,
+  started_at,
+  ended_at,
+  task_name,
+  category,
+  hashtags,
+  notes,
+  base,
+}: {
+  id: string
+  started_at: string
+  ended_at: string
+  task_name: string | null
+  category: string | null
+  hashtags: string[]
+  notes: string | null
+  base?: DemoStoredBlock
+}): DemoStoredBlock {
+  const now = new Date().toISOString()
+
+  return {
+    id,
+    user_id: "demo",
+    started_at,
+    ended_at,
+    duration_seconds: demoDurationSeconds(started_at, ended_at),
+    category_id: category ?? base?.category_id ?? base?.category ?? null,
+    task_name: task_name ?? base?.task_name ?? null,
+    category: category ?? base?.category ?? null,
+    hashtags: hashtags.length > 0 ? hashtags : (base?.hashtags ?? []),
+    notes: notes ?? base?.notes ?? null,
+    mood: base?.mood ?? null,
+    effort_level: base?.effort_level ?? null,
+    satisfaction: base?.satisfaction ?? null,
+    avoidance_marker: base?.avoidance_marker ?? false,
+    hyperfocus_marker: base?.hyperfocus_marker ?? false,
+    guilt_marker: base?.guilt_marker ?? false,
+    novelty_marker: base?.novelty_marker ?? false,
+    agent_metadata: base?.agent_metadata ?? { source: "demo_companion" },
+    created_at: base?.created_at ?? now,
     updated_at: now,
   }
 }
@@ -293,9 +357,16 @@ export default function DemoPage() {
   const [name, setName] = useState("")
   const [activeTimer, setActiveTimer] = useState<DemoActiveTimer | null>(null)
   const [blocks, setBlocks] = useState<DemoStoredBlock[]>([])
+  const [categories, setCategories] = useState<TimeBlockCategoryRecord[]>([...DEMO_DEFAULT_CATEGORIES])
   const [messages, setMessages] = useState<DemoStoredMessage[]>([])
   const [blockThreads, setBlockThreads] = useState<Record<string, DemoStoredMessage[]>>({})
+  const [pendingDraft, setPendingDraft] = useState<CompanionDraft | null>(null)
+  const [insights, setInsights] = useState<TimeBlockInsight[]>([])
+  const [aiUsage, setAiUsage] = useState<DemoAiUsage>(() => createDemoAiUsage())
+  const [aiSettings, setAiSettings] = useState<DemoAiSettings>(() => createDemoAiSettings())
   const [activeThread, setActiveThread] = useState<DemoActiveThread>({ kind: "general" })
+  const [view, setView] = useState<DemoView>("tracker")
+  const [showAiPanel, setShowAiPanel] = useState(false)
   const [editor, setEditor] = useState<EditorState | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [now, setNow] = useState(() => Date.now())
@@ -314,8 +385,13 @@ export default function DemoPage() {
       setNameInput(existing.name)
       setActiveTimer(existing.active_timer)
       setBlocks(existing.blocks)
+      setCategories(existing.categories)
       setMessages(existing.messages)
       setBlockThreads(existing.block_threads ?? {})
+      setPendingDraft(existing.pending_draft as CompanionDraft | null)
+      setInsights(existing.insights)
+      setAiUsage(existing.ai_usage)
+      setAiSettings(existing.ai_settings)
     }
     setLoaded(true)
   }, [])
@@ -324,24 +400,29 @@ export default function DemoPage() {
     if (!loaded || !name) return
 
     writeDemoSession({
-      version: 1,
+      version: DEMO_SESSION_VERSION,
       name,
       active_timer: activeTimer,
       blocks,
+      categories,
       messages,
       block_threads: blockThreads,
+      pending_draft: pendingDraft,
+      insights,
+      ai_usage: aiUsage,
+      ai_settings: aiSettings,
       updated_at: new Date().toISOString(),
     })
-  }, [activeTimer, blockThreads, blocks, loaded, messages, name])
+  }, [activeTimer, aiSettings, aiUsage, blockThreads, blocks, categories, insights, loaded, messages, name, pendingDraft])
 
   useEffect(() => {
     const interval = window.setInterval(() => setNow(Date.now()), 1000)
     return () => window.clearInterval(interval)
   }, [])
 
-  const categories = useMemo(() => {
+  const categoryOptions = useMemo(() => {
     const custom = Array.from(new Set(blocks.map((block) => block.category).filter(Boolean)))
-      .filter((slug): slug is string => !CATEGORIES.some((item) => item.slug === slug))
+      .filter((slug): slug is string => !categories.some((item) => item.slug === slug))
       .map((slug) => ({
         id: slug,
         user_id: "demo",
@@ -353,8 +434,14 @@ export default function DemoPage() {
         updated_at: "",
       }))
 
-    return [...CATEGORIES, ...custom]
-  }, [blocks])
+    return [...categories, ...custom]
+  }, [blocks, categories])
+
+  const dashboardBlocks = useMemo(
+    () => blocks.filter((block) => block.ended_at).map(demoBlockToTimeBlock),
+    [blocks],
+  )
+  const usingCustomAiEndpoint = Boolean(aiSettings.api_key.trim())
 
   const completedBlocks = useMemo(
     () =>
@@ -389,11 +476,11 @@ export default function DemoPage() {
     )
   }
 
-  const appendThreadMessage = (message: DemoStoredMessage) => {
-    if (activeThread.kind === "time_block") {
+  const appendThreadMessage = (message: DemoStoredMessage, thread = activeThread) => {
+    if (thread.kind === "time_block") {
       setBlockThreads((current) => ({
         ...current,
-        [activeThread.blockId]: [...(current[activeThread.blockId] ?? []), message],
+        [thread.blockId]: [...(current[thread.blockId] ?? []), message],
       }))
       return
     }
@@ -401,10 +488,32 @@ export default function DemoPage() {
     setMessages((current) => [...current, message])
   }
 
+  const refreshInsight = useCallback(async (block: DemoStoredBlock) => {
+    if (!block.notes?.trim()) {
+      setInsights((current) => current.filter((insight) => insight.time_block_id !== block.id))
+      return
+    }
+
+    if (!usingCustomAiEndpoint && !canSpendDemoTokens(aiUsage, DEMO_INSIGHT_MIN_TOKENS)) {
+      setInsights((current) => upsertDemoInsight(current, block))
+      return
+    }
+
+    const result = await generateDemoBlockInsight(demoBlockToTimeBlock(block), aiUsage, aiSettings)
+    if (result.type === "generated") {
+      setAiUsage((current) => addDemoTokenUsage(current, result.tokenCost))
+      setInsights((current) => upsertDemoInsight(current, block, result.insight))
+      return
+    }
+
+    setInsights((current) => upsertDemoInsight(current, block))
+  }, [aiSettings, aiUsage, usingCustomAiEndpoint])
+
   const handleStart = () => {
     setError(null)
     if (activeTimer) return
-    setActiveTimer({ started_at: new Date().toISOString() })
+    const startedAt = new Date().toISOString()
+    setActiveTimer({ user_id: "demo", started_at: startedAt, created_at: startedAt })
     setNow(Date.now())
   }
 
@@ -419,12 +528,23 @@ export default function DemoPage() {
     const base = activeTimer.resumed_block
     const block: DemoStoredBlock = {
       id: base?.id ?? newId("demo-block"),
+      user_id: "demo",
       started_at: base?.started_at ?? activeTimer.started_at,
       ended_at: nowIso,
+      duration_seconds: demoDurationSeconds(base?.started_at ?? activeTimer.started_at, nowIso),
+      category_id: base?.category_id ?? base?.category ?? null,
       task_name: base?.task_name ?? null,
       category: base?.category ?? null,
       hashtags: base?.hashtags ?? [],
       notes: base?.notes ?? null,
+      mood: base?.mood ?? null,
+      effort_level: base?.effort_level ?? null,
+      satisfaction: base?.satisfaction ?? null,
+      avoidance_marker: base?.avoidance_marker ?? false,
+      hyperfocus_marker: base?.hyperfocus_marker ?? false,
+      guilt_marker: base?.guilt_marker ?? false,
+      novelty_marker: base?.novelty_marker ?? false,
+      agent_metadata: base?.agent_metadata ?? {},
       created_at: base?.created_at ?? nowIso,
       updated_at: nowIso,
     }
@@ -468,17 +588,44 @@ export default function DemoPage() {
     const nowIso = new Date().toISOString()
     const saved: DemoStoredBlock = {
       id: editor.block?.id ?? newId("demo-block"),
+      user_id: "demo",
       started_at: fromDateTimeLocal(editor.startedAt),
       ended_at: fromDateTimeLocal(editor.endedAt),
+      duration_seconds: demoDurationSeconds(fromDateTimeLocal(editor.startedAt), fromDateTimeLocal(editor.endedAt)),
+      category_id: category,
       task_name: editor.taskName.trim(),
       category,
       hashtags: parseHashtags(editor.hashtags),
       notes: editor.notes.trim() || null,
+      mood: editor.block?.mood ?? null,
+      effort_level: editor.block?.effort_level ?? null,
+      satisfaction: editor.block?.satisfaction ?? null,
+      avoidance_marker: editor.block?.avoidance_marker ?? false,
+      hyperfocus_marker: editor.block?.hyperfocus_marker ?? false,
+      guilt_marker: editor.block?.guilt_marker ?? false,
+      novelty_marker: editor.block?.novelty_marker ?? false,
+      agent_metadata: editor.block?.agent_metadata ?? {},
       created_at: editor.block?.created_at ?? nowIso,
       updated_at: nowIso,
     }
 
+    if (!categoryOptions.some((item) => item.slug === category)) {
+      setCategories((current) => [
+        ...current,
+        {
+          id: category,
+          user_id: "demo",
+          slug: category,
+          name: category.replace(/_/g, " "),
+          color: "#BF7DAD",
+          is_default: false,
+          created_at: nowIso,
+          updated_at: nowIso,
+        },
+      ])
+    }
     setBlocks((current) => [saved, ...current.filter((block) => block.id !== saved.id)])
+    void refreshInsight(saved)
     setEditor(null)
   }
 
@@ -489,6 +636,7 @@ export default function DemoPage() {
       delete next[block.id]
       return next
     })
+    setInsights((current) => current.filter((insight) => insight.time_block_id !== block.id))
     if (activeThread.kind === "time_block" && activeThread.blockId === block.id) {
       setActiveThread({ kind: "general" })
     }
@@ -517,7 +665,7 @@ export default function DemoPage() {
     if (activeThread.kind === "time_block" && activeThread.blockId === block.id) {
       setActiveThread({ kind: "general" })
     }
-    setActiveTimer({ started_at: block.started_at, resumed_block: block })
+    setActiveTimer({ user_id: "demo", started_at: block.started_at, created_at: new Date().toISOString(), resumed_block: block })
     setBlocks((current) => current.filter((item) => item.id !== block.id))
     setNow(Date.now())
   }
@@ -530,6 +678,11 @@ export default function DemoPage() {
     setBlocks([])
     setMessages([])
     setBlockThreads({})
+    setPendingDraft(null)
+    setInsights([])
+    setAiUsage(createDemoAiUsage())
+    setAiSettings(createDemoAiSettings())
+    setCategories([...DEMO_DEFAULT_CATEGORIES])
     setActiveThread({ kind: "general" })
     setEditor(null)
     setError(null)
@@ -541,66 +694,130 @@ export default function DemoPage() {
       if (!trimmed || chatPending) return
 
       const lower = trimmed.toLowerCase()
+      const threadAtSubmit = activeThread
       setChatPending(true)
-      appendThreadMessage(makeMessage("user", trimmed))
+      appendThreadMessage(makeMessage("user", trimmed), threadAtSubmit)
 
-      await new Promise((resolve) => window.setTimeout(resolve, 350))
-
-      let assistantText = "got it."
-
-      if (activeThread.kind === "time_block") {
-        const block = blocks.find((item) => item.id === activeThread.blockId)
-        assistantText = block
-          ? blockContextReply(block, trimmed)
-          : "i can't find that demo block anymore. returning to the main chat is the safest move."
-      } else if (lower.includes("start timer") || lower === "start" || lower.includes("start the timer")) {
-        if (!activeTimer) {
-          setActiveTimer({ started_at: new Date().toISOString() })
-          setNow(Date.now())
-          assistantText = "timer started. no need to name it yet."
-        } else {
-          assistantText = "timer is already running."
-        }
-      } else if (lower.includes("stop timer") || lower === "stop" || lower.includes("stop the timer")) {
-        if (!activeTimer) {
-          assistantText = "no timer is running."
-        } else {
-          handleStop()
-          assistantText = "stopped. add the details while it is still fresh."
-        }
-      } else if (lower.includes("what did") || lower.includes("what have") || lower.includes("patterns")) {
-        if (completedBlocks.length === 0) {
-          assistantText = "nothing logged yet. start with one honest block."
-        } else {
-          const summary = completedBlocks
-            .slice(-4)
-            .map((block) => block.task_name ?? block.notes ?? "unnamed block")
-            .join(", ")
-          assistantText = `on the record: ${summary}. the notes are the useful part when you want patterns later.`
-        }
-      } else if (
-        lower.includes("worked") ||
-        lower.includes("log") ||
-        lower.includes("spent") ||
-        lower.includes("record")
-      ) {
-        if (!parseDurationMinutes(trimmed) && !/\bfrom\b.+\b(to|-)\b/i.test(trimmed)) {
-          assistantText =
-            "i can log that. about when was it, or roughly how long did it take?"
-        } else {
-          const block = createBlockFromChat(trimmed)
-          setBlocks((current) => [block, ...current])
-          assistantText = "saved as a demo block. edit it if the nuance is off."
-        }
-      } else {
-        assistantText =
-          "i can help reconstruct that. try telling me what you intended, what actually happened, and how it felt."
+      if (!usingCustomAiEndpoint && !canSpendDemoTokens(aiUsage, DEMO_COMPANION_MIN_TOKENS)) {
+        appendThreadMessage(
+          makeDemoMessage("assistant", "this demo session has used its companion budget. local tracking still works.", {
+            message_type: "error",
+            related_time_block_id: threadAtSubmit.kind === "time_block" ? threadAtSubmit.blockId : null,
+          }),
+          threadAtSubmit,
+        )
+        setChatPending(false)
+        return
       }
 
-      appendThreadMessage(makeMessage("assistant", assistantText))
-      setChatPending(false)
+      try {
+        const result = await processDemoCompanionMessage({
+          text: trimmed,
+          session: {
+            blocks: blocks.map(demoBlockToTimeBlock).slice(0, 60),
+            active_timer: activeTimer ? { started_at: activeTimer.started_at } : null,
+            messages: messages.slice(-12),
+            block_threads: Object.fromEntries(
+              Object.entries(blockThreads).map(([blockId, thread]) => [blockId, thread.slice(-12)]),
+            ),
+            pending_draft: pendingDraft,
+            insights: insights.slice(0, 60),
+          },
+          thread:
+            threadAtSubmit.kind === "time_block"
+              ? { kind: "time_block", relatedBlockId: threadAtSubmit.blockId }
+              : { kind: "general" },
+          timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+          aiUsage,
+          aiSettings,
+        })
+
+        if (result.tokenCost > 0) {
+          setAiUsage((current) => addDemoTokenUsage(current, result.tokenCost))
+        }
+        setPendingDraft(result.pendingDraft)
+
+        if (result.operation?.type === "start_timer" && !activeTimer) {
+          setActiveTimer({ user_id: "demo", started_at: new Date().toISOString(), created_at: new Date().toISOString() })
+          setNow(Date.now())
+        }
+
+        if (result.operation?.type === "stop_timer" && activeTimer) {
+          const nowIso = new Date().toISOString()
+          const block = createBlockFromOperation({
+            id: activeTimer.resumed_block?.id ?? newId("demo-block"),
+            started_at: activeTimer.resumed_block?.started_at ?? activeTimer.started_at,
+            ended_at: nowIso,
+            task_name: result.operation.draft.task_name,
+            category: result.operation.draft.category,
+            hashtags: result.operation.draft.hashtags,
+            notes: result.operation.draft.notes,
+            base: activeTimer.resumed_block,
+          })
+          setActiveTimer(null)
+          setBlocks((current) => [block, ...current.filter((item) => item.id !== block.id)])
+          void refreshInsight(block)
+          if (!block.task_name || !block.category) setEditor(createEditorState(block, true))
+        }
+
+        if (result.operation?.type === "save_block") {
+          const nowIso = new Date().toISOString()
+          const block: DemoStoredBlock = {
+            ...result.operation.block,
+            id: newId("demo-block"),
+            user_id: "demo",
+            duration_seconds: demoDurationSeconds(
+              result.operation.block.started_at,
+              result.operation.block.ended_at,
+            ),
+            hashtags: result.operation.block.hashtags ?? [],
+            category_id: result.operation.block.category_id ?? result.operation.block.category,
+            category: result.operation.block.category,
+            task_name: result.operation.block.task_name,
+            notes: result.operation.block.notes,
+            mood: result.operation.block.mood,
+            effort_level: result.operation.block.effort_level,
+            satisfaction: result.operation.block.satisfaction,
+            avoidance_marker: result.operation.block.avoidance_marker,
+            hyperfocus_marker: result.operation.block.hyperfocus_marker,
+            guilt_marker: result.operation.block.guilt_marker,
+            novelty_marker: result.operation.block.novelty_marker,
+            agent_metadata: result.operation.block.agent_metadata ?? {},
+            created_at: nowIso,
+            updated_at: nowIso,
+          }
+          setBlocks((current) => [block, ...current])
+          void refreshInsight(block)
+        }
+
+        appendThreadMessage(
+          makeDemoMessage("assistant", result.message, {
+            message_type: result.messageType,
+            related_time_block_id: threadAtSubmit.kind === "time_block" ? threadAtSubmit.blockId : null,
+          }),
+          threadAtSubmit,
+        )
+      } catch {
+        let assistantText = "i'm having trouble reaching the companion. the local demo can still save this manually."
+        if (
+          threadAtSubmit.kind === "general" &&
+          (lower.includes("worked") || lower.includes("log") || lower.includes("spent") || lower.includes("record")) &&
+          (parseDurationMinutes(trimmed) || /\bfrom\b.+\b(to|-)\b/i.test(trimmed))
+        ) {
+          const block = createBlockFromChat(trimmed)
+          setBlocks((current) => [block, ...current])
+          void refreshInsight(block)
+          assistantText = "saved locally. edit it if the nuance is off."
+        } else if (threadAtSubmit.kind === "time_block") {
+          const block = blocks.find((item) => item.id === threadAtSubmit.blockId)
+          assistantText = block ? blockContextReply(block, trimmed) : "i can't find that demo block anymore."
+        }
+        appendThreadMessage(makeMessage("assistant", assistantText), threadAtSubmit)
+      } finally {
+        setChatPending(false)
+      }
     },
-    [activeThread, activeTimer, blocks, chatPending, completedBlocks],
+    [activeThread, activeTimer, aiSettings, aiUsage, blockThreads, blocks, chatPending, insights, messages, pendingDraft, refreshInsight, usingCustomAiEndpoint],
   )
 
   if (!loaded) {
@@ -664,6 +881,14 @@ export default function DemoPage() {
           <div className="flex flex-wrap items-center justify-center gap-2 sm:justify-end">
             <button
               type="button"
+              onClick={() => setShowAiPanel((current) => !current)}
+              className="inline-flex items-center gap-2 rounded-full px-3 py-2 text-xs font-bold text-alibi-teal transition hover:bg-alibi-lavender/20 hover:text-alibi-blue"
+            >
+              <Settings className="h-3.5 w-3.5" />
+              ai
+            </button>
+            <button
+              type="button"
               onClick={handleClear}
               className="rounded-full px-3 py-2 text-xs font-bold text-alibi-teal transition hover:bg-alibi-pink/10 hover:text-alibi-pink"
             >
@@ -680,10 +905,58 @@ export default function DemoPage() {
         </nav>
 
         <section className="alibi-banner-info">
-          Demo data is stored in localStorage on this device. After sign-up, the real app can import
-          completed demo blocks into your account.
+          Demo data is stored in localStorage on this device.{" "}
+          {usingCustomAiEndpoint
+            ? "Companion AI is using your custom endpoint."
+            : "Companion AI is using the hosted demo configuration."}{" "}
+          After sign-up, the real app can import completed demo blocks into your account.
         </section>
 
+        {showAiPanel && (
+          <DemoAiSettingsPanel
+            settings={aiSettings}
+            setSettings={setAiSettings}
+            onClose={() => setShowAiPanel(false)}
+          />
+        )}
+
+        <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            onClick={() => setView("tracker")}
+            className={cn(
+              "inline-flex h-10 items-center gap-2 rounded-2xl px-4 text-sm font-black transition",
+              view === "tracker"
+                ? "bg-alibi-blue text-white"
+                : "bg-white/70 text-alibi-teal hover:bg-alibi-lavender/20 hover:text-alibi-blue",
+            )}
+          >
+            <Clock className="h-4 w-4" />
+            tracker
+          </button>
+          <button
+            type="button"
+            onClick={() => setView("dashboard")}
+            className={cn(
+              "inline-flex h-10 items-center gap-2 rounded-2xl px-4 text-sm font-black transition",
+              view === "dashboard"
+                ? "bg-alibi-blue text-white"
+                : "bg-white/70 text-alibi-teal hover:bg-alibi-lavender/20 hover:text-alibi-blue",
+            )}
+          >
+            <LayoutGrid className="h-4 w-4" />
+            dashboard
+          </button>
+        </div>
+
+        {view === "dashboard" ? (
+          <DashboardOverview
+            blocks={dashboardBlocks}
+            insights={insights}
+            emptyHref="/demo"
+            emptyAction="back to tracker"
+          />
+        ) : (
         <section className="grid gap-5 lg:grid-cols-[minmax(0,0.95fr)_minmax(0,1.25fr)]">
           <div className="flex flex-col gap-5">
             <section className="alibi-card-pop relative overflow-hidden p-5">
@@ -751,7 +1024,7 @@ export default function DemoPage() {
             {editor && (
               <BlockEditor
                 editor={editor}
-                categories={categories}
+                categories={categoryOptions}
                 setEditor={setEditor}
                 onSave={handleSave}
                 onDelete={editor.block ? () => handleDelete(editor.block!) : undefined}
@@ -772,7 +1045,7 @@ export default function DemoPage() {
           <DailyBlocks
             date={today}
             blocks={completedBlocks}
-            categories={categories}
+            categories={categoryOptions}
             canResume={activeTimer === null}
             onAdd={() => setEditor(createManualEditorState())}
             onEdit={(block) => setEditor(createEditorState(block))}
@@ -782,6 +1055,7 @@ export default function DemoPage() {
             pending={pending}
           />
         </section>
+        )}
       </div>
     </main>
   )
@@ -922,6 +1196,117 @@ function CompanionChatPanel({
           {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
         </button>
       </form>
+    </section>
+  )
+}
+
+function DemoAiSettingsPanel({
+  settings,
+  setSettings,
+  onClose,
+}: {
+  settings: DemoAiSettings
+  setSettings: (settings: DemoAiSettings) => void
+  onClose: () => void
+}) {
+  return (
+    <section className="alibi-card p-5">
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <p className="font-mono text-xs font-black uppercase tracking-[0.12em] text-alibi-teal">
+            demo ai
+          </p>
+          <h2 className="mt-1 text-xl font-black text-alibi-blue">
+            custom endpoint settings
+          </h2>
+        </div>
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label="close ai settings"
+          title="close"
+          className="flex h-9 w-9 items-center justify-center rounded-2xl text-alibi-teal transition hover:-translate-y-0.5 hover:bg-alibi-pink/15 hover:text-alibi-pink"
+        >
+          <X className="h-4 w-4" />
+        </button>
+      </div>
+
+      <div className="mt-5 grid gap-4 md:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)_minmax(0,1.2fr)]">
+        <label className="grid gap-1.5 text-sm font-bold text-alibi-blue">
+          provider
+          <select
+            value={settings.provider}
+            onChange={(event) =>
+              setSettings({
+                ...settings,
+                provider: event.target.value === "anthropic" ? "anthropic" : "openai_compatible",
+              })
+            }
+            className="alibi-input h-11"
+          >
+            <option value="openai_compatible">openai-compatible</option>
+            <option value="anthropic">anthropic messages api</option>
+          </select>
+        </label>
+
+        <label className="grid gap-1.5 text-sm font-bold text-alibi-blue">
+          base url
+          <input
+            value={settings.base_url}
+            onChange={(event) => setSettings({ ...settings, base_url: event.target.value })}
+            className="alibi-input h-11"
+            placeholder={
+              settings.provider === "anthropic"
+                ? "https://api.anthropic.com/v1"
+                : "https://api.openai.com/v1"
+            }
+          />
+        </label>
+
+        <label className="grid gap-1.5 text-sm font-bold text-alibi-blue">
+          api key
+          <div className="relative">
+            <KeyRound className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-alibi-teal" />
+            <input
+              type="password"
+              value={settings.api_key}
+              onChange={(event) => setSettings({ ...settings, api_key: event.target.value })}
+              className="alibi-input h-11 pl-9"
+              placeholder={settings.provider === "anthropic" ? "sk-ant-..." : "sk-..."}
+              autoComplete="off"
+            />
+          </div>
+        </label>
+      </div>
+
+      <div className="mt-4 grid gap-4 md:grid-cols-2">
+        <label className="grid gap-1.5 text-sm font-bold text-alibi-blue">
+          companion model
+          <input
+            value={settings.companion_model}
+            onChange={(event) => setSettings({ ...settings, companion_model: event.target.value })}
+            className="alibi-input h-11"
+            placeholder={settings.provider === "anthropic" ? "claude-sonnet-4-5" : "gpt-4o-mini"}
+          />
+        </label>
+
+        <label className="grid gap-1.5 text-sm font-bold text-alibi-blue">
+          routing model
+          <input
+            value={settings.fast_model}
+            onChange={(event) => setSettings({ ...settings, fast_model: event.target.value })}
+            className="alibi-input h-11"
+            placeholder={settings.provider === "anthropic" ? "claude-3-5-haiku-latest" : "gpt-4o-mini"}
+          />
+        </label>
+      </div>
+
+      <p className="mt-3 text-xs font-semibold leading-5 text-alibi-teal">
+        leave fields blank to use the hosted demo configuration. openai-compatible expects chat
+        completions semantics through the AI SDK. anthropic uses POST /messages under the base url.
+        custom settings are stored only in this browser's local demo session and sent to the server
+        action for demo AI calls.
+      </p>
     </section>
   )
 }

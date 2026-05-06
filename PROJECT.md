@@ -104,7 +104,10 @@ UI status:
 - `/app/dashboard` has totals, calendar/rhythm/category views, ADHD markers, and notes mirror.
 - `/app/docs` is now a wiki-style guide explaining what Alibi is, how the evidence model works, how to write useful notes, how to use general and block-specific companion chat, and where the V3/RAG direction is going.
 - `/` now describes the notes-first product, existing feature set, and future RAG ambition instead of embedding a fake chat demo.
-- `/demo` provides an unauthenticated localStorage-backed demo with name entry, timer, manual blocks, chat-style logging, edit/delete, latest-block resume, and a sign-up CTA.
+- `/demo` provides an unauthenticated localStorage-backed workspace with tracker/chat and dashboard views, timer, manual blocks, custom categories, block-specific threads, edit/delete, latest-block resume, AI note insights, and a sign-up CTA.
+- Demo companion and insight server actions use OpenRouter over trimmed local snapshots and return local operations only; demo records remain browser-local and are never written to Supabase.
+- The demo can use visitor-provided OpenAI-compatible or Anthropic endpoint settings from a local AI panel, or the hosted `OPENROUTER_DEMO_API_KEY` / demo model env vars, before falling back to the main OpenRouter configuration.
+- Demo AI has a browser-local session budget of 50,000 estimated tokens. When exhausted, companion calls stop and note insights fall back to heuristic extraction while tracking remains usable.
 - `/auth/login` and `/auth/sign-up` use the `STYLES.md` Alibi auth surface, including OAuth provider buttons, while preserving demo redirects and callback behavior.
 - `/app` detects completed local demo blocks after login/sign-up and offers to import them into the authenticated account.
 - Authenticated and demo chat logs display per-message timestamps and auto-scroll to the newest message.
@@ -122,6 +125,7 @@ Known working principle:
 - Timer UI, manual block creation, and chat logging share `time_blocks`.
 - Notes remain human-authored source text.
 - Derived insight rows are replaceable and traceable.
+- Saved real block notes and demo block notes share the same AI insight path with heuristic fallback when AI is unavailable.
 - Block-specific companion threads are reflective only and use compact block context instead of broad retrieval.
 - Public demo data stays in browser `localStorage` until the user imports completed blocks into an authenticated account.
 
@@ -141,7 +145,7 @@ Known working principle:
 - Long notes in block-specific companion context need a cached summary/excerpt strategy before notes become large enough to create token pressure.
 - RAG is not implemented yet. The project first needs cleaner source records and evidence pointers.
 - Agentic database evolution is not implemented. Future work should let the agent propose schema changes, not mutate production schema directly.
-- Demo chat is a local approximation, not the OpenRouter-backed authenticated agent. It is useful for product feel, but not a complete AI demo.
+- Demo AI still needs browser QA for rate/latency behavior and operation accuracy under messy inputs.
 
 ## Roadmap
 
