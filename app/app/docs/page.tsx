@@ -205,27 +205,27 @@ export default async function DocsPage() {
         </header>
 
         <div className="grid gap-5 lg:grid-cols-[240px_minmax(0,1fr)]">
-          <aside className="alibi-inset h-fit px-5 py-5 lg:sticky lg:top-6">
+          <aside className="alibi-card h-fit px-5 py-5 lg:sticky lg:top-6">
             <p className="alibi-label mb-3">on this page</p>
             <nav className="flex flex-col gap-2" aria-label="documentation sections">
               {SECTIONS.map((section) => (
                 <a
                   key={section.id}
                   href={`#${section.id}`}
-                  className="rounded-[6px] px-2 py-1.5 text-[12.5px] font-semibold text-alibi-teal transition-colors hover:bg-alibi-blue/[0.05] hover:text-alibi-pink"
+                  className="rounded-xl px-2 py-1.5 text-[12.5px] font-semibold text-alibi-teal transition-colors hover:bg-alibi-blue/5 hover:text-alibi-pink"
                 >
                   {section.title}
                 </a>
               ))}
               <a
                 href="#examples"
-                className="rounded-[6px] px-2 py-1.5 text-[12.5px] font-semibold text-alibi-teal transition-colors hover:bg-alibi-blue/[0.05] hover:text-alibi-pink"
+                className="rounded-xl px-2 py-1.5 text-[12.5px] font-semibold text-alibi-teal transition-colors hover:bg-alibi-blue/5 hover:text-alibi-pink"
               >
                 note and chat examples
               </a>
               <a
                 href="#roadmap"
-                className="rounded-[6px] px-2 py-1.5 text-[12.5px] font-semibold text-alibi-teal transition-colors hover:bg-alibi-blue/[0.05] hover:text-alibi-pink"
+                className="rounded-xl px-2 py-1.5 text-[12.5px] font-semibold text-alibi-teal transition-colors hover:bg-alibi-blue/5 hover:text-alibi-pink"
               >
                 where this is going
               </a>
@@ -233,7 +233,7 @@ export default async function DocsPage() {
           </aside>
 
           <div className="flex flex-col gap-5">
-            <section className="alibi-inset px-6 py-6">
+            <section className="alibi-card px-6 py-6">
               <div className="flex items-start gap-3">
                 <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-alibi-pink/15 text-alibi-pink">
                   <Heart className="h-4 w-4" strokeWidth={2.2} />
@@ -272,7 +272,7 @@ export default async function DocsPage() {
                     {NOTE_EXAMPLES.map((example) => (
                       <article
                         key={example.title}
-                        className="rounded-[7px] border border-alibi-blue/10 bg-alibi-cream/65 p-4"
+                        className="alibi-doc-card"
                       >
                         <h4 className="text-[13px] font-semibold text-alibi-ink">
                           {example.title}
@@ -293,7 +293,7 @@ export default async function DocsPage() {
                     {CHAT_PROMPTS.map((prompt) => (
                       <li
                         key={prompt}
-                        className="rounded-[7px] border border-alibi-lavender/30 bg-white/55 px-4 py-3 font-mono text-[11.5px] leading-[1.5] text-alibi-teal"
+                        className="alibi-doc-card px-4 py-3 font-mono text-[11.5px] leading-[1.5] text-alibi-teal"
                       >
                         {prompt}
                       </li>
@@ -307,7 +307,7 @@ export default async function DocsPage() {
                     {BLOCK_THREAD_PROMPTS.map((prompt) => (
                       <li
                         key={prompt}
-                        className="rounded-[7px] border border-alibi-lavender/30 bg-white/55 px-4 py-3 font-mono text-[11.5px] leading-[1.5] text-alibi-teal"
+                        className="alibi-doc-card px-4 py-3 font-mono text-[11.5px] leading-[1.5] text-alibi-teal"
                       >
                         {prompt}
                       </li>
@@ -317,7 +317,7 @@ export default async function DocsPage() {
               </div>
             </section>
 
-            <section id="roadmap" className="alibi-inset px-6 py-6 scroll-mt-6">
+            <section id="roadmap" className="alibi-card px-6 py-6 scroll-mt-6">
               <h2 className="text-[17px] font-black tracking-tight text-alibi-blue">
                 where this is going
               </h2>
@@ -387,7 +387,7 @@ function WikiSectionBlock({ section }: { section: WikiSection }) {
         {section.points.map((point) => (
           <li
             key={point}
-            className="rounded-[7px] border border-alibi-blue/10 bg-alibi-cream/60 px-4 py-3 text-[13px] leading-[1.5] text-alibi-teal"
+            className="alibi-doc-card px-4 py-3 text-[13px] leading-[1.5] text-alibi-teal"
           >
             {point}
           </li>
@@ -399,7 +399,7 @@ function WikiSectionBlock({ section }: { section: WikiSection }) {
 
 function RoadmapCard({ title, body }: { title: string; body: string }) {
   return (
-    <article className="rounded-[7px] border border-alibi-blue/10 bg-white/55 p-4">
+    <article className="alibi-doc-card">
       <h3 className="text-[13px] font-black uppercase tracking-[0.06em] text-alibi-blue">
         {title}
       </h3>

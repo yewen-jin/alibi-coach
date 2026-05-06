@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
+import { getAuthCallbackURL } from "@/lib/auth-url"
 import { createClient } from "@/lib/supabase/client"
 import type { Provider } from "@supabase/supabase-js"
 
@@ -25,13 +26,12 @@ export default function SignUpPage() {
     setError(null)
 
     const supabase = createClient()
+    const nextPath = fromDemo ? "/app" : "/auth/sign-up-success"
     const { error } = await supabase.auth.signUp({
       email,
       password,
       options: {
-        emailRedirectTo:
-          process.env.NEXT_PUBLIC_DEV_SUPABASE_REDIRECT_URL ??
-          `${window.location.origin}/auth/callback${fromDemo ? "?next=/app" : ""}`,
+        emailRedirectTo: getAuthCallbackURL(nextPath),
       },
     })
 
@@ -52,7 +52,7 @@ export default function SignUpPage() {
     const { error } = await supabase.auth.signInWithOAuth({
       provider,
       options: {
-        redirectTo: `${window.location.origin}/auth/callback?next=/app`,
+        redirectTo: getAuthCallbackURL("/app"),
       },
     })
 
@@ -79,7 +79,7 @@ export default function SignUpPage() {
 
         <form onSubmit={handleSignUp} className="space-y-4">
           {error && (
-            <div className="rounded-2xl border-2 border-alibi-pink/25 bg-alibi-pink/10 p-3 text-sm font-semibold text-alibi-pink">
+            <div className="alibi-banner-error">
               {error}
             </div>
           )}

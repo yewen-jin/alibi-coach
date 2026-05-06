@@ -135,6 +135,7 @@ Known working principle:
 - `deriveWindow` still builds a now-anchored window from duration-only input, fabricating when work happened (see REVIEW.md Finding 1a). Removing that branch would enforce the product contract that time must be asked for, not guessed.
 - `resolveCategory` with `source: "inferred"` saves silently without asking the user to confirm (see REVIEW.md Finding 1b).
 - `getDayRange` is not timezone-safe: server-side "today" uses server local time instead of the user's IANA timezone (see REVIEW.md Finding 2).
+- Project-level tracking and break overlays are still roadmap-only. The current plan is documented in [FUTURE-ROADMAP-projects-breaks.md](./FUTURE-ROADMAP-projects-breaks.md).
 - Integration tests for `app/actions/timer.ts` and `app/actions/process-message.ts` are not yet written.
 - Playwright E2E tests are a skeleton only; the timer flow and manual block entry tests need selectors confirmed against the live `/demo` UI.
 - Long notes in block-specific companion context need a cached summary/excerpt strategy before notes become large enough to create token pressure.
@@ -208,6 +209,13 @@ Known working principle:
 - Keep imported calendar/agenda items visually distinct from logged time blocks unless the user explicitly converts or links them.
 - Use external agenda data as context for reflection and reconstruction, not as proof of what actually happened.
 - Require clear OAuth/permission boundaries, sync status, and disconnect behavior before enabling this in production.
+
+### Phase 10 - Project And Break Tracking
+
+- Add project tracking as a first-class timeline dimension, with a project table and project-specific summaries.
+- Model focused vs non-focused allocation as a child relation of `time_blocks` so one block can contain both kinds of work.
+- Add break/event records that annotate the timeline without interrupting a running block.
+- Keep split/combine editing as a later phase once project and break modeling has real usage to guide it.
 
 ## Demo Flow
 

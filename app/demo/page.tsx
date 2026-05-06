@@ -656,12 +656,12 @@ export default function DemoPage() {
   return (
     <main className="alibi-page px-4 py-4 sm:px-6 lg:px-8">
       <div className="mx-auto flex w-full max-w-6xl flex-col gap-6">
-        <nav className="alibi-pill flex flex-wrap items-center justify-between gap-3 px-5 py-3">
+        <nav className="alibi-pill flex flex-col items-center gap-3 px-5 py-4 text-center sm:flex-row sm:justify-between sm:text-left">
           <div>
             <p className="text-[15px] font-black tracking-tight text-alibi-blue">alibi demo</p>
             <p className="text-xs font-semibold text-alibi-teal">local session for {name}</p>
           </div>
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex flex-wrap items-center justify-center gap-2 sm:justify-end">
             <button
               type="button"
               onClick={handleClear}
@@ -679,7 +679,7 @@ export default function DemoPage() {
           </div>
         </nav>
 
-        <section className="rounded-2xl border-2 border-alibi-lavender/25 bg-white/60 px-4 py-3 text-sm font-semibold leading-6 text-alibi-teal">
+        <section className="alibi-banner-info">
           Demo data is stored in localStorage on this device. After sign-up, the real app can import
           completed demo blocks into your account.
         </section>
@@ -698,9 +698,9 @@ export default function DemoPage() {
                 </div>
                 <div
                   className={cn(
-                    "flex h-14 w-14 items-center justify-center rounded-2xl border-2",
+                    "flex h-14 w-14 items-center justify-center rounded-2xl border",
                     activeTimer
-                      ? "border-alibi-pink/30 bg-alibi-pink/20 text-alibi-pink"
+                      ? "border-alibi-pink/25 bg-alibi-pink/15 text-alibi-pink"
                       : "border-alibi-teal/25 bg-alibi-teal/15 text-alibi-teal",
                   )}
                 >
@@ -714,7 +714,7 @@ export default function DemoPage() {
                     type="button"
                     onClick={handleStop}
                     disabled={pending}
-                    className="inline-flex h-11 min-w-32 items-center justify-center gap-2 rounded-2xl bg-alibi-pink px-4 text-sm font-black text-white shadow-[0_10px_22px_rgba(191,125,173,0.34)] transition hover:-translate-y-0.5 hover:bg-alibi-blue disabled:translate-y-0 disabled:opacity-55"
+                    className="alibi-button-stop inline-flex h-11 min-w-32 items-center justify-center gap-2 px-4 text-sm font-black"
                   >
                     {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Square className="h-4 w-4" />}
                     stop
@@ -742,7 +742,7 @@ export default function DemoPage() {
             {error && (
               <div
                 role="alert"
-                className="rounded-2xl border-2 border-alibi-pink/25 bg-alibi-pink/10 px-4 py-3 text-sm font-semibold text-alibi-pink"
+                className="alibi-banner-error"
               >
                 {error}
               </div>
@@ -841,7 +841,7 @@ function CompanionChatPanel({
               type="button"
               onClick={() => void onOpenGeneral()}
               disabled={pending}
-              className="inline-flex h-10 items-center justify-center gap-2 rounded-2xl bg-alibi-blue px-3 text-xs font-black text-white shadow-[0_10px_22px_rgba(50,83,199,0.22)] transition hover:-translate-y-0.5 hover:bg-alibi-pink disabled:translate-y-0 disabled:opacity-55"
+              className="alibi-button-primary inline-flex h-10 items-center justify-center gap-2 px-3 text-xs font-black"
             >
               <MessageCircle className="h-4 w-4" />
               main chat
@@ -855,7 +855,7 @@ function CompanionChatPanel({
         </div>
       </div>
 
-      <div className="mt-4 flex max-h-80 min-h-44 flex-col gap-3 overflow-y-auto rounded-3xl border-2 border-alibi-lavender/25 bg-alibi-lavender/10 p-3">
+      <div className="mt-4 flex max-h-80 min-h-44 flex-col gap-3 overflow-y-auto alibi-inset p-3">
         {messages.length === 0 ? (
           <p className="mt-auto text-sm font-semibold leading-6 text-alibi-teal">
             nothing here yet.
@@ -865,10 +865,10 @@ function CompanionChatPanel({
             <div
               key={message.id}
               className={cn(
-                "max-w-[88%] wrap-break-words rounded-2xl px-3 py-2 text-sm font-semibold leading-6 shadow-sm",
+                "alibi-chat-bubble",
                 message.role === "user"
                   ? "ml-auto bg-alibi-blue text-white"
-                  : "mr-auto bg-white/85 text-alibi-ink",
+                  : "mr-auto bg-white text-alibi-ink shadow-[0_1px_3px_rgba(50,83,199,0.06)]",
               )}
             >
               <p className="whitespace-pre-wrap">{message.text}</p>
@@ -885,7 +885,7 @@ function CompanionChatPanel({
           ))
         )}
         {pending && (
-          <div className="mr-auto inline-flex items-center gap-2 rounded-2xl bg-white/85 px-3 py-2 text-sm font-semibold text-alibi-teal">
+          <div className="mr-auto inline-flex items-center gap-2 rounded-2xl bg-white px-3 py-2 text-sm font-semibold text-alibi-teal shadow-[0_1px_3px_rgba(50,83,199,0.06)]">
             <Loader2 className="h-4 w-4 animate-spin" />
             thinking.
           </div>
@@ -917,7 +917,7 @@ function CompanionChatPanel({
           disabled={!value.trim() || pending}
           aria-label="send message"
           title="send"
-          className="inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-alibi-teal text-white shadow-[0_10px_22px_rgba(67,132,157,0.28)] transition hover:-translate-y-0.5 hover:bg-alibi-pink disabled:translate-y-0 disabled:opacity-55"
+          className="alibi-button-teal inline-flex h-11 w-11 items-center justify-center"
         >
           {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
         </button>
@@ -1066,7 +1066,7 @@ function BlockEditor({
             type="button"
             onClick={onSave}
             disabled={pending}
-            className="inline-flex h-10 items-center justify-center gap-2 rounded-2xl bg-alibi-teal px-4 text-sm font-black text-white shadow-[0_10px_22px_rgba(67,132,157,0.28)] transition hover:-translate-y-0.5 hover:bg-alibi-blue disabled:translate-y-0 disabled:opacity-55"
+            className="alibi-button-teal inline-flex h-10 items-center justify-center gap-2 px-4 text-sm font-black"
           >
             save
           </button>
@@ -1115,7 +1115,7 @@ function DailyBlocks({
             disabled={pending}
             aria-label="add completed block"
             title="add block"
-            className="inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-alibi-teal text-white shadow-[0_10px_22px_rgba(67,132,157,0.22)] transition hover:-translate-y-0.5 hover:bg-alibi-blue disabled:translate-y-0 disabled:opacity-55"
+            className="alibi-button-teal inline-flex h-11 w-11 items-center justify-center"
           >
             <Plus className="h-4 w-4" />
           </button>
@@ -1127,7 +1127,7 @@ function DailyBlocks({
 
       <div className="mt-5">
         {blocks.length === 0 ? (
-          <div className="flex min-h-72 items-center justify-center rounded-3xl border-2 border-dashed border-alibi-lavender/60 bg-alibi-lavender/10 px-6 text-center text-sm font-semibold leading-6 text-alibi-teal">
+          <div className="flex min-h-72 items-center justify-center rounded-2xl border border-dashed border-alibi-lavender/40 bg-alibi-lavender/10 px-6 text-center text-sm font-semibold leading-6 text-alibi-teal">
             no completed blocks for today yet.
           </div>
         ) : (
@@ -1139,7 +1139,7 @@ function DailyBlocks({
               return (
                 <li
                   key={block.id}
-                  className="grid gap-3 rounded-3xl border-2 border-alibi-lavender/25 bg-white/80 p-4 shadow-[0_10px_24px_rgba(50,83,199,0.09)] transition hover:-translate-y-0.5 hover:border-alibi-pink/35 sm:grid-cols-[7.5rem_minmax(0,1fr)_auto]"
+                  className="alibi-block-item grid gap-3 sm:grid-cols-[7.5rem_minmax(0,1fr)_auto]"
                 >
                   <div className="font-mono text-sm font-semibold leading-6 text-alibi-teal">
                     <div>{formatTime(block.started_at)}</div>
@@ -1186,7 +1186,7 @@ function DailyBlocks({
                         disabled={pending}
                         aria-label="resume latest block"
                         title="resume"
-                        className="inline-flex h-9 items-center justify-center gap-1.5 rounded-2xl bg-alibi-teal px-3 text-xs font-black text-white shadow-[0_8px_18px_rgba(67,132,157,0.22)] transition hover:-translate-y-0.5 hover:bg-alibi-blue disabled:translate-y-0 disabled:opacity-55"
+                        className="alibi-button-teal inline-flex h-9 items-center justify-center gap-1.5 px-3 text-xs font-black"
                       >
                         <RotateCcw className="h-3.5 w-3.5" />
                         resume
