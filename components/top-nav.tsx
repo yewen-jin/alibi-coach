@@ -10,7 +10,7 @@ import { cn } from "@/lib/utils"
 const LINKS = [
   { href: "/app", label: "tracker", icon: Clock3 },
   { href: "/app/dashboard", label: "dashboard", icon: LayoutGrid },
-  { href: "/app/docs", label: "docs", icon: BookOpen },
+  { href: "/docs", label: "docs", icon: BookOpen },
 ]
 
 interface TopNavProps {
