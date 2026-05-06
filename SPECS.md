@@ -68,12 +68,15 @@ The public demo should let a visitor experience the app before creating an accou
 Required behavior:
 
 - visitor enters a name and starts a local demo session;
-- timer, manual entry, chat, edit/delete, and latest-block resume are available in demo form;
-- completed demo blocks are stored locally on the device;
+- timer, manual entry, OpenRouter-backed companion chat, block-specific threads, edit/delete, latest-block resume, custom categories, and dashboard mirror are available in demo form;
+- completed demo blocks, active timer state, categories, chat messages, pending drafts, note-derived insights, demo AI token usage, and optional visitor-supplied AI endpoint settings are stored locally on the device;
+- demo server actions may process a trimmed local snapshot for companion replies and note insights, but must not write demo records to Supabase;
+- demo AI can use visitor-supplied OpenAI-compatible or Anthropic endpoint settings; otherwise it uses `OPENROUTER_DEMO_API_KEY` / demo model env vars, then the main OpenRouter defaults;
+- demo AI calls must enforce a per-local-session token budget and gracefully fall back to local tracking or heuristic note insights when the budget is exhausted;
 - no cleanup job is required because no anonymous database rows are created;
 - if the visitor signs up or signs in on the same device, the authenticated app can import completed demo blocks into the real `time_blocks` table.
 
-Temporary database-backed demo sessions are a future option only if the product needs cross-device demos, server-side AI during demo, or shared demo links.
+Temporary database-backed demo sessions are a future option only if the product needs cross-device demos or shared demo links.
 
 ### Notes
 
