@@ -147,6 +147,13 @@ type ChatMessage = {
   createdAt: string;
 };
 
+function isLegacyCompanionStatusMessage(message: ChatMessage) {
+  return (
+    message.role === "assistant" &&
+    message.text.trim().toLowerCase() === "one more detail."
+  );
+}
+
 interface TimerTrackerAppProps {
   userEmail: string | null;
   initialCompanionThread?: CompanionThreadState;
@@ -355,6 +362,12 @@ function companionMessageToChatMessage(message: CompanionMessage): ChatMessage {
   };
 }
 
+function companionMessagesToChatMessages(messages: CompanionMessage[]) {
+  return messages
+    .map(companionMessageToChatMessage)
+    .filter((message) => !isLegacyCompanionStatusMessage(message));
+}
+
 export function TimerTrackerApp({
   userEmail,
   initialCompanionThread,
@@ -370,7 +383,7 @@ export function TimerTrackerApp({
   const [activeCompanionThread, setActiveCompanionThread] =
     useState<CompanionThreadState | null>(initialCompanionThread ?? null);
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>(() =>
-    (initialCompanionThread?.messages ?? []).map(companionMessageToChatMessage),
+    companionMessagesToChatMessages(initialCompanionThread?.messages ?? []),
   );
   const [demoImportBlocks, setDemoImportBlocks] = useState<DemoStoredBlock[]>(
     [],
@@ -669,7 +682,7 @@ export function TimerTrackerApp({
 
   const showCompanionThread = useCallback((thread: CompanionThreadState) => {
     setActiveCompanionThread(thread);
-    setChatMessages(thread.messages.map(companionMessageToChatMessage));
+    setChatMessages(companionMessagesToChatMessages(thread.messages));
   }, []);
 
   const handleOpenGeneralCompanionThread = useCallback(async () => {
@@ -737,7 +750,7 @@ export function TimerTrackerApp({
         };
         const reconcileMessages = () => {
           if (Array.isArray(result.messages) && result.messages.length > 0) {
-            setChatMessages(result.messages.map(companionMessageToChatMessage));
+            setChatMessages(companionMessagesToChatMessages(result.messages));
           }
           setActiveCompanionThread({
             conversation: result.conversation,
@@ -794,7 +807,7 @@ export function TimerTrackerApp({
         <TopNav userEmail={userEmail} />
 
         {demoImportBlocks.length > 0 && (
-          <section className="rounded-2xl border-2 border-alibi-lavender/30 bg-white/75 px-4 py-3 shadow-[0_10px_24px_rgba(50,83,199,0.08)]">
+          <section className="rounded-2xl border border-alibi-lavender/20 bg-white px-4 py-3 shadow-[0_1px_3px_rgba(50,83,199,0.06),0_6px_20px_rgba(50,83,199,0.09)]">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
                 <p className="text-sm font-black text-alibi-blue">
@@ -850,10 +863,10 @@ export function TimerTrackerApp({
                 </div>
                 <div
                   className={cn(
-                    "flex h-14 w-14 items-center justify-center rounded-2xl border-2",
+                    "flex h-14 w-14 items-center justify-center rounded-2xl border",
                     activeTimer
-                      ? "border-alibi-pink/30 bg-alibi-pink/20 text-alibi-pink"
-                      : "border-alibi-teal/25 bg-alibi-teal/15 text-alibi-teal",
+                      ? "border-alibi-pink/25 bg-alibi-pink/15 text-alibi-pink"
+                      : "border-alibi-teal/20 bg-alibi-teal/10 text-alibi-teal",
                   )}
                 >
                   <Clock className="h-5 w-5" />
@@ -900,7 +913,7 @@ export function TimerTrackerApp({
                   disabled={isPending || loading}
                   aria-label="refresh timer and blocks"
                   title="refresh"
-                  className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border-2 border-alibi-lavender/40 bg-white/75 text-alibi-teal transition hover:-translate-y-0.5 hover:border-alibi-pink hover:text-alibi-pink disabled:translate-y-0 disabled:opacity-55"
+                  className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-alibi-lavender/30 bg-white text-alibi-teal shadow-[0_1px_3px_rgba(50,83,199,0.06),0_3px_8px_rgba(50,83,199,0.07)] transition hover:-translate-y-0.5 hover:border-alibi-pink hover:text-alibi-pink disabled:translate-y-0 disabled:opacity-55"
                 >
                   {loading ? (
                     <Loader2 className="h-4 w-4 animate-spin" />
@@ -920,7 +933,7 @@ export function TimerTrackerApp({
             {error && (
               <div
                 role="alert"
-                className="rounded-2xl border-2 border-alibi-pink/25 bg-alibi-pink/10 px-4 py-3 text-sm font-semibold text-alibi-pink"
+                className="rounded-2xl border border-alibi-pink/20 bg-alibi-pink/8 px-4 py-3 text-sm font-semibold text-alibi-pink"
               >
                 {error}
               </div>
@@ -1040,7 +1053,7 @@ function CompanionChatPanel({
         </div>
       </div>
 
-      <div className="mt-4 flex max-h-80 min-h-44 flex-col gap-3 overflow-y-auto rounded-3xl border-2 border-alibi-lavender/25 bg-alibi-lavender/10 p-3">
+      <div className="mt-4 flex max-h-80 min-h-44 flex-col gap-3 overflow-y-auto alibi-inset p-3">
         {messages.length === 0 ? (
           <p className="mt-auto text-sm font-semibold leading-6 text-alibi-teal">
             nothing here yet.
@@ -1053,7 +1066,7 @@ function CompanionChatPanel({
                 "max-w-[88%] wrap-break-words rounded-2xl px-3 py-2 text-sm font-semibold leading-6 shadow-sm",
                 message.role === "user"
                   ? "ml-auto bg-alibi-blue text-white"
-                  : "mr-auto bg-white/85 text-alibi-ink",
+                  : "mr-auto bg-white text-alibi-ink shadow-[0_1px_3px_rgba(50,83,199,0.06)]",
               )}
             >
               <p className="whitespace-pre-wrap">{message.text}</p>
@@ -1072,7 +1085,7 @@ function CompanionChatPanel({
           ))
         )}
         {pending && (
-          <div className="mr-auto inline-flex items-center gap-2 rounded-2xl bg-white/85 px-3 py-2 text-sm font-semibold text-alibi-teal">
+          <div className="mr-auto inline-flex items-center gap-2 rounded-2xl bg-white px-3 py-2 text-sm font-semibold text-alibi-teal shadow-[0_1px_3px_rgba(50,83,199,0.06)]">
             <Loader2 className="h-4 w-4 animate-spin" />
             thinking.
           </div>
@@ -1472,7 +1485,7 @@ function DailyBlocks({
             <Loader2 className="h-5 w-5 animate-spin" />
           </div>
         ) : blocks.length === 0 ? (
-          <div className="flex min-h-72 items-center justify-center rounded-3xl border-2 border-dashed border-alibi-lavender/60 bg-alibi-lavender/10 px-6 text-center text-sm font-semibold leading-6 text-alibi-teal">
+          <div className="flex min-h-72 items-center justify-center rounded-3xl border border-dashed border-alibi-lavender/40 bg-alibi-lavender/10 px-6 text-center text-sm font-semibold leading-6 text-alibi-teal">
             no completed blocks for today yet.
           </div>
         ) : (
@@ -1484,7 +1497,7 @@ function DailyBlocks({
               return (
                 <li
                   key={block.id}
-                  className="grid gap-3 rounded-3xl border-2 border-alibi-lavender/25 bg-white/80 p-4 shadow-[0_10px_24px_rgba(50,83,199,0.09)] transition hover:-translate-y-0.5 hover:border-alibi-pink/35 sm:grid-cols-[7.5rem_minmax(0,1fr)_auto]"
+                  className="grid gap-3 rounded-3xl border border-alibi-lavender/20 bg-white p-4 shadow-[0_1px_3px_rgba(50,83,199,0.06),0_6px_20px_rgba(50,83,199,0.09)] transition hover:-translate-y-0.5 hover:border-alibi-pink/30 sm:grid-cols-[7.5rem_minmax(0,1fr)_auto]"
                 >
                   <div className="font-mono text-sm font-semibold leading-6 text-alibi-teal">
                     <div>{formatTime(block.started_at)}</div>
