@@ -13,6 +13,7 @@ import { StatsOverview } from "@/components/dashboard/stats-overview"
 import { AdhdMarkers } from "@/components/dashboard/adhd-markers"
 import { NotesMirror } from "@/components/dashboard/notes-mirror"
 import { ChatMirror } from "@/components/dashboard/chat-mirror"
+import { withDistinctCategoryColors } from "@/lib/time-block-display"
 
 interface DashboardOverviewProps {
   blocks: TimeBlock[]
@@ -31,6 +32,10 @@ export function DashboardOverview({
   emptyHref = "/app",
   emptyAction = "start tracking",
 }: DashboardOverviewProps) {
+  const displayCategories = categories
+    ? withDistinctCategoryColors(categories)
+    : undefined
+
   if (blocks.length === 0 && chatInsights.length === 0) {
     return (
       <section className="alibi-card-pop flex flex-col items-center justify-center px-8 py-16 text-center">
@@ -80,10 +85,10 @@ export function DashboardOverview({
       <NotesMirror blocks={blocks} insights={insights} />
       <ChatMirror blocks={blocks} insights={chatInsights} />
       <AdhdMarkers blocks={blocks} insights={insights} />
-      <CalendarView blocks={blocks} categories={categories} />
+      <CalendarView blocks={blocks} categories={displayCategories} />
       <div className="grid gap-5 md:grid-cols-2">
         <RhythmChart blocks={blocks} />
-        <ProjectDistribution blocks={blocks} categories={categories} />
+        <ProjectDistribution blocks={blocks} categories={displayCategories} />
       </div>
     </div>
   )

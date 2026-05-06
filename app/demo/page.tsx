@@ -51,6 +51,7 @@ import {
 } from "@/lib/demo-token-budget"
 import type { CompanionMessageInsight, TimeBlockCategoryRecord, TimeBlockInsight } from "@/lib/types"
 import { cn } from "@/lib/utils"
+import { defaultCategoryColor, getCategoryMeta } from "@/lib/time-block-display"
 
 type DemoActiveTimer = NonNullable<DemoStoredSession["active_timer"]>
 type DemoView = "tracker" | "dashboard"
@@ -194,18 +195,7 @@ function createEditorState(block: DemoStoredBlock, isNewlyStopped = false): Edit
 }
 
 function categoryMeta(category: string | null, categories: TimeBlockCategoryRecord[]) {
-  return (
-    categories.find((item) => item.slug === category) ?? {
-      id: category ?? "uncategorized",
-      user_id: null,
-      slug: category ?? "uncategorized",
-      name: category ? category.replace(/_/g, " ") : "uncategorized",
-      color: "#93A5E4",
-      is_default: false,
-      created_at: "",
-      updated_at: "",
-    }
-  )
+  return getCategoryMeta(category, categories)
 }
 
 function makeMessage(role: DemoStoredMessage["role"], text: string): DemoStoredMessage {
@@ -433,7 +423,7 @@ export default function DemoPage() {
         user_id: "demo",
         slug,
         name: slug.replace(/_/g, " "),
-        color: "#BF7DAD",
+        color: defaultCategoryColor(slug),
         is_default: false,
         created_at: "",
         updated_at: "",
@@ -622,7 +612,7 @@ export default function DemoPage() {
           user_id: "demo",
           slug: category,
           name: category.replace(/_/g, " "),
-          color: "#BF7DAD",
+          color: defaultCategoryColor(category),
           is_default: false,
           created_at: nowIso,
           updated_at: nowIso,

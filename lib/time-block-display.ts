@@ -4,13 +4,38 @@ import type {
   TimeBlockCategoryRecord,
 } from "@/lib/types";
 
+export const DEFAULT_CATEGORY_COLORS: Record<string, string> = {
+  deep_work: "#3253C7",
+  admin: "#6B7DD6",
+  social: "#BF7DAD",
+  errands: "#43849D",
+  care: "#2F8F72",
+  creative: "#7A5CC7",
+  rest: "#C88A2D",
+};
+
+export const CATEGORY_COLOR_PALETTE = [
+  "#3253C7",
+  "#6B7DD6",
+  "#BF7DAD",
+  "#43849D",
+  "#2F8F72",
+  "#7A5CC7",
+  "#C88A2D",
+  "#C8553D",
+  "#2E7D9A",
+  "#8A6A2F",
+  "#A3477E",
+  "#596A3D",
+];
+
 export const FALLBACK_CATEGORIES = [
   {
     id: "deep_work",
     user_id: null,
     slug: "deep_work",
     name: "deep work",
-    color: "#3253C7",
+    color: DEFAULT_CATEGORY_COLORS.deep_work,
     is_default: true,
     created_at: "",
     updated_at: "",
@@ -20,7 +45,7 @@ export const FALLBACK_CATEGORIES = [
     user_id: null,
     slug: "admin",
     name: "admin",
-    color: "#93A5E4",
+    color: DEFAULT_CATEGORY_COLORS.admin,
     is_default: true,
     created_at: "",
     updated_at: "",
@@ -30,7 +55,7 @@ export const FALLBACK_CATEGORIES = [
     user_id: null,
     slug: "social",
     name: "social",
-    color: "#BF7DAD",
+    color: DEFAULT_CATEGORY_COLORS.social,
     is_default: true,
     created_at: "",
     updated_at: "",
@@ -40,7 +65,7 @@ export const FALLBACK_CATEGORIES = [
     user_id: null,
     slug: "errands",
     name: "errands",
-    color: "#43849D",
+    color: DEFAULT_CATEGORY_COLORS.errands,
     is_default: true,
     created_at: "",
     updated_at: "",
@@ -50,7 +75,7 @@ export const FALLBACK_CATEGORIES = [
     user_id: null,
     slug: "care",
     name: "care",
-    color: "#BF7DAD",
+    color: DEFAULT_CATEGORY_COLORS.care,
     is_default: true,
     created_at: "",
     updated_at: "",
@@ -60,7 +85,7 @@ export const FALLBACK_CATEGORIES = [
     user_id: null,
     slug: "creative",
     name: "creative",
-    color: "#3253C7",
+    color: DEFAULT_CATEGORY_COLORS.creative,
     is_default: true,
     created_at: "",
     updated_at: "",
@@ -70,12 +95,71 @@ export const FALLBACK_CATEGORIES = [
     user_id: null,
     slug: "rest",
     name: "rest",
-    color: "#43849D",
+    color: DEFAULT_CATEGORY_COLORS.rest,
     is_default: true,
     created_at: "",
     updated_at: "",
   },
 ] satisfies TimeBlockCategoryRecord[];
+
+function hashString(value: string) {
+  let hash = 0;
+  for (const char of value) {
+    hash = (hash * 31 + char.charCodeAt(0)) >>> 0;
+  }
+  return hash;
+}
+
+export function defaultCategoryColor(name: string) {
+  const key = name.trim().toLowerCase().replace(/\s+/g, "_");
+  return (
+    DEFAULT_CATEGORY_COLORS[key] ??
+    CATEGORY_COLOR_PALETTE[
+      hashString(key || name) % CATEGORY_COLOR_PALETTE.length
+    ]
+  );
+}
+
+function normalizeCategoryColor(category: TimeBlockCategoryRecord) {
+  const canonicalColor =
+    DEFAULT_CATEGORY_COLORS[category.slug] ?? category.color;
+  return canonicalColor === category.color
+    ? category
+    : { ...category, color: canonicalColor };
+}
+
+function distinctColorForCategory(
+  category: TimeBlockCategoryRecord,
+  usedColors: Set<string>,
+) {
+  const normalized = normalizeCategoryColor(category);
+
+  if (!usedColors.has(normalized.color)) {
+    usedColors.add(normalized.color);
+    return normalized;
+  }
+
+  const start = hashString(normalized.slug || normalized.name);
+  for (let i = 0; i < CATEGORY_COLOR_PALETTE.length; i += 1) {
+    const color =
+      CATEGORY_COLOR_PALETTE[(start + i) % CATEGORY_COLOR_PALETTE.length];
+    if (!usedColors.has(color)) {
+      usedColors.add(color);
+      return { ...normalized, color };
+    }
+  }
+
+  return normalized;
+}
+
+export function withDistinctCategoryColors(
+  categories: TimeBlockCategoryRecord[],
+) {
+  const usedColors = new Set<string>();
+  return categories.map((category) =>
+    distinctColorForCategory(category, usedColors),
+  );
+}
 
 export function formatElapsed(totalSeconds: number) {
   const hours = Math.floor(totalSeconds / 3600);
@@ -214,7 +298,12 @@ export function parseHashtags(value: string) {
 }
 
 export function createCategoryMetaMap(categories: TimeBlockCategoryRecord[]) {
-  return new Map(categories.map((category) => [category.slug, category]));
+  return new Map(
+    withDistinctCategoryColors(categories).map((category) => [
+      category.slug,
+      category,
+    ]),
+  );
 }
 
 export function getCategoryMeta(
@@ -227,16 +316,16 @@ export function getCategoryMeta(
     ? categoriesBySlug.find((item) => item.slug === category)
     : categoriesBySlug.get(category ?? "");
 
-  return (
-    matched ?? {
-      id: "uncategorized",
-      user_id: null,
-      slug: category ?? "uncategorized",
-      name: category ? category.replace(/_/g, " ") : "uncategorized",
-      color: "#93A5E4",
-      is_default: false,
-      created_at: "",
-      updated_at: "",
-    }
-  );
+  const fallback = {
+    id: "uncategorized",
+    user_id: null,
+    slug: category ?? "uncategorized",
+    name: category ? category.replace(/_/g, " ") : "uncategorized",
+    color: "#93A5E4",
+    is_default: false,
+    created_at: "",
+    updated_at: "",
+  };
+
+  return normalizeCategoryColor(matched ?? fallback);
 }

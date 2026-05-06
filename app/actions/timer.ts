@@ -4,6 +4,10 @@ import { revalidatePath } from "next/cache"
 import { generateNoteInsight } from "@/lib/ai-note-insights"
 import { deriveInsightFromNotes } from "@/lib/note-insights"
 import { createClient } from "@/lib/supabase/server"
+import {
+  defaultCategoryColor,
+  withDistinctCategoryColors,
+} from "@/lib/time-block-display"
 import type {
   ActiveTimer,
   CreateCategoryInput,
@@ -31,16 +35,6 @@ import type {
 } from "@/lib/types"
 
 type Supabase = Awaited<ReturnType<typeof createClient>>
-
-const DEFAULT_TIME_BLOCK_CATEGORIES = [
-  { slug: "deep_work", name: "deep work", color: "#3253C7" },
-  { slug: "admin", name: "admin", color: "#93A5E4" },
-  { slug: "social", name: "social", color: "#BF7DAD" },
-  { slug: "errands", name: "errands", color: "#43849D" },
-  { slug: "care", name: "care", color: "#BF7DAD" },
-  { slug: "creative", name: "creative", color: "#3253C7" },
-  { slug: "rest", name: "rest", color: "#43849D" },
-] satisfies Array<{ slug: TimeBlockCategory; name: string; color: string }>
 
 const MOODS = ["joyful", "neutral", "flat", "anxious", "guilty", "proud"] satisfies Mood[]
 const EFFORT_LEVELS = ["easy", "medium", "hard", "grind"] satisfies EffortLevel[]
@@ -74,15 +68,6 @@ function slugifyCategoryName(name: string) {
     .replace(/[^a-z0-9]+/g, "_")
     .replace(/^_+|_+$/g, "")
     .slice(0, 64)
-}
-
-function defaultCategoryColor(name: string) {
-  const colors = ["#3253C7", "#93A5E4", "#BF7DAD", "#43849D", "#7A6AAE", "#C8553D"]
-  let hash = 0
-  for (const char of name) {
-    hash = (hash * 31 + char.charCodeAt(0)) >>> 0
-  }
-  return colors[hash % colors.length]
 }
 
 function isMood(value: unknown): value is Mood {
@@ -579,7 +564,9 @@ export async function getCategories(): Promise<GetCategoriesResult> {
 
   return {
     type: "loaded",
-    categories: sortCategories((data ?? []) as TimeBlockCategoryRecord[]),
+    categories: withDistinctCategoryColors(
+      sortCategories((data ?? []) as TimeBlockCategoryRecord[]),
+    ),
   }
 }
 
