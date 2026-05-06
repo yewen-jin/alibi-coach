@@ -99,11 +99,11 @@ shadow-[inset_0_2px_6px_rgba(50,83,199,0.08)]
 ```
 
 ### `.alibi-block-item`
-Lifted list item. Time blocks, observation cards in notes-mirror. Has hover lift.
+Concave list item. Time blocks, observation cards in notes-mirror. Same inset shadow as `.alibi-doc-card` — hover deepens the tint slightly.
 ```
-rounded-2xl border border-alibi-lavender/20 bg-white p-4
-shadow-[0_1px_3px_rgba(50,83,199,0.06),0_6px_20px_rgba(50,83,199,0.09)]
-transition hover:-translate-y-0.5 hover:border-alibi-pink/30
+rounded-2xl bg-alibi-lavender/8 p-4
+shadow-[0_1px_2px_rgba(50,83,199,0.05),inset_0_2px_5px_rgba(50,83,199,0.08)]
+transition hover:bg-alibi-lavender/14
 ```
 
 ### `.alibi-doc-card`
