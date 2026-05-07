@@ -13,7 +13,7 @@ export function ChatMirror({
   return (
     <section className="alibi-card p-5">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <h2 className="text-2xl font-black text-alibi-blue">chat mirror</h2>
+        <h2 className="text-[17px] font-black tracking-tight text-alibi-blue">chat mirror</h2>
         <span className="alibi-label">message-grounded</span>
       </div>
       <p className="mt-1 text-sm font-semibold leading-6 text-alibi-teal">

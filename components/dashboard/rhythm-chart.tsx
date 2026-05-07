@@ -18,7 +18,7 @@ export function RhythmChart({ blocks }: RhythmChartProps) {
   return (
     <section className="alibi-card p-5">
       <div className="mb-4 flex items-baseline gap-3">
-        <h2 className="text-[16px] font-black tracking-tight text-alibi-blue">
+        <h2 className="text-[17px] font-black tracking-tight text-alibi-blue">
           your rhythm
         </h2>
         <span className="rounded-full bg-alibi-pink/15 px-2 py-1 text-xs font-black uppercase tracking-[0.12em] text-alibi-pink">

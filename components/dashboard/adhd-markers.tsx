@@ -73,7 +73,7 @@ export function AdhdMarkers({ blocks, insights = [] }: AdhdMarkersProps) {
   return (
     <section className="alibi-card space-y-4 p-5">
       <div>
-        <h2 className="text-sm font-black uppercase tracking-[0.1em] text-alibi-blue">
+        <h2 className="text-[17px] font-black tracking-tight text-alibi-blue">
           adhd patterns
         </h2>
         <p className="mt-0.5 text-sm font-semibold text-alibi-teal">
