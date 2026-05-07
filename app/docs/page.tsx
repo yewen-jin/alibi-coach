@@ -159,6 +159,16 @@ const BLOCK_THREAD_PROMPTS = [
   "what should future-me remember about this block?",
 ]
 
+const NAV_EXTRAS = [
+  { id: "examples", title: "note and chat examples" },
+  { id: "roadmap", title: "where this is going" },
+]
+
+const NAV_LINKS = [
+  ...SECTIONS.map(({ id, title }) => ({ id, title })),
+  ...NAV_EXTRAS,
+]
+
 export default async function DocsPage() {
   const supabase = await createClient()
   const {
@@ -188,27 +198,15 @@ export default async function DocsPage() {
           <aside className="alibi-card h-fit px-5 py-5 lg:sticky lg:top-6">
             <p className="alibi-label mb-3">on this page</p>
             <nav className="flex flex-col gap-2" aria-label="documentation sections">
-              {SECTIONS.map((section) => (
+              {NAV_LINKS.map(({ id, title }) => (
                 <a
-                  key={section.id}
-                  href={`#${section.id}`}
-                  className="rounded-xl px-2 py-1.5 text-[12.5px] font-semibold text-alibi-teal transition-colors hover:bg-alibi-blue/5 hover:text-alibi-pink"
+                  key={id}
+                  href={`#${id}`}
+                  className="rounded-xl px-2 py-1.5 text-[12.5px] font-semibold text-alibi-teal transition hover:bg-alibi-lavender/10 hover:text-alibi-pink hover:shadow-[inset_0_2px_5px_rgba(50,83,199,0.08)]"
                 >
-                  {section.title}
+                  {title}
                 </a>
               ))}
-              <a
-                href="#examples"
-                className="rounded-xl px-2 py-1.5 text-[12.5px] font-semibold text-alibi-teal transition-colors hover:bg-alibi-blue/5 hover:text-alibi-pink"
-              >
-                note and chat examples
-              </a>
-              <a
-                href="#roadmap"
-                className="rounded-xl px-2 py-1.5 text-[12.5px] font-semibold text-alibi-teal transition-colors hover:bg-alibi-blue/5 hover:text-alibi-pink"
-              >
-                where this is going
-              </a>
             </nav>
           </aside>
 

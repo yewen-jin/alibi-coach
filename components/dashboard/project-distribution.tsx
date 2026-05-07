@@ -20,7 +20,7 @@ export function ProjectDistribution({
   if (categoryStats.length === 0) {
     return (
       <section className="alibi-card p-5">
-        <h2 className="mb-2 text-[16px] font-black tracking-tight text-alibi-blue">
+        <h2 className="mb-2 text-[17px] font-black tracking-tight text-alibi-blue">
           where you spent time
         </h2>
         <p className="text-base font-semibold text-alibi-teal">
@@ -33,7 +33,7 @@ export function ProjectDistribution({
   return (
     <section className="alibi-card p-5">
       <div className="mb-4 flex items-baseline gap-3">
-        <h2 className="text-[16px] font-black tracking-tight text-alibi-blue">
+        <h2 className="text-[17px] font-black tracking-tight text-alibi-blue">
           where you spent time
         </h2>
         <span className="rounded-full bg-alibi-lavender/20 px-2 py-1 text-xs font-black uppercase tracking-[0.12em] text-alibi-teal">

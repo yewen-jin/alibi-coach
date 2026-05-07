@@ -91,7 +91,7 @@ export function NotesMirror({
   return (
     <section className="alibi-card p-5">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <h2 className="text-xl font-black text-alibi-blue">notes mirror</h2>
+        <h2 className="text-[17px] font-black tracking-tight text-alibi-blue">notes mirror</h2>
         <span className="font-mono text-xs font-black uppercase tracking-[0.12em] text-alibi-teal">
           note-grounded
         </span>

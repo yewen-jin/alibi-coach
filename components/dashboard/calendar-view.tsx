@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { ChevronLeft, ChevronRight } from "lucide-react"
 import type { TimeBlock, TimeBlockCategoryRecord } from "@/lib/types"
 import {
@@ -119,7 +119,7 @@ export function CalendarView({
         <div>
           <div className="mb-4 flex items-center justify-between">
             <div className="flex items-baseline gap-3">
-              <h2 className="text-[16px] font-black tracking-tight text-alibi-blue">
+              <h2 className="text-[17px] font-black tracking-tight text-alibi-blue">
                 {MONTHS[month]} {year}
               </h2>
               <span className="rounded-full bg-alibi-lavender/20 px-2 py-1 text-xs font-black uppercase tracking-[0.12em] text-alibi-teal">
@@ -177,8 +177,8 @@ export function CalendarView({
                     background: bg,
                     border: `1px solid ${borderColor}`,
                     boxShadow: isSelected
-                      ? "0 0 0 4px rgba(50, 83, 199, 0.18)"
-                      : "none",
+                      ? "0 0 0 4px rgba(50, 83, 199, 0.18), inset 0 2px 5px rgba(50, 83, 199, 0.08)"
+                      : "0 1px 2px rgba(50, 83, 199, 0.05), inset 0 2px 5px rgba(50, 83, 199, 0.08)",
                     color: cell.bucket ? "#162044" : "#43849D",
                   }}
                 >
@@ -254,6 +254,15 @@ function DailyTimelinePane({
   categories: TimeBlockCategoryRecord[]
   onSelectBlock: (id: string) => void
 }) {
+  const scrollRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (scrollRef.current) {
+      // Each hour row = 3rem = 48px; scroll to 8am
+      scrollRef.current.scrollTop = 8 * 48
+    }
+  }, [dateKey])
+
   return (
     <div className="min-w-0">
       <div className="mb-4 flex flex-wrap items-baseline justify-between gap-3">
@@ -272,7 +281,7 @@ function DailyTimelinePane({
       </div>
 
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(13rem,0.62fr)]">
-        <div className="alibi-inset max-h-[34rem] overflow-y-auto p-3">
+        <div ref={scrollRef} className="alibi-inset max-h-[34rem] overflow-y-auto p-3">
           {items.length === 0 ? (
             <div className="flex min-h-72 items-center justify-center px-4 text-center text-sm font-semibold leading-6 text-alibi-teal">
               no completed blocks for this day.
