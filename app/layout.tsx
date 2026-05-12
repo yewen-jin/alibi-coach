@@ -20,6 +20,15 @@ export const metadata: Metadata = {
   title: "alibi — for the days you can't see clearly",
   description:
     "Alibi is a witness with a warm voice. Log what you did, then let it remind you when your brain forgets. Built for ADHD minds.",
+  manifest: "/site.webmanifest",
+  icons: {
+    icon: [
+      { url: "/favicon.ico" },
+      { url: "/favicon-16x16.png", sizes: "16x16", type: "image/png" },
+      { url: "/favicon-32x32.png", sizes: "32x32", type: "image/png" },
+    ],
+    apple: "/apple-touch-icon.png",
+  },
 }
 
 export const viewport: Viewport = {
