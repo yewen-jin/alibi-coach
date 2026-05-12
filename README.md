@@ -272,7 +272,7 @@ The dashboard merges both sources by block id, so a note-derived hyperfocus sign
 ## File Structure
 
 ```text
-alibi-coach/
+alibi-day-tracker/
 ├── app/
 │   ├── page.tsx
 │   ├── layout.tsx
@@ -354,8 +354,8 @@ ANTHROPIC_API_KEY=
 ### Setup
 
 ```bash
-git clone https://github.com/yewen-jin/alibi-coach
-cd alibi-coach
+git clone https://github.com/yewen-jin/alibi-day-tracker
+cd alibi-day-tracker
 corepack enable
 pnpm install
 pnpm dev

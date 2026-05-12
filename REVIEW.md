@@ -11,10 +11,10 @@ This review covers architecture decisions, database schema, project efficiency, 
 The chat flow currently auto-builds a time window from duration-only input and auto-infers a category from text, then saves the block without clarification. That conflicts with the product contract that missing time/category must be asked for, not guessed.
 
 References:
-- [lib/block-draft-utils.ts](/Users/yewenjin/projects/alibi-coach/lib/block-draft-utils.ts) — `deriveWindow` (duration-only fallback, lines 92–100)
-- [lib/block-draft-utils.ts](/Users/yewenjin/projects/alibi-coach/lib/block-draft-utils.ts) — `resolveCategory` (inferred source path, lines 119–128)
-- [app/actions/process-message.ts](/Users/yewenjin/projects/alibi-coach/app/actions/process-message.ts) — category gate (lines 1348–1361)
-- [SPECS.md](/Users/yewenjin/projects/alibi-coach/SPECS.md:115)
+- [lib/block-draft-utils.ts](./lib/block-draft-utils.ts) — `deriveWindow` (duration-only fallback, lines 92–100)
+- [lib/block-draft-utils.ts](./lib/block-draft-utils.ts) — `resolveCategory` (inferred source path, lines 119–128)
+- [app/actions/process-message.ts](./app/actions/process-message.ts) — category gate (lines 1348–1361)
+- [SPECS.md](./SPECS.md:115)
 
 **Status (2026-05-05): open — proposed, not yet implemented.**
 
@@ -40,9 +40,9 @@ if (!category || source === "inferred") {
 The tracker UI computes the current day in the browser, but server-side chat analysis uses `new Date()` and `setHours()` on the server. Users outside the server timezone can get the wrong block set for prompts like "what did I do today?"
 
 References:
-- [lib/block-draft-utils.ts](/Users/yewenjin/projects/alibi-coach/lib/block-draft-utils.ts) — `getDayRange` (lines 130–141)
-- [app/actions/process-message.ts](/Users/yewenjin/projects/alibi-coach/app/actions/process-message.ts) — `companionChat` calls `getDayRange()` with no timezone
-- [app/actions/process-message.ts](/Users/yewenjin/projects/alibi-coach/app/actions/process-message.ts) — `analyseBlocks` calls `getAnalysisRange` which falls back to `getDayRange()`
+- [lib/block-draft-utils.ts](./lib/block-draft-utils.ts) — `getDayRange` (lines 130–141)
+- [app/actions/process-message.ts](./app/actions/process-message.ts) — `companionChat` calls `getDayRange()` with no timezone
+- [app/actions/process-message.ts](./app/actions/process-message.ts) — `analyseBlocks` calls `getAnalysisRange` which falls back to `getDayRange()`
 
 **Status (2026-05-05): open — proposed, not yet implemented.**
 
@@ -55,45 +55,45 @@ Fix: add a `timezone?: string | null` parameter to `getDayRange` and compute mid
 The docs point fresh setups at `supabase-v2.sql`, but legacy code still queries `entries` and `proactive_messages`, and those tables are not created anywhere under `db/`. On a fresh environment, those paths fail.
 
 References:
-- [README.md](/Users/yewenjin/projects/alibi-coach/README.md:115)
-- [app/actions/get-entries.ts](/Users/yewenjin/projects/alibi-coach/app/actions/get-entries.ts:18)
-- [app/actions/proactive-messages.ts](/Users/yewenjin/projects/alibi-coach/app/actions/proactive-messages.ts:15)
-- [app/actions/generate-insight.ts](/Users/yewenjin/projects/alibi-coach/app/actions/generate-insight.ts:48)
+- [README.md](./README.md:115)
+- [app/actions/get-entries.ts](./app/actions/get-entries.ts:18)
+- [app/actions/proactive-messages.ts](./app/actions/proactive-messages.ts:15)
+- [app/actions/generate-insight.ts](./app/actions/generate-insight.ts:48)
 
 ### 4. Medium: chat history loading is unbounded and will get slower with usage
 
 `fetchCoachMessagesForUser` reads the full transcript every time, then callers slice it locally or filter it in memory. That affects normal chat, analysis, and initial hydration.
 
 References:
-- [app/actions/process-message.ts](/Users/yewenjin/projects/alibi-coach/app/actions/process-message.ts:547)
-- [app/actions/process-message.ts](/Users/yewenjin/projects/alibi-coach/app/actions/process-message.ts:642)
-- [app/actions/process-message.ts](/Users/yewenjin/projects/alibi-coach/app/actions/process-message.ts:675)
-- [app/actions/process-message.ts](/Users/yewenjin/projects/alibi-coach/app/actions/process-message.ts:976)
+- [app/actions/process-message.ts](./app/actions/process-message.ts:547)
+- [app/actions/process-message.ts](./app/actions/process-message.ts:642)
+- [app/actions/process-message.ts](./app/actions/process-message.ts:675)
+- [app/actions/process-message.ts](./app/actions/process-message.ts:976)
 
 ### 5. Medium: the schema stores category twice without a database invariant
 
 `time_blocks.category` and `time_blocks.category_id` can drift from each other. Application code writes both, but Postgres does not enforce that the slug matches the referenced category row. That is a long-term data integrity risk.
 
 References:
-- [db/supabase-v2.sql](/Users/yewenjin/projects/alibi-coach/db/supabase-v2.sql:18)
-- [db/supabase-v2.sql](/Users/yewenjin/projects/alibi-coach/db/supabase-v2.sql:74)
-- [app/actions/timer.ts](/Users/yewenjin/projects/alibi-coach/app/actions/timer.ts:936)
-- [app/actions/timer.ts](/Users/yewenjin/projects/alibi-coach/app/actions/timer.ts:1057)
+- [db/supabase-v2.sql](./db/supabase-v2.sql:18)
+- [db/supabase-v2.sql](./db/supabase-v2.sql:74)
+- [app/actions/timer.ts](./app/actions/timer.ts:936)
+- [app/actions/timer.ts](./app/actions/timer.ts:1057)
 
 ### 6. Medium: the rhythm view under-represents when time was actually spent
 
 The dashboard aggregates only the start hour of each block, but the UI presents it as "by hour" / "when you track". Long blocks crossing multiple hours are undercounted.
 
 References:
-- [lib/dashboard-data.ts](/Users/yewenjin/projects/alibi-coach/lib/dashboard-data.ts:109)
-- [components/dashboard/rhythm-chart.tsx](/Users/yewenjin/projects/alibi-coach/components/dashboard/rhythm-chart.tsx:65)
+- [lib/dashboard-data.ts](./lib/dashboard-data.ts:109)
+- [components/dashboard/rhythm-chart.tsx](./components/dashboard/rhythm-chart.tsx:65)
 
 ### 7. Low: static verification is weaker than it looks
 
 `npm run build` passes, but `npm run lint` is broken because the script still calls `next lint` on Next 16. There is also no repo test suite outside dependency artifacts.
 
 References:
-- [package.json](/Users/yewenjin/projects/alibi-coach/package.json:9)
+- [package.json](./package.json:9)
 
 **Status (2026-05-05):** Unit test layer implemented (see Testing Method section). The broken `next lint` script is still unresolved.
 
@@ -174,23 +174,23 @@ Do not chase blanket coverage first. Cover the surfaces that can silently corrup
 Status:
 - Active product copy and current runtime naming are mostly switched to `companion`.
 - Remaining database references to legacy `coach_*` tables are intentional and should be treated as compatibility artifacts, not inconsistencies.
-- Repo name and some related documentation still retain `alibi-coach`, which is also intentional for now and expected to change later.
+- GitHub repo name and setup documentation now use `alibi-day-tracker`.
 
 ### Consistent now
 
-- Product/docs language has largely moved to `companion`: [SPECS.md](/Users/yewenjin/projects/alibi-coach/SPECS.md:94), [PROJECT.md](/Users/yewenjin/projects/alibi-coach/PROJECT.md:88), [README.md](/Users/yewenjin/projects/alibi-coach/README.md:107)
-- Runtime chat code uses `companion_*`: [app/actions/process-message.ts](/Users/yewenjin/projects/alibi-coach/app/actions/process-message.ts:547), [app/actions/process-message.ts](/Users/yewenjin/projects/alibi-coach/app/actions/process-message.ts:715), [db/supabase-v2.sql](/Users/yewenjin/projects/alibi-coach/db/supabase-v2.sql:134)
-- Main app and demo input labels/IDs use `companion`: [components/timer-tracker-app.tsx](/Users/yewenjin/projects/alibi-coach/components/timer-tracker-app.tsx:1084), [app/demo/page.tsx](/Users/yewenjin/projects/alibi-coach/app/demo/page.tsx:897)
-- Voice and prompt naming is aligned: [README.md](/Users/yewenjin/projects/alibi-coach/README.md:109), [app/actions/process-message.ts](/Users/yewenjin/projects/alibi-coach/app/actions/process-message.ts:10), [app/actions/generate-insight.ts](/Users/yewenjin/projects/alibi-coach/app/actions/generate-insight.ts:17)
+- Product/docs language has largely moved to `companion`: [SPECS.md](./SPECS.md:94), [PROJECT.md](./PROJECT.md:88), [README.md](./README.md:107)
+- Runtime chat code uses `companion_*`: [app/actions/process-message.ts](./app/actions/process-message.ts:547), [app/actions/process-message.ts](./app/actions/process-message.ts:715), [db/supabase-v2.sql](./db/supabase-v2.sql:134)
+- Main app and demo input labels/IDs use `companion`: [components/timer-tracker-app.tsx](./components/timer-tracker-app.tsx:1084), [app/demo/page.tsx](./app/demo/page.tsx:897)
+- Voice and prompt naming is aligned: [README.md](./README.md:109), [app/actions/process-message.ts](./app/actions/process-message.ts:10), [app/actions/generate-insight.ts](./app/actions/generate-insight.ts:17)
 
 ### Intentionally retained
 
-- Legacy migration and backfill references to `coach_*` tables: [db/supabase-coach-message-model.sql](/Users/yewenjin/projects/alibi-coach/db/supabase-coach-message-model.sql:1), [db/supabase-chat-history.sql](/Users/yewenjin/projects/alibi-coach/db/supabase-chat-history.sql:98), [SPECS.md](/Users/yewenjin/projects/alibi-coach/SPECS.md:162), [PROJECT.md](/Users/yewenjin/projects/alibi-coach/PROJECT.md:72)
-- Repo naming and clone path references: [README.md](/Users/yewenjin/projects/alibi-coach/README.md:275), [README.md](/Users/yewenjin/projects/alibi-coach/README.md:339)
+- Legacy migration and backfill references to `coach_*` tables: [db/supabase-coach-message-model.sql](./db/supabase-coach-message-model.sql:1), [db/supabase-chat-history.sql](./db/supabase-chat-history.sql:98), [SPECS.md](./SPECS.md:162), [PROJECT.md](./PROJECT.md:72)
+- Local workspace paths in this historical review may still show the old checkout directory name, but setup docs point to the renamed GitHub repo.
 
 Conclusion:
 - The rename is complete enough for the live app surface.
-- Remaining `coach` references are acceptable under the current stated rule: keep legacy database references and repo naming for now.
+- Remaining `coach` references are acceptable under the current stated rule: keep legacy database references for migration compatibility.
 
 ## Assumptions
 
