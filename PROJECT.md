@@ -5,16 +5,16 @@
 
 ## Objective
 
-> **Alibi is the friend who remembers your day, so you don't have to defend it to yourself.**
+> **Alibi is a digital mirror that tracks how you spend your day in depth, combining precise time blocking and flexible, timestamped CBT-style journaling. The aim is to build in-depth qualitative knowledge about your own productivity patterns over time.**
 
-The product is evolving from a timer-first tracker into a V3 evidence engine: time blocks anchor the timeline, notes preserve what actually happened, chat helps elicit missing context and feelings, and derived insights make patterns visible without replacing raw user input.
+The product is evolving from a timer-first tracker into a qualitative productivity pattern engine: time blocks anchor the timeline, notes preserve what actually happened, chat helps elicit missing context and feelings, and derived insights make patterns visible without replacing raw user input.
 
 ## Documentation Roles
 
-- **[SPECS.md](./SPECS.md):** product/system contract, data principles, interface behavior, AI behavior, guardrails, and V3 direction.
+- **[SPECS.md](./SPECS.md):** product/system contract, data principles, interface behavior, AI behavior, guardrails, and qualitative pattern direction.
 - **PROJECT.md:** implementation history, current status, known gaps, verification, and future roadmap.
 - **[V3-PLAN.md](./V3-PLAN.md):** detailed roadmap reference for the notes-first insight engine.
-- **[RESEARCH.md](./RESEARCH.md):** ADHD/product psychology foundation.
+- **[RESEARCH.md](./RESEARCH.md):** introspection, self-monitoring, CBT-style reflection, and attention/productivity pattern research.
 
 ## Evolution History
 
@@ -25,7 +25,7 @@ The first direction treated chat as the primary input. It captured user text and
 What remains useful:
 
 - warm, nonjudgmental voice;
-- ADHD-informed affect schema;
+- attention/friction/affect schema;
 - "receipt" framing as proof that the day counted;
 - Supabase + OpenRouter foundation.
 
@@ -44,7 +44,7 @@ Implemented v2 foundation:
 - chat completed-block logging with clarification;
 - daily block list and dashboard summaries.
 
-### V3 - Notes-First Evidence Engine
+### V3 - Notes-First Pattern Engine
 
 The current direction treats notes as the most valuable data in the product. A block is not just "task X for Y hours"; it may contain parallel activity, useful distraction, avoidance, drift, emotional context, and later reinterpretation.
 
@@ -103,7 +103,7 @@ UI status:
 - `/app` has timer, post-stop/manual block editor, daily add-block button, latest-block resume, chat panel, and simple daily block list.
 - Daily block rows include `chat about this`, which opens or reopens the block's reflective companion thread.
 - The resume button is removed from the DOM while a timer is active; when no timer is active, only the latest completed block can be resumed.
-- `/app/dashboard` has totals, a month calendar linked to a selected-day timeline, rhythm/category views, ADHD markers, notes mirror, and chat mirror.
+- `/app/dashboard` has totals, a month calendar linked to a selected-day timeline, rhythm/category views, pattern markers, notes mirror, and chat mirror.
 - The dashboard daily timeline is read-only: completed blocks are positioned by local start/end time, colored by category, and selectable for detail without exposing edit/delete/resume/chat controls.
 - `/app/docs` is now a wiki-style guide explaining what Alibi is, how the evidence model works, how to write useful notes, how to use general and block-specific companion chat, and where the V3/RAG direction is going.
 - `/` now describes the notes-first product, existing feature set, and future RAG ambition instead of embedding a fake chat demo.
@@ -138,7 +138,7 @@ Known working principle:
 - Weekly and monthly timeline analysis views remain pending beyond the current dashboard month calendar plus selected-day timeline.
 - External calendar/todo/agenda overlays are not implemented yet. Future work should explore Google Calendar or other calendar APIs/MCP connectors so scheduled events and tasks can appear alongside Alibi time blocks.
 - Period analysis exists but is still shallow; week/month summaries need deterministic aggregation and stronger evidence trails.
-- Notes mirror and chat mirror are initial vertical slices, not a full longitudinal pattern engine.
+- Notes mirror and chat mirror are initial vertical slices, not a full longitudinal productivity pattern engine.
 - Chat can analyze saved data, but its elicitation style should become more deliberate: it should ask better questions about feelings, drift, mixed outcomes, and context.
 - `deriveWindow` still builds a now-anchored window from duration-only input, fabricating when work happened (see REVIEW.md Finding 1a). Removing that branch would enforce the product contract that time must be asked for, not guessed.
 - `resolveCategory` with `source: "inferred"` saves silently without asking the user to confirm (see REVIEW.md Finding 1b).
@@ -184,7 +184,7 @@ Known working principle:
 - Use evidence items for attention shifts, useful distractions, friction, satisfaction, uncertainty, people, projects, and recurring themes.
 - Keep raw notes and chat as the highest-trust source material.
 
-### Phase 5 - Timeline-Linked Pattern Analysis
+### Phase 5 - Timeline-Linked Productivity Pattern Analysis
 
 - Build richer week/month analysis over notes, metadata, linked chat, and source-linked evidence items.
 - Add evidence-backed observations such as recurring friction by hour, satisfying contexts, avoidance that became useful work, or flatness after certain block types.

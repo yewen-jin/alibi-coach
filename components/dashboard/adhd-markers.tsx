@@ -74,7 +74,7 @@ export function AdhdMarkers({ blocks, insights = [] }: AdhdMarkersProps) {
     <section className="alibi-card space-y-4 p-5">
       <div>
         <h2 className="text-[17px] font-black tracking-tight text-alibi-blue">
-          adhd patterns
+          work patterns
         </h2>
         <p className="mt-0.5 text-sm font-semibold text-alibi-teal">
           what your blocks say about how you work

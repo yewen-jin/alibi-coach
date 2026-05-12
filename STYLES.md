@@ -32,14 +32,14 @@ Depth is created through layered shadows, not glass blur:
 
 | Effect | Use | Pattern |
 |---|---|---|
-| **Lift** | Cards, nav, block items | `shadow-[0_1px_3px_rgba(50,83,199,0.06),0_6px_20px_rgba(50,83,199,0.09)]` |
+| **Lift** | Cards, nav | `shadow-[0_1px_3px_rgba(50,83,199,0.06),0_6px_20px_rgba(50,83,199,0.09)]` |
 | **Pop** | Primary focus card | `shadow-[0_2px_6px_rgba(50,83,199,0.08),0_12px_32px_rgba(50,83,199,0.12)]` |
 | **Press** | Inset/recessed areas | `shadow-[inset_0_2px_6px_rgba(50,83,199,0.08)]` |
 | **Input** | Form inputs | `shadow-[inset_0_1px_3px_rgba(50,83,199,0.07)]` |
-| **Concave** | Nested doc cards | `shadow-[0_1px_2px_rgba(50,83,199,0.05),inset_0_2px_5px_rgba(50,83,199,0.08)]` |
+| **Concave** | Block items, doc cards, calendar cells, nav link hover | `shadow-[0_1px_2px_rgba(50,83,199,0.05),inset_0_2px_5px_rgba(50,83,199,0.08)]` |
 | **Button** | Filled buttons | `shadow-[0_2px_6px_{color},0_4px_14px_{color}]` — handled by button classes |
 
-Use Lift + Press together to create a "card floating above a recessed area" reading. Concave (doc-card) creates a pressed-in inner tile feel without a border.
+Use Lift + Press together to create a "card floating above a recessed area" reading. Concave creates a pressed-in inner tile feel — used on block items, doc cards, calendar day cells, and nav link hover states.
 
 ---
 
@@ -62,7 +62,7 @@ Defined in `app/globals.css` under `:root` and `@theme inline`.
 - Borders: `border-alibi-blue/12` (cards) · `border-alibi-lavender/40` (inputs/buttons)
 - Hover accents: `hover:text-alibi-pink` · `hover:border-alibi-pink`
 
-> Chart and data-viz components may use hex literals in inline `style` props for dynamic computed values (e.g. calendar density). Same palette — no new colors.
+> Chart and data-viz components may use hex literals in inline `style` props for dynamic computed values (e.g. calendar density). Same palette — no new colors. Calendar day cells use the **Concave** shadow pattern via inline `boxShadow` (since background and border are also dynamic): `0 1px 2px rgba(50,83,199,0.05), inset 0 2px 5px rgba(50,83,199,0.08)`.
 
 ---
 
@@ -103,7 +103,7 @@ Concave list item. Time blocks, observation cards in notes-mirror. Same inset sh
 ```
 rounded-2xl bg-alibi-lavender/8 p-4
 shadow-[0_1px_2px_rgba(50,83,199,0.05),inset_0_2px_5px_rgba(50,83,199,0.08)]
-transition hover:bg-alibi-lavender/14
+transition hover:bg-alibi-lavender/15
 ```
 
 ### `.alibi-doc-card`
@@ -177,6 +177,34 @@ hover:-translate-y-0.5 hover:border-alibi-pink hover:text-alibi-pink disabled:tr
 | Icon square | `inline-flex h-11 w-11 items-center justify-center` |
 | Small | `inline-flex h-9 items-center justify-center gap-1.5 px-3 text-xs font-black` |
 
+### Icon action buttons
+Block item actions (chat, edit, delete) and similar inline icon buttons use `rounded-full` with a solid fill on hover — the fill color matches the button's semantic role:
+
+| Role | Default | Hover |
+|---|---|---|
+| Chat (teal action) | `text-alibi-teal` | `hover:bg-alibi-teal hover:text-white` |
+| Edit (primary action) | `text-alibi-teal` | `hover:bg-alibi-blue hover:text-white` |
+| Delete (destructive) | `text-alibi-pink` | `hover:bg-alibi-pink hover:text-white` |
+
+Base: `flex h-9 w-9 items-center justify-center rounded-full transition hover:-translate-y-0.5`
+
+Never use `rounded-2xl` on icon-only buttons. Never use a soft tint (`hover:bg-alibi-lavender/20`) — the fill must be solid.
+
+### Nav link hover (sidebar / docs)
+Sidebar nav links (`rounded-xl`) use the concave shadow on hover to create a pressed-in feel:
+```
+rounded-xl px-2 py-1.5 font-semibold text-alibi-teal transition
+hover:bg-alibi-lavender/10 hover:text-alibi-pink
+hover:shadow-[inset_0_2px_5px_rgba(50,83,199,0.08)]
+```
+Use `transition` (not `transition-colors`) so the shadow animates.
+
+### TopNav inactive link hover
+Top-nav inactive links use a solid teal fill on hover — distinct from the active state (`bg-alibi-blue`):
+```
+hover:bg-alibi-teal hover:text-white
+```
+
 ### `.alibi-input`
 Text input / textarea / select. Inner shadow creates a pressed-in feel.
 ```
@@ -223,7 +251,7 @@ font-mono text-xs font-black uppercase tracking-[0.12em] text-alibi-teal
 | Level | Classes |
 |---|---|
 | Page h1 | `text-[1.9rem] font-black tracking-tight text-alibi-blue` |
-| Section h2 | `text-2xl font-black text-alibi-blue` |
+| Section h2 | `text-[17px] font-black tracking-tight text-alibi-blue` |
 | Card h3 | `text-[14px] font-semibold tracking-tight text-alibi-ink` |
 | Primary body | `text-base text-alibi-ink` (17px base via `body`) |
 | Secondary body | `text-sm leading-6 text-alibi-teal` |

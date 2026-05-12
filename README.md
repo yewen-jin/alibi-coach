@@ -1,6 +1,6 @@
-# Alibi — The Friend Who Remembers Your Day
+# Alibi — A Digital Mirror For Your Day
 
-A warm, anti-productivity companion for ADHD brains. Alibi records what actually happened, keeps the evidence tied to time, and reflects patterns back without scores, streak pressure, or productivity judgment.
+Alibi is a digital mirror that tracks how you spend your day in depth, combining precise time blocking and flexible, timestamped CBT-style journaling. The aim is to build in-depth qualitative knowledge about your own productivity patterns over time.
 
 The current product is timer-first and notes-first:
 
@@ -13,7 +13,7 @@ The current product is timer-first and notes-first:
 
 ## The Problem It Solves
 
-ADHD shame is often caused by the gap between what you actually did and what you remember doing. By evening, even a full day can feel like nothing. Alibi closes that gap by being a witness with a warm voice.
+Most time trackers flatten the day into labels and durations. Alibi keeps the timestamped texture around the work: interruptions, drift, momentum, resistance, mood, satisfaction, and later reinterpretation. Over time, those records become a mirror for understanding how your productivity actually behaves.
 
 ---
 
@@ -32,7 +32,7 @@ Stopped and manual blocks can be edited with:
 - start/end time
 - hashtags
 - notes
-- mood, effort, satisfaction, and ADHD marker metadata when available
+- mood, effort, satisfaction, and attention/friction marker metadata when available
 
 Notes are optional, but the UI now frames them as “what really happened.”
 
@@ -64,11 +64,11 @@ The dashboard shows:
 
 - totals and tracked time
 - calendar/rhythm/category summaries
-- ADHD marker counts
+- pattern marker counts
 - effort and satisfaction distributions
 - a notes mirror with note-grounded observations and evidence excerpts
 
-The ADHD patterns panel counts both explicit block markers and note-derived insight signals.
+The pattern signals panel counts both explicit block markers and note-derived insight signals.
 
 ---
 
@@ -78,7 +78,7 @@ The ADHD patterns panel counts both explicit block markers and note-derived insi
 |---|---|
 | `/` | Public landing page |
 | `/app` | Authenticated timer, block editor, daily block list, and chat panel |
-| `/app/dashboard` | Dashboard summaries, ADHD markers, and notes mirror |
+| `/app/dashboard` | Dashboard summaries, pattern markers, and notes mirror |
 | `/app/docs` | Feature guide |
 | `/auth/login` | Email/password login |
 | `/auth/sign-up` | Sign up |
@@ -244,7 +244,7 @@ time_block_insights (
 
 ---
 
-## ADHD Pattern Detection
+## Pattern Signal Detection
 
 There are two layers:
 
@@ -265,7 +265,7 @@ There are two layers:
    - uncertainty/self-criticism
    - emotional tone
 
-The dashboard merges both sources by block id, so a note-derived hyperfocus signal appears in the ADHD patterns card even if an older block boolean was never backfilled.
+The dashboard merges both sources by block id, so a note-derived hyperfocus signal appears in the pattern signals card even if an older block boolean was never backfilled.
 
 ---
 
@@ -391,7 +391,7 @@ Implemented:
 - note version preservation
 - note-derived insight extraction
 - dashboard notes mirror
-- ADHD marker dashboard that merges explicit markers and note-derived signals
+- pattern marker dashboard that merges explicit markers and note-derived signals
 - unit test layer: 37 tests across `lib/note-insights.ts`, `lib/dashboard-data.ts`, and `lib/block-draft-utils.ts`
 
 Pending:
@@ -416,16 +416,16 @@ Pending:
 | A to-do list | Tasks create expectation. Alibi records evidence. |
 | A goal-setter | Goals create comparison. |
 | A companion who pushes | Push energy makes the app easier to avoid. |
-| A productivity dashboard | Numbers should support self-knowledge, not judgment. |
+| A productivity scorecard | Numbers should support self-knowledge, not judgment. |
 | A vague freeform-only chatbot | Chat writes only through structured `time_blocks` and `active_timer` operations. |
 
 ---
 
-## The Wellbeing Thesis
+## The Mirror Thesis
 
-> Most apps make you do more. Alibi helps you see what you already did.
+> Most apps make you do more. Alibi helps you understand what already happened.
 
-The gap between what you accomplished and what you remember accomplishing is where shame lives. Alibi is a witness that closes that gap: no scores, no rankings, no pressure to perform.
+The gap between how your day unfolded and what you can recall later makes patterns hard to see. Alibi closes that gap with timestamped evidence, reflective notes, and no pressure to perform.
 
 ---
 

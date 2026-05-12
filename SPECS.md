@@ -4,15 +4,15 @@
 
 ## Core Promise
 
-> *Alibi is the friend who remembers your day, so you don't have to defend it to yourself.*
+> *Alibi is a digital mirror that tracks how you spend your day in depth, combining precise time blocking and flexible, timestamped CBT-style journaling. The aim is to build in-depth qualitative knowledge about your own productivity patterns over time.*
 
-Not a planner. Not a productivity dashboard. A witness with precision.
+Not a planner. Not a scorecard. A reflective timeline with precision.
 
 Alibi helps the user preserve evidence of what actually happened: what they did, what interrupted them, what they drifted into, what turned out useful, how it felt, and how those patterns change over time.
 
 ## Product Direction
 
-Alibi is moving from a simple timer tracker toward a V3 evidence engine:
+Alibi is moving from a simple timer tracker toward a qualitative productivity pattern engine:
 
 - **Time blocks are the timeline container.** Each block anchors experience to date, hour, start, end, duration, category, and tags.
 - **Notes are the primary evidence source.** Journal-style notes capture the messy reality that simple task-duration tracking loses.
@@ -22,7 +22,7 @@ Alibi is moving from a simple timer tracker toward a V3 evidence engine:
 
 ## User Model
 
-The user has ADHD or similar executive-function friction. They may hyperfocus, context-switch, avoid, drift, or do several things at once. A time block may not mean "I planned X and did X for Y hours."
+The user wants deeper self-knowledge about how they spend time. They may be trying to understand attention, energy, satisfaction, avoidance, creative momentum, context switching, or executive friction. Some users may recognize ADHD-style patterns, but the product is not limited to that identity or use case. A time block may not mean "I planned X and did X for Y hours."
 
 The app must support records like:
 
@@ -80,7 +80,7 @@ Temporary database-backed demo sessions are a future option only if the product 
 
 ### Notes
 
-Notes are optional in the UI but structurally important in V3. The note field should invite "what really happened," including:
+Notes are optional in the UI but structurally important to the pattern engine. The note field should invite "what really happened," including:
 
 - actions actually performed;
 - split attention or parallel activity;
@@ -177,7 +177,7 @@ Legacy `coach_messages` and `coach_drafts` may remain in existing databases temp
 
 ### Future Data Model Direction
 
-V3 should evolve toward timeline-linked evidence, not a single flattened productivity row. Future schema work may add:
+The data model should evolve toward timeline-linked evidence, not a single flattened productivity row. Future schema work may add:
 
 - `block_evidence_items` for atomic extracted claims from notes/chat, each tied to a source and time block;
 - `projects` and child project-segment tables for grouping time blocks by concrete work stream, plus focused/non-focused allocations inside a block;
@@ -228,15 +228,17 @@ Alibi is not:
 | A planner | Planning is often the friction. |
 | A to-do list | Tasks create expectation; Alibi collects evidence. |
 | A goal-setter | Goals invite comparison. |
-| A productivity dashboard | Scores and rankings create judgment. |
+| A performance optimizer | The product builds self-knowledge rather than prescribing maximization. |
+| A productivity scorecard | Scores and rankings create judgment. |
 | A vague chatbot | Chat writes through structured time-block operations. |
-| A wellness technique app | The product reflects evidence; it does not prescribe rituals. |
+| A therapy app | Journaling can be CBT-style and reflective, but Alibi does not provide treatment. |
+| A generic wellness journal | The product is anchored to timestamped time blocks and evidence trails. |
 
 If a feature makes the user feel pushed, ranked, or corrected, it does not fit.
 
 ## Success Criteria
 
-V3 is working when:
+The qualitative pattern engine is working when:
 
 - the user can write nuanced journal-style notes on time blocks;
 - editing notes updates derived insights while preserving note history;
