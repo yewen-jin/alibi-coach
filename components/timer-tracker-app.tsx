@@ -149,6 +149,7 @@ export function TimerTrackerApp({
   const [now, setNow] = useState(() => Date.now());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [status, setStatus] = useState<string | null>(null);
   const [activeCompanionThread, setActiveCompanionThread] =
     useState<CompanionThreadState | null>(initialCompanionThread ?? null);
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>(() =>
@@ -241,6 +242,7 @@ export function TimerTrackerApp({
 
   const handleStart = () => {
     setError(null);
+    setStatus(null);
     startTransition(async () => {
       const result = await startTimer();
 
@@ -256,6 +258,7 @@ export function TimerTrackerApp({
 
   const handleStop = () => {
     setError(null);
+    setStatus(null);
     startTransition(async () => {
       const result = await stopTimer();
 
@@ -288,6 +291,7 @@ export function TimerTrackerApp({
     }
 
     setError(null);
+    setStatus(null);
     startTransition(async () => {
       if (!editor.taskName.trim()) {
         setError("task name is required.");
@@ -339,6 +343,7 @@ export function TimerTrackerApp({
 
       if (result.type === "saved") {
         setEditor(null);
+        setStatus(null);
         await Promise.all([
           refreshBlocks(),
           getCategories().then((categoriesResult) => {
@@ -360,6 +365,7 @@ export function TimerTrackerApp({
 
   const handleDelete = (block: TimeBlock) => {
     setError(null);
+    setStatus(null);
     startTransition(async () => {
       const result = await deleteBlock({ id: block.id });
 
@@ -382,6 +388,7 @@ export function TimerTrackerApp({
 
   const handleResume = (block: TimeBlock) => {
     setError(null);
+    setStatus(null);
     setEditor(null);
     startTransition(async () => {
       const result = await resumeBlock({ id: block.id });
@@ -497,6 +504,7 @@ export function TimerTrackerApp({
 
       setChatMessages((messages) => [...messages, userMessage]);
       setError(null);
+      setStatus(null);
 
       startChatTransition(async () => {
         const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
@@ -563,11 +571,28 @@ export function TimerTrackerApp({
 
         if (result.type === "logged") {
           await refreshBlocks();
+          const loggedStart = new Date(result.timeBlock.started_at).getTime();
+          const isVisibleToday =
+            Number.isFinite(loggedStart) &&
+            loggedStart >= today.start.getTime() &&
+            loggedStart < today.end.getTime();
+
+          if (!isVisibleToday) {
+            setStatus(
+              `saved for ${formatDateHeading(new Date(result.timeBlock.started_at))}. it is in the dashboard/calendar for that day, not in today's list.`,
+            );
+          }
           return;
         }
       });
     },
-    [activeCompanionThread?.conversation.id, isChatPending, refreshBlocks],
+    [
+      activeCompanionThread?.conversation.id,
+      isChatPending,
+      refreshBlocks,
+      today.end,
+      today.start,
+    ],
   );
 
   return (
@@ -707,6 +732,8 @@ export function TimerTrackerApp({
                 {error}
               </div>
             )}
+
+            {status && <div className="alibi-banner-info">{status}</div>}
 
             {editor && (
               <BlockEditor
