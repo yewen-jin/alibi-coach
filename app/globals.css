@@ -71,6 +71,8 @@
     background: transparent;
     font-size: 17px;
     line-height: 1.6;
+    padding-top: env(safe-area-inset-top);
+    padding-bottom: env(safe-area-inset-bottom);
   }
 
   button,
