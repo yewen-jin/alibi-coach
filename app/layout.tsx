@@ -1,6 +1,8 @@
 import type { Metadata, Viewport } from "next"
 import { Figtree, JetBrains_Mono } from "next/font/google"
 import { Analytics } from "@vercel/analytics/next"
+import { OfflineBanner } from "@/components/OfflineBanner"
+import { ServiceWorkerRegistration } from "@/components/ServiceWorkerRegistration"
 import "./globals.css"
 
 const figtree = Figtree({
@@ -29,6 +31,11 @@ export const metadata: Metadata = {
     ],
     apple: "/apple-touch-icon.png",
   },
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "Alibi",
+  },
 }
 
 export const viewport: Viewport = {
@@ -46,6 +53,8 @@ export default function RootLayout({
     <html lang="en" className={`${figtree.variable} ${jetbrainsMono.variable}`}>
       <body className="font-sans antialiased">
         {children}
+        <OfflineBanner />
+        <ServiceWorkerRegistration />
         <Analytics />
       </body>
     </html>
